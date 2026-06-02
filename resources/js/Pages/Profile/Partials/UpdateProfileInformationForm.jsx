@@ -2,8 +2,10 @@ import InputError from '@/Components/InputError';
 import InputLabel from '@/Components/InputLabel';
 import PrimaryButton from '@/Components/PrimaryButton';
 import TextInput from '@/Components/TextInput';
+import EditableCombobox from '@/Components/UI/EditableCombobox';
 import { Transition } from '@headlessui/react';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 
 export default function UpdateProfileInformation({
     mustVerifyEmail,
@@ -11,12 +13,56 @@ export default function UpdateProfileInformation({
     className = '',
 }) {
     const user = usePage().props.auth.user;
+    const branchOptions = usePage().props.branchOptions ?? [];
+
+    const branchComboboxOptions = useMemo(
+        () =>
+            branchOptions.map((option) => ({
+                id: option.value,
+                label: option.label,
+                city: option.city,
+            })),
+        [branchOptions],
+    );
+
+    const initialBranchLabel = useMemo(() => {
+        const selected = branchOptions.find(
+            (option) => String(option.value) === String(user.branch_id),
+        );
+
+        return selected?.label ?? '';
+    }, [branchOptions, user.branch_id]);
+
+    const [branchLabel, setBranchLabel] = useState(initialBranchLabel);
+
+    const initialBranchOption = useMemo(() => {
+        if (!user.branch_id) {
+            return null;
+        }
+
+        const selected = branchComboboxOptions.find(
+            (option) => String(option.id) === String(user.branch_id),
+        );
+
+        return selected ?? null;
+    }, [branchComboboxOptions, user.branch_id]);
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
             name: user.name,
             email: user.email,
+            branch_id: user.branch_id ?? '',
+            branch_city: user.branch_city ?? '',
         });
+
+    const handleBranchSelect = (option) => {
+        setData((current) => ({
+            ...current,
+            branch_id: option.id,
+            branch_city: option.city ?? '',
+        }));
+        setBranchLabel(option.label);
+    };
 
     const submit = (e) => {
         e.preventDefault();
@@ -67,6 +113,32 @@ export default function UpdateProfileInformation({
                     />
 
                     <InputError className="mt-2" message={errors.email} />
+                </div>
+
+                <EditableCombobox
+                    label="Branch"
+                    value={data.branch_id}
+                    textValue={branchLabel}
+                    onChange={(id) => setData('branch_id', id)}
+                    onTextChange={setBranchLabel}
+                    onOptionSelect={handleBranchSelect}
+                    localOptions={branchComboboxOptions}
+                    initialOption={initialBranchOption}
+                    placeholder="Type or select a branch…"
+                    error={errors.branch_id}
+                />
+
+                <div>
+                    <InputLabel htmlFor="branch_city" value="Branch City" />
+
+                    <TextInput
+                        id="branch_city"
+                        className="mt-1 block w-full"
+                        value={data.branch_city}
+                        onChange={(e) => setData('branch_city', e.target.value)}
+                    />
+
+                    <InputError className="mt-2" message={errors.branch_city} />
                 </div>
 
                 {mustVerifyEmail && user.email_verified_at === null && (

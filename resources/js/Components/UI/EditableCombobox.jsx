@@ -16,6 +16,7 @@ export default function EditableCombobox({
     initialOption = null,
     minChars = 0,
     onOptionSelect = null,
+    localOptions = null,
 }) {
     const [options, setOptions] = useState(initialOption ? [initialOption] : []);
     const [open, setOpen] = useState(false);
@@ -25,6 +26,20 @@ export default function EditableCombobox({
     const debounceTimerRef = useRef(null);
 
     const fetchOptions = useCallback(async (search) => {
+        if (Array.isArray(localOptions)) {
+            const normalizedSearch = search.trim().toLowerCase();
+            const filteredOptions = localOptions.filter((option) => {
+                const labelText = String(option.label || option.company_name || '').toLowerCase();
+
+                return normalizedSearch === '' || labelText.includes(normalizedSearch);
+            });
+
+            setOptions(filteredOptions);
+            setLoading(false);
+
+            return;
+        }
+
         const requestId = ++requestIdRef.current;
         setLoading(true);
 
@@ -47,7 +62,7 @@ export default function EditableCombobox({
                 setLoading(false);
             }
         }
-    }, [searchUrl]);
+    }, [searchUrl, localOptions]);
 
     const scheduleFetch = useCallback(
         (search) => {
@@ -78,8 +93,14 @@ export default function EditableCombobox({
     useEffect(() => {
         if (initialOption) {
             setOptions([initialOption]);
+
+            return;
         }
-    }, [initialOption]);
+
+        if (Array.isArray(localOptions) && localOptions.length > 0) {
+            setOptions(localOptions);
+        }
+    }, [initialOption, localOptions]);
 
     const handleSelect = (option) => {
         onChange(option.id);
@@ -97,6 +118,13 @@ export default function EditableCombobox({
 
     const handleFocus = () => {
         setOpen(true);
+
+        if (Array.isArray(localOptions)) {
+            fetchOptions(textValue ?? '');
+
+            return;
+        }
+
         scheduleFetch(textValue ?? '');
     };
 

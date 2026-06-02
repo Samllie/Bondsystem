@@ -48,7 +48,7 @@ class DashboardController extends Controller
             ->map(fn (BondRequest $b) => [
                 'id' => $b->id,
                 'bond_number' => $b->bond_number,
-                'bond_type' => $b->bond_type->label(),
+                'bond_type' => $b->bond_type_label,
                 'principal' => $b->principal?->company_name,
                 'amount' => $b->amount,
                 'status' => $b->status->value,
@@ -114,7 +114,7 @@ class DashboardController extends Controller
             ->map(fn (BondRequest $b) => [
                 'id' => $b->id,
                 'bond_number' => $b->bond_number,
-                'bond_type' => $b->bond_type->label(),
+                'bond_type' => $b->bond_type_label,
                 'principal' => $b->principal?->company_name,
                 'obligee' => $b->obligee_name,
                 'amount' => $b->amount,

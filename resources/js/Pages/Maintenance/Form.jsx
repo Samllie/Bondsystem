@@ -4,6 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function MaintenanceForm({ record, routePrefix, label }) {
     const isEditing = !!record;
+    const isBondTypeForm = routePrefix.includes('bond-types');
 
     const { data, setData, post, put, processing, errors } = useForm({
         name: record?.name ?? '',
@@ -40,7 +41,7 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <form onSubmit={submit} className="space-y-5">
                         <TextField
-                            label="Name"
+                            label={isBondTypeForm ? 'Bond Type' : 'Name'}
                             required
                             value={data.name}
                             onChange={(e) => setData('name', e.target.value)}
@@ -49,7 +50,8 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
 
                         {showCode && (
                             <TextField
-                                label="Code"
+                                label={isBondTypeForm ? 'Bond Number' : 'Code'}
+                                required={isBondTypeForm}
                                 value={data.code}
                                 onChange={(e) => setData('code', e.target.value)}
                                 error={errors.code}
@@ -58,7 +60,8 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
 
                         {showDescription && (
                             <TextAreaField
-                                label="Description"
+                                label={isBondTypeForm ? 'Bond Description' : 'Description'}
+                                required={false}
                                 value={data.description}
                                 onChange={(e) => setData('description', e.target.value)}
                                 error={errors.description}

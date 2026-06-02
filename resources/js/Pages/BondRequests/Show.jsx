@@ -4,6 +4,7 @@ import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
 import ConfirmModal from '@/Components/UI/ConfirmModal';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import AppLayout from '@/Layouts/AppLayout';
+import { formatBookNoDisplay } from '@/lib/romanNumerals';
 import { Head, Link, router } from '@inertiajs/react';
 import { useState } from 'react';
 
@@ -78,11 +79,9 @@ export default function Show({ bondRequest, canUpdate, canDelete, canApprove, ca
                         <Detail label="Notary" value={bondRequest.notary?.name} />
                         <Detail label="Doc No." value={bondRequest.doc_no || '—'} />
                         <Detail label="Page No." value={bondRequest.page_no || '—'} />
-                        <Detail label="Book No." value={bondRequest.book_no || '—'} />
+                        <Detail label="Book No." value={formatBookNoDisplay(bondRequest.book_no) || '—'} />
                         <Detail label="Series year" value={bondRequest.series_year || '—'} />
                         <Detail label="Created By" value={bondRequest.creator?.name} />
-                        <Detail label="Description" value={bondRequest.description || '—'} className="sm:col-span-2" capitalize={false} />
-                        <Detail label="Remarks" value={bondRequest.remarks || '—'} className="sm:col-span-2" capitalize={false} />
                     </dl>
                 </CardBody>
             </Card>

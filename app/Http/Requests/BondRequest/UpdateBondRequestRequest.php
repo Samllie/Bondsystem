@@ -29,6 +29,7 @@ class UpdateBondRequestRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'amount_in_words' => ['nullable', 'string', 'max:1000'],
             'project_name' => ['nullable', 'string', 'max:255'],
+            'date_issued' => ['nullable', 'date'],
             'request_date' => ['required', 'date'],
             'expiry_date' => ['required', 'date', 'after_or_equal:request_date'],
             'signatory_id' => ['required', 'exists:signatories,id'],

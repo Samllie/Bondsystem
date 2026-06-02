@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\BondRequest;
 
+use App\Models\BondRequest;
 use App\Rules\ValidKycObligee;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -9,7 +10,7 @@ class StoreBondRequestRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()->can('create', \App\Models\BondRequest::class);
+        return $this->user()->can('create', BondRequest::class);
     }
 
     public function rules(): array
@@ -26,6 +27,7 @@ class StoreBondRequestRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'amount_in_words' => ['nullable', 'string', 'max:1000'],
             'project_name' => ['nullable', 'string', 'max:255'],
+            'date_issued' => ['nullable', 'date'],
             'request_date' => ['required', 'date'],
             'expiry_date' => ['required', 'date', 'after_or_equal:request_date'],
             'signatory_id' => ['required', 'exists:signatories,id'],
@@ -41,5 +43,4 @@ class StoreBondRequestRequest extends FormRequest
 
         return $rules;
     }
-
 }

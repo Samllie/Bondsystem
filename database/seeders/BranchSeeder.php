@@ -13,51 +13,49 @@ class BranchSeeder extends Seeder
     private function branches(): array
     {
         return [
-            // NCR Branches
-            ['name' => 'Alabang Branch', 'address' => 'NCR', 'contact' => null],
-            ['name' => 'Manila Branch I', 'address' => 'NCR', 'contact' => null],
-            ['name' => 'Manila Branch II', 'address' => 'NCR', 'contact' => null],
-            ['name' => 'West Avenue Branch', 'address' => 'NCR', 'contact' => null],
-            ['name' => 'Cubao Branch', 'address' => 'NCR', 'contact' => null],
-            ['name' => 'Makati Head Office', 'address' => 'NCR — Makati City', 'contact' => null],
-            ['name' => 'Marikina Branch', 'address' => 'NCR — Marikina City', 'contact' => null],
-
-            // Luzon Branches
-            ['name' => 'Angeles Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Batangas Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Cabanatuan Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Dagupan Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Isabela Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'La Union Branch', 'address' => 'Luzon — La Union', 'contact' => null],
-            ['name' => 'Laoag Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Legazpi I Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Legazpi II Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Mindoro Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Naga Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'San Fernando, Pampanga Branch', 'address' => 'Luzon — San Fernando, Pampanga', 'contact' => null],
-            ['name' => 'Tuguegarao Branch', 'address' => 'Luzon', 'contact' => null],
-            ['name' => 'Vigan Branch', 'address' => 'Luzon', 'contact' => null],
-
-            // Visayas Branches
-            ['name' => 'Bacolod Branch', 'address' => 'Visayas', 'contact' => null],
-            ['name' => 'Cebu Branch', 'address' => 'Visayas — Cebu City', 'contact' => null],
-            ['name' => 'Tacloban Branch', 'address' => 'Visayas', 'contact' => null],
-            ['name' => 'Ormoc Branch', 'address' => 'Visayas', 'contact' => null],
-            ['name' => 'Iloilo Branch', 'address' => 'Visayas', 'contact' => null],
-
-            // Mindanao Branches
-            ['name' => 'Butuan Branch', 'address' => 'Mindanao', 'contact' => null],
-            ['name' => 'CDO (Cagayan de Oro) Branch', 'address' => 'Mindanao', 'contact' => null],
-            ['name' => 'Davao I Branch', 'address' => 'Mindanao — Davao City', 'contact' => null],
-            ['name' => 'Davao II Branch', 'address' => 'Mindanao — Davao City', 'contact' => null],
-            ['name' => 'Gensan Branch', 'address' => 'Mindanao', 'contact' => null],
-            ['name' => 'Ozamiz Branch', 'address' => 'Mindanao', 'contact' => null],
-            ['name' => 'Pagadian Branch', 'address' => 'Mindanao', 'contact' => null],
+            ['name' => 'Main Office- Makati', 'address' => 'Makati', 'contact' => null],
+            ['name' => 'Alabang Branch', 'address' => 'Muntinlupa', 'contact' => null],
+            ['name' => 'Manila I Branch', 'address' => 'Manila', 'contact' => null],
+            ['name' => 'Manila II Branch', 'address' => 'Manila', 'contact' => null],
+            ['name' => 'West Avenue Branch', 'address' => 'Quezon', 'contact' => null],
+            ['name' => 'Cubao Branch', 'address' => 'Quezon', 'contact' => null],
+            ['name' => 'Angeles Branch', 'address' => 'Angeles', 'contact' => null],
+            ['name' => 'Batangas Branch', 'address' => 'Lipa', 'contact' => null],
+            ['name' => 'Cabanatuan Branch', 'address' => 'Cabanatuan', 'contact' => null],
+            ['name' => 'Dagupan Branch', 'address' => 'Dagupan', 'contact' => null],
+            ['name' => 'Isabela Branch', 'address' => 'Santiago', 'contact' => null],
+            ['name' => 'La Union Branch', 'address' => 'San Fernando', 'contact' => null],
+            ['name' => 'Laoag Branch', 'address' => 'Laoag', 'contact' => null],
+            ['name' => 'Legazpi I Branch', 'address' => 'Legazpi', 'contact' => null],
+            ['name' => 'Legazpi II Branch', 'address' => 'Legazpi', 'contact' => null],
+            ['name' => 'Mindoro Branch', 'address' => 'Calapan', 'contact' => null],
+            ['name' => 'Naga Branch', 'address' => 'Naga', 'contact' => null],
+            ['name' => 'San Fernando Branch', 'address' => 'San Fernando', 'contact' => null],
+            ['name' => 'Tuguegarao Branch', 'address' => 'Tuguegarao', 'contact' => null],
+            ['name' => 'Vigan Branch', 'address' => 'Vigan', 'contact' => null],
+            ['name' => 'Bacolod Branch', 'address' => 'Bacolod', 'contact' => null],
+            ['name' => 'Cebu Branch', 'address' => 'Cebu', 'contact' => null],
+            ['name' => 'Tacloban Branch', 'address' => 'Tacloban', 'contact' => null],
+            ['name' => 'Ormoc Branch', 'address' => 'Ormoc', 'contact' => null],
+            ['name' => 'Iloilo Branch', 'address' => 'Iloilo', 'contact' => null],
+            ['name' => 'Butuan Branch', 'address' => 'Butuan', 'contact' => null],
+            ['name' => 'CDO Branch', 'address' => 'Cagayan de Oro', 'contact' => null],
+            ['name' => 'Davao I Branch', 'address' => 'Davao', 'contact' => null],
+            ['name' => 'Davao II Branch', 'address' => 'Davao', 'contact' => null],
+            ['name' => 'Gensan Branch', 'address' => 'General Santos', 'contact' => null],
+            ['name' => 'Ozamiz Branch', 'address' => 'Ozamiz', 'contact' => null],
+            ['name' => 'Pagadian Branch', 'address' => 'Pagadian', 'contact' => null],
         ];
     }
 
     public function run(): void
     {
+        $branchNames = collect($this->branches())->pluck('name')->all();
+
+        Branch::query()
+            ->whereNotIn('name', $branchNames)
+            ->update(['is_active' => false]);
+
         foreach ($this->branches() as $branch) {
             Branch::updateOrCreate(
                 ['name' => $branch['name']],

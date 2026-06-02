@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RoleSlug;
+use App\Models\Maintenance\Branch;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -22,6 +23,8 @@ class User extends Authenticatable
         'role_id',
         'is_active',
         'phone',
+        'branch_id',
+        'branch_city',
         'balance',
     ];
 
@@ -43,6 +46,11 @@ class User extends Authenticatable
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function bondRequestsCreated(): HasMany

@@ -63,7 +63,7 @@ class BondRequestFormTest extends TestCase
             'notary_id' => $notary->id,
             'doc_no' => 'DOC-1',
             'page_no' => '10',
-            'book_no' => '5',
+            'book_no' => 'V',
             'series_year' => '2026',
         ]);
 
@@ -85,7 +85,7 @@ class BondRequestFormTest extends TestCase
             'signatory_position' => 'President',
             'doc_no' => 'DOC-1',
             'page_no' => '10',
-            'book_no' => '5',
+            'book_no' => 'V',
             'series_year' => '2026',
             'status' => 'pending',
             'created_by' => $requester->id,

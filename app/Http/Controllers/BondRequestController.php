@@ -4,17 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Enums\BondRequestStatus;
 use App\Enums\RoleSlug;
-use App\Models\Maintenance\BondTypeMaster;
-use App\Models\Maintenance\Notary;
-use App\Models\Maintenance\Signatory;
-use App\Support\AmountInWords;
 use App\Http\Requests\BondRequest\StoreBondRequestRequest;
 use App\Http\Requests\BondRequest\UpdateBondRequestRequest;
 use App\Models\BondRequest;
+use App\Models\Maintenance\BondTypeMaster;
+use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use App\Models\PaymentHistory;
-use App\Models\Principal;
 use App\Services\ActivityLogger;
 use App\Services\KycObligeeService;
+use App\Support\AmountInWords;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -79,7 +78,6 @@ class BondRequestController extends Controller
             'bondTypeOptions' => $this->bondTypeOptions(),
             'signatoryOptions' => $this->signatoryOptions(),
             'notaryOptions' => $this->notaryOptions(),
-            'isRequester' => $request->user()->hasRole(RoleSlug::Requester),
         ]);
     }
 
@@ -139,7 +137,6 @@ class BondRequestController extends Controller
             'bondTypeOptions' => $this->bondTypeOptions(),
             'signatoryOptions' => $this->signatoryOptions(),
             'notaryOptions' => $this->notaryOptions(),
-            'isRequester' => $request->user()->hasRole(RoleSlug::Requester),
         ]);
     }
 

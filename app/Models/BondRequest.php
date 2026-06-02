@@ -29,6 +29,7 @@ class BondRequest extends Model
         'amount',
         'amount_in_words',
         'project_name',
+        'date_issued',
         'description',
         'expiry_date',
         'request_date',
@@ -52,6 +53,7 @@ class BondRequest extends Model
             'amount' => 'decimal:2',
             'expiry_date' => 'date',
             'request_date' => 'date',
+            'date_issued' => 'date',
             'approved_at' => 'datetime',
             'status' => BondRequestStatus::class,
         ];

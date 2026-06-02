@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Maintenance\Branch;
 use App\Support\Navigation;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -31,6 +32,8 @@ class HandleInertiaRequests extends Middleware
                     'name' => $user->name,
                     'email' => $user->email,
                     'balance' => (float) $user->balance,
+                    'branch_id' => $user->branch_id,
+                    'branch_city' => $user->branch_city,
                     'role' => $user->role?->only(['id', 'name', 'slug']),
                     'permissions' => $user->permissionSlugs(),
                 ] : null,
@@ -43,6 +46,7 @@ class HandleInertiaRequests extends Middleware
             'app' => [
                 'name' => config('app.name'),
             ],
+            'branchOptions' => fn () => $user ? Branch::activeOptions() : [],
             'currentRoute' => $request->route()?->getName(),
         ];
     }

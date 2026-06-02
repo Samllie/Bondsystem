@@ -15,11 +15,11 @@ class BranchSeederTest extends TestCase
     {
         $this->seed(BranchSeeder::class);
 
-        $this->assertDatabaseHas('branches', ['name' => 'Makati Head Office', 'address' => 'NCR — Makati City']);
-        $this->assertDatabaseHas('branches', ['name' => 'Cebu Branch', 'address' => 'Visayas — Cebu City']);
-        $this->assertDatabaseHas('branches', ['name' => 'CDO (Cagayan de Oro) Branch', 'address' => 'Mindanao']);
+        $this->assertDatabaseHas('branches', ['name' => 'Main Office- Makati', 'address' => 'Makati', 'is_active' => true]);
+        $this->assertDatabaseHas('branches', ['name' => 'Cebu Branch', 'address' => 'Cebu', 'is_active' => true]);
+        $this->assertDatabaseHas('branches', ['name' => 'CDO Branch', 'address' => 'Cagayan de Oro', 'is_active' => true]);
 
-        $this->assertSame(33, Branch::count());
+        $this->assertSame(32, Branch::where('is_active', true)->count());
     }
 
     public function test_branch_seeder_is_idempotent(): void
@@ -27,6 +27,6 @@ class BranchSeederTest extends TestCase
         $this->seed(BranchSeeder::class);
         $this->seed(BranchSeeder::class);
 
-        $this->assertSame(33, Branch::count());
+        $this->assertSame(32, Branch::where('is_active', true)->count());
     }
 }
