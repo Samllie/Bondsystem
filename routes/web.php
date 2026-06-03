@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\ObligeeController as ApiObligeeController;
 use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\WelcomeController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
 use App\Http\Controllers\Maintenance\BranchController;
@@ -17,6 +16,8 @@ use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PrincipalController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -60,6 +61,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
         Route::get('/histories', [PaymentHistoryController::class, 'index'])->name('histories.index');
     });
+
+    // Users (admin)
+    Route::resource('users', UserController::class)->only(['index', 'create', 'store']);
 
     // Maintenance
     Route::prefix('maintenance')->name('maintenance.')->group(function () {

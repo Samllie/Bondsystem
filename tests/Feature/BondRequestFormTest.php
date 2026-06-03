@@ -97,6 +97,48 @@ class BondRequestFormTest extends TestCase
         ]);
     }
 
+    public function test_requester_can_create_bond_request_without_signatory_or_notary(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')
+                ->with(42)
+                ->andReturn([
+                    'id' => 42,
+                    'company_name' => 'Acme Obligee Corp',
+                    'label' => 'Acme Obligee Corp',
+                    'business_address' => '123 Rizal Avenue',
+                    'business_ctm' => 'Manila',
+                    'business_province' => 'Metro Manila',
+                ]);
+        });
+
+        $requester = $this->requesterUser();
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['name' => 'Performance Bond', 'code' => 'PERF']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_number' => 'BND-2026-002',
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'expiry_date' => '2027-05-24',
+            'signatory_id' => '',
+            'notary_id' => '',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('bond_requests', [
+            'bond_number' => 'BND-2026-002',
+            'signatory_id' => null,
+            'notary_id' => null,
+            'signatory_position' => null,
+        ]);
+    }
+
     private function requesterUser(): User
     {
         $role = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();

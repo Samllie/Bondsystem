@@ -266,15 +266,20 @@ class BondRequestController extends Controller
     {
         $obligee = $this->kycObligeeService->find($request->integer('obligee_id'));
         $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
-        $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
         $obligeeName = $request->string('obligee_name')->trim()->toString();
+
+        $signatoryPosition = null;
+        if ($request->filled('signatory_id')) {
+            $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
+            $signatoryPosition = $signatory->position;
+        }
 
         $attributes = [
             ...$request->validated(),
             'bond_type' => $bondType->code ?? $bondType->name,
             'obligee_name' => $obligeeName !== '' ? $obligeeName : ($obligee['company_name'] ?? ''),
             'amount_in_words' => AmountInWords::format($request->input('amount')),
-            'signatory_position' => $signatory->position,
+            'signatory_position' => $signatoryPosition,
         ];
 
         if ($bondRequest === null) {

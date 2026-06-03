@@ -30,9 +30,9 @@ class StoreBondRequestRequest extends FormRequest
             'date_issued' => ['nullable', 'date'],
             'request_date' => ['required', 'date'],
             'expiry_date' => ['required', 'date', 'after_or_equal:request_date'],
-            'signatory_id' => ['required', 'exists:signatories,id'],
+            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
             'signatory_position' => ['nullable', 'string', 'max:255'],
-            'notary_id' => ['required', 'exists:notaries,id'],
+            'notary_id' => ['nullable', 'integer', 'exists:notaries,id'],
             'doc_no' => ['nullable', 'string', 'max:100'],
             'page_no' => ['nullable', 'string', 'max:100'],
             'book_no' => ['nullable', 'string', 'max:100'],
@@ -42,5 +42,14 @@ class StoreBondRequestRequest extends FormRequest
         ];
 
         return $rules;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'signatory_id' => $this->input('signatory_id') ?: null,
+            'notary_id' => $this->input('notary_id') ?: null,
+            'signatory_position' => $this->filled('signatory_position') ? $this->input('signatory_position') : null,
+        ]);
     }
 }

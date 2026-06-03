@@ -43,6 +43,9 @@ class RolePermissionSeeder extends Seeder
             // Transactions
             ['name' => 'View Transactions', 'slug' => 'transactions.view', 'group' => 'payments'],
             ['name' => 'View Payment Histories', 'slug' => 'payment-histories.view', 'group' => 'payments'],
+            // Users
+            ['name' => 'View Users', 'slug' => 'users.view', 'group' => 'users'],
+            ['name' => 'Manage Users', 'slug' => 'users.manage', 'group' => 'users'],
         ];
 
         foreach ($permissions as $permission) {

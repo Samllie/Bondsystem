@@ -59,6 +59,16 @@ class Navigation
             ];
         }
 
+        if ($user->hasPermission('users.view')) {
+            $items[] = [
+                'type' => 'link',
+                'name' => 'Users',
+                'href' => route('users.index'),
+                'icon' => 'users',
+                'routes' => ['users.index', 'users.create'],
+            ];
+        }
+
         if ($user->hasPermission('maintenance.view')) {
             $items[] = [
                 'type' => 'group',

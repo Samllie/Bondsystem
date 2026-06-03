@@ -197,10 +197,13 @@ export default function Form({
 
     const handleSignatoryChange = (event) => {
         const id = event.target.value;
-        setData('signatory_id', id);
-
         const selected = signatoryOptions.find((option) => String(option.value) === String(id));
-        setData('signatory_position', selected?.position || '');
+
+        setData((current) => ({
+            ...current,
+            signatory_id: id,
+            signatory_position: id ? (selected?.position || '') : '',
+        }));
     };
 
     const handleBondTypeChange = (event) => {
@@ -499,7 +502,6 @@ export default function Form({
                                 onChange={handleSignatoryChange}
                                 options={signatorySelectOptions}
                                 error={errors.signatory_id}
-                                required
                             />
                             <TextField
                                 label="Position"
@@ -514,7 +516,6 @@ export default function Form({
                                 onChange={(e) => setData('notary_id', e.target.value)}
                                 options={notarySelectOptions}
                                 error={errors.notary_id}
-                                required
                             />
                             <TextField
                                 label="Doc No."
