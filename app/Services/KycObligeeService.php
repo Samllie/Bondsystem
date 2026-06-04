@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -30,6 +31,10 @@ class KycObligeeService
 
     public function find(int $id): ?array
     {
+        if ($id < 1) {
+            return null;
+        }
+
         $row = $this->baseQuery()
             ->where(config('kyc.columns.id'), $id)
             ->first();
@@ -54,7 +59,7 @@ class KycObligeeService
             ]);
     }
 
-    private function baseQuery(): \Illuminate\Database\Query\Builder
+    private function baseQuery(): Builder
     {
         return DB::connection(config('kyc.connection'))
             ->table(config('kyc.table'))
@@ -66,7 +71,8 @@ class KycObligeeService
      */
     private function mapClient(stdClass $row): array
     {
-        $companyName = $this->value($row, 'company_name');
+        $companyName = $this->value($row, 'company_name')
+            ?? $this->value($row, 'client_name');
 
         return [
             'id' => (int) $this->value($row, 'id'),

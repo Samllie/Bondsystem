@@ -33,6 +33,7 @@ class HandleInertiaRequests extends Middleware
                     'email' => $user->email,
                     'balance' => (float) $user->balance,
                     'branch_id' => $user->branch_id,
+                    'branch_code' => $user->branch_code,
                     'branch_city' => $user->branch_city,
                     'role' => $user->role?->only(['id', 'name', 'slug']),
                     'permissions' => $user->permissionSlugs(),

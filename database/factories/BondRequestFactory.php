@@ -3,10 +3,9 @@
 namespace Database\Factories;
 
 use App\Enums\BondRequestStatus;
+use App\Enums\CertificateType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\BondTypeMaster;
-use App\Models\Maintenance\Notary;
-use App\Models\Maintenance\Signatory;
 use App\Models\Principal;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -20,9 +19,11 @@ class BondRequestFactory extends Factory
 
     public function definition(): array
     {
+        $bondTypeFactory = BondTypeMaster::factory();
+
         return [
-            'bond_number' => 'BND-'.fake()->unique()->numerify('######'),
-            'bond_type_id' => BondTypeMaster::factory(),
+            'bond_number' => '0000000',
+            'bond_type_id' => $bondTypeFactory,
             'bond_type' => 'performance',
             'principal_id' => Principal::factory(),
             'obligee_id' => fake()->numberBetween(1, 99999),
@@ -31,20 +32,40 @@ class BondRequestFactory extends Factory
             'amount' => fake()->randomFloat(2, 10000, 5000000),
             'amount_in_words' => 'Ten Thousand Pesos Only',
             'project_name' => fake()->words(3, true),
+            'date_issued' => fake()->optional()->dateTimeBetween('-1 month', 'now'),
+            'inception_date' => fake()->dateTimeBetween('-3 months', 'now'),
+            'attention' => fake()->optional()->name(),
+            'certificate_type' => fake()->randomElement(CertificateType::cases())->value,
             'description' => fake()->sentence(12),
-            'expiry_date' => fake()->dateTimeBetween('+3 months', '+2 years'),
+            'expiry_date' => fake()->boolean(70)
+                ? fake()->dateTimeBetween('+3 months', '+2 years')->format('Y-m-d')
+                : 'until fully recouped and liquidated is valid',
             'request_date' => fake()->dateTimeBetween('-6 months', 'now'),
-            'signatory_id' => Signatory::factory(),
-            'signatory_position' => fake()->jobTitle(),
-            'notary_id' => Notary::factory(),
-            'doc_no' => fake()->numerify('DOC-####'),
-            'page_no' => (string) fake()->numberBetween(1, 500),
-            'book_no' => (string) fake()->numberBetween(1, 100),
-            'series_year' => (string) fake()->year(),
+            'signatory_id' => null,
+            'signatory_position' => null,
+            'notary_id' => null,
+            'doc_no' => null,
+            'page_no' => null,
+            'book_no' => null,
+            'series_year' => null,
             'status' => fake()->randomElement(BondRequestStatus::cases())->value,
             'remarks' => fake()->optional()->sentence(),
             'created_by' => User::factory(),
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (BondRequest $bondRequest): void {
+            $bondRequest->load('bondTypeMaster');
+
+            if ($bondRequest->bondTypeMaster) {
+                $bondRequest->updateQuietly([
+                    'bond_number' => $bondRequest->bondTypeMaster->code,
+                    'bond_type' => $bondRequest->bondTypeMaster->name,
+                ]);
+            }
+        });
     }
 
     public function pending(): static

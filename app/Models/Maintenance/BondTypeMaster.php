@@ -18,7 +18,7 @@ class BondTypeMaster extends Model
 
     protected $table = 'bond_type_masters';
 
-    protected $fillable = ['name', 'code', 'description', 'is_active'];
+    protected $fillable = ['name', 'code', 'bond_serial', 'description', 'is_active'];
 
     protected function casts(): array
     {

@@ -20,40 +20,43 @@ class BondTypeManagementTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
-    public function test_admin_can_create_bond_type_with_number_type_and_description(): void
+    public function test_admin_can_create_bond_type_with_registered_bond_number_format(): void
     {
         $admin = $this->adminUser();
 
         $response = $this->actingAs($admin)->post(route('maintenance.bond-types.store'), [
-            'code' => 'BND-001',
-            'name' => 'Performance Bond',
-            'description' => 'Bond for project performance guarantee',
+            'code' => 'G(42)',
+            'bond_serial' => '0008384',
+            'name' => 'Retention Money Bond',
+            'description' => 'Retention money guarantee bond',
             'is_active' => true,
         ]);
 
         $response->assertRedirect(route('maintenance.bond-types.index'));
 
         $this->assertDatabaseHas('bond_type_masters', [
-            'code' => 'BND-001',
-            'name' => 'Performance Bond',
-            'description' => 'Bond for project performance guarantee',
+            'code' => 'G(42)',
+            'bond_serial' => '0008384',
+            'name' => 'Retention Money Bond',
+            'description' => 'Retention money guarantee bond',
             'is_active' => true,
         ]);
     }
 
-    public function test_bond_type_requires_number_only_and_allows_empty_description(): void
+    public function test_bond_type_requires_bond_serial_and_allows_empty_description(): void
     {
         $admin = $this->adminUser();
 
         $response = $this->actingAs($admin)->post(route('maintenance.bond-types.store'), [
-            'code' => '',
+            'code' => 'ABC123',
+            'bond_serial' => 'ABC123',
             'name' => 'Bid Bond',
             'description' => '',
             'is_active' => true,
         ]);
 
-        $response->assertSessionHasErrors(['code']);
-        $response->assertSessionDoesntHaveErrors(['description']);
+        $response->assertSessionHasErrors(['bond_serial']);
+        $response->assertSessionDoesntHaveErrors(['code', 'description']);
     }
 
     private function adminUser(): User

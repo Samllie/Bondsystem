@@ -1,7 +1,8 @@
 import ConfirmModal from '@/Components/UI/ConfirmModal';
 import StatusBadge from '@/Components/UI/StatusBadge';
+import { useToast } from '@/Contexts/ToastContext';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 
 const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -9,20 +10,30 @@ const statusColors = { pending: 'amber', approved: 'green', rejected: 'red' };
 const statusLabels = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
 
 export default function DepositsShow({ deposit, receiptUrl, canApprove, submitterBalance, transactionNumber }) {
+    const { addToast } = useToast();
     const [approveModal, setApproveModal] = useState(false);
     const [rejectModal, setRejectModal] = useState(false);
-    const { data, setData, post, processing } = useForm({ remarks: '' });
+    const approveForm = useForm({});
+    const rejectForm = useForm({ remarks: '' });
 
-    const approve = () => router.post(route('payments.deposits.approve', deposit.id), {}, {
-        onSuccess: () => setApproveModal(false),
-    });
+    const approve = () => {
+        approveForm.post(route('payments.deposits.approve', deposit.id), {
+            preserveScroll: true,
+            onSuccess: () => setApproveModal(false),
+            onError: () => addToast('Unable to approve this deposit. It may already be reviewed.', 'error'),
+        });
+    };
 
     const reject = (e) => {
         e.preventDefault();
-        post(route('payments.deposits.reject', deposit.id), {
+        rejectForm.post(route('payments.deposits.reject', deposit.id), {
+            preserveScroll: true,
             onSuccess: () => setRejectModal(false),
+            onError: () => addToast('Unable to reject this deposit.', 'error'),
         });
     };
+
+    const isImageReceipt = receiptUrl?.match(/\.(jpg|jpeg|png)$/i);
 
     return (
         <AppLayout title="Deposit Details">
@@ -89,7 +100,7 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
 
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <h3 className="mb-3 text-sm font-semibold text-slate-700">Proof of Transfer</h3>
-                    {receiptUrl.match(/\.(jpg|jpeg|png)$/i) ? (
+                    {isImageReceipt ? (
                         <img src={receiptUrl} alt="Receipt" className="max-h-96 rounded-lg border border-slate-200" />
                     ) : (
                         <a href={receiptUrl} target="_blank" rel="noopener noreferrer"
@@ -102,12 +113,14 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                 {canApprove && (
                     <div className="flex gap-3">
                         <button
+                            type="button"
                             onClick={() => setApproveModal(true)}
                             className="rounded-lg bg-emerald-600 px-6 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                         >
                             Approve Deposit
                         </button>
                         <button
+                            type="button"
                             onClick={() => setRejectModal(true)}
                             className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700"
                         >
@@ -128,6 +141,7 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                 title="Approve Deposit"
                 message={`Confirm approval of ${php(deposit.amount)}? The requester's balance will be credited immediately.`}
                 confirmLabel="Yes, Approve"
+                processing={approveForm.processing}
             />
 
             {rejectModal && (
@@ -137,8 +151,8 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                         <p className="mt-1 text-sm text-slate-500">Optionally provide a reason for rejection.</p>
                         <form onSubmit={reject} className="mt-4 space-y-4">
                             <textarea
-                                value={data.remarks}
-                                onChange={(e) => setData('remarks', e.target.value)}
+                                value={rejectForm.data.remarks}
+                                onChange={(e) => rejectForm.setData('remarks', e.target.value)}
                                 rows={3}
                                 placeholder="Reason for rejection (optional)"
                                 className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-sterling-gold focus:outline-none"
@@ -147,7 +161,7 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                                 <button type="button" onClick={() => setRejectModal(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
                                     Cancel
                                 </button>
-                                <button type="submit" disabled={processing} className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
+                                <button type="submit" disabled={rejectForm.processing} className="rounded-lg bg-red-600 px-5 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60">
                                     Reject Deposit
                                 </button>
                             </div>

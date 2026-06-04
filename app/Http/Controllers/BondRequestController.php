@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Enums\BondRequestStatus;
+use App\Enums\CertificateType;
 use App\Enums\RoleSlug;
+use App\Http\Requests\BondRequest\ApproveBondRequestRequest;
 use App\Http\Requests\BondRequest\StoreBondRequestRequest;
 use App\Http\Requests\BondRequest\UpdateBondRequestRequest;
 use App\Models\BondRequest;
@@ -14,8 +16,10 @@ use App\Models\PaymentHistory;
 use App\Services\ActivityLogger;
 use App\Services\KycObligeeService;
 use App\Support\AmountInWords;
+use App\Support\BondNumberGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -76,8 +80,8 @@ class BondRequestController extends Controller
             'selectedPrincipal' => null,
             'selectedObligee' => null,
             'bondTypeOptions' => $this->bondTypeOptions(),
-            'signatoryOptions' => $this->signatoryOptions(),
-            'notaryOptions' => $this->notaryOptions(),
+            'certificateTypeOptions' => CertificateType::options(),
+            'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
         ]);
     }
 
@@ -105,18 +109,25 @@ class BondRequestController extends Controller
     {
         $this->authorize('view', $bondRequest);
 
-        $bondRequest->load(['principal', 'bondTypeMaster', 'signatory', 'notary', 'creator:id,name', 'approver:id,name']);
+        $bondRequest->load(['principal', 'bondTypeMaster', 'signatory', 'notary', 'creator:id,name,branch_id', 'creator.branch', 'approver:id,name']);
         $bondRequest->setRelation('obligee', (object) $bondRequest->obligeeSummary());
-        $bondRequest->append(['status_label', 'status_color', 'bond_type_label']);
+        $bondRequest->append(['status_label', 'status_color', 'bond_type_label', 'certificate_type_label', 'bond_label']);
+
+        $canApprove = request()->user()->hasPermission('bond-requests.approve')
+            && $bondRequest->status === BondRequestStatus::Pending;
 
         return Inertia::render('BondRequests/Show', [
             'bondRequest' => $bondRequest,
+            'supportingDocumentUrl' => $bondRequest->supporting_document_path
+                ? Storage::disk('public')->url($bondRequest->supporting_document_path)
+                : null,
             'canUpdate' => request()->user()->can('update', $bondRequest),
             'canDelete' => request()->user()->can('delete', $bondRequest),
-            'canApprove' => request()->user()->hasPermission('bond-requests.approve')
-                && $bondRequest->status === BondRequestStatus::Pending,
+            'canApprove' => $canApprove,
             'canNotarize' => request()->user()->hasPermission('bond-requests.notarize')
                 && $bondRequest->status === BondRequestStatus::Approved,
+            'signatoryOptions' => $canApprove ? $this->signatoryOptions() : [],
+            'notaryOptions' => $canApprove ? $this->notaryOptions() : [],
         ]);
     }
 
@@ -135,8 +146,11 @@ class BondRequestController extends Controller
                 'label' => $bondRequest->obligee_name,
             ],
             'bondTypeOptions' => $this->bondTypeOptions(),
-            'signatoryOptions' => $this->signatoryOptions(),
-            'notaryOptions' => $this->notaryOptions(),
+            'certificateTypeOptions' => CertificateType::options(),
+            'supportingDocumentUrl' => $bondRequest->supporting_document_path
+                ? Storage::disk('public')->url($bondRequest->supporting_document_path)
+                : null,
+            'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
         ]);
     }
 
@@ -165,15 +179,23 @@ class BondRequestController extends Controller
             ->with('success', 'Bond request deleted successfully.');
     }
 
-    public function approve(Request $request, BondRequest $bondRequest): RedirectResponse
+    public function approve(ApproveBondRequestRequest $request, BondRequest $bondRequest): RedirectResponse
     {
-        abort_unless($request->user()->hasPermission('bond-requests.approve'), 403);
         abort_unless($bondRequest->status === BondRequestStatus::Pending, 422);
+
+        $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
 
         $bondRequest->update([
             'status' => BondRequestStatus::Approved,
             'approved_by' => $request->user()->id,
             'approved_at' => now(),
+            'signatory_id' => $signatory->id,
+            'signatory_position' => $signatory->position,
+            'notary_id' => $request->integer('notary_id'),
+            'doc_no' => $request->input('doc_no'),
+            'page_no' => $request->input('page_no'),
+            'book_no' => $request->input('book_no'),
+            'series_year' => $request->input('series_year'),
         ]);
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
@@ -216,11 +238,12 @@ class BondRequestController extends Controller
         return BondTypeMaster::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code'])
+            ->get(['id', 'name', 'code', 'bond_serial'])
             ->map(fn (BondTypeMaster $type) => [
                 'value' => $type->id,
                 'label' => $type->name,
                 'code' => $type->code,
+                'bond_serial' => $type->bond_serial,
             ])
             ->all();
     }
@@ -268,19 +291,24 @@ class BondRequestController extends Controller
         $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
         $obligeeName = $request->string('obligee_name')->trim()->toString();
 
-        $signatoryPosition = null;
-        if ($request->filled('signatory_id')) {
-            $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
-            $signatoryPosition = $signatory->position;
-        }
-
         $attributes = [
             ...$request->validated(),
-            'bond_type' => $bondType->code ?? $bondType->name,
+            'bond_type' => $bondType->name,
+            'bond_number' => BondNumberGenerator::fromBondType($bondType),
             'obligee_name' => $obligeeName !== '' ? $obligeeName : ($obligee['company_name'] ?? ''),
             'amount_in_words' => AmountInWords::format($request->input('amount')),
-            'signatory_position' => $signatoryPosition,
         ];
+
+        unset($attributes['supporting_document']);
+
+        if ($request->hasFile('supporting_document')) {
+            if ($bondRequest?->supporting_document_path) {
+                Storage::disk('public')->delete($bondRequest->supporting_document_path);
+            }
+
+            $attributes['supporting_document_path'] = $request->file('supporting_document')
+                ->store('bond-documents', 'public');
+        }
 
         if ($bondRequest === null) {
             $attributes['created_by'] = $request->user()->id;

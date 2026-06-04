@@ -27,6 +27,7 @@ class ProfileUpdateRequest extends FormRequest
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'branch_code' => ['nullable', 'string', 'size:3', 'alpha', 'uppercase'],
             'branch_city' => ['nullable', 'string', 'max:255'],
         ];
     }

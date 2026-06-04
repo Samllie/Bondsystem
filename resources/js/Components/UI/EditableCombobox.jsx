@@ -104,8 +104,8 @@ export default function EditableCombobox({
 
     const handleSelect = (option) => {
         onChange(option.id);
-        onTextChange(option.label || option.company_name || '');
         onOptionSelect?.(option);
+        onTextChange(option.label || option.company_name || '');
         setOpen(false);
     };
 

@@ -18,7 +18,8 @@ class BondTypeMasterFactory extends Factory
 
         return [
             'name' => ucwords($name),
-            'code' => strtoupper(fake()->unique()->lexify('???')),
+            'code' => fake()->unique()->numerify('#######'),
+            'bond_serial' => fake()->unique()->numerify('#######'),
             'description' => fake()->optional()->sentence(),
             'is_active' => true,
         ];

@@ -24,6 +24,7 @@ class User extends Authenticatable
         'is_active',
         'phone',
         'branch_id',
+        'branch_code',
         'branch_city',
         'balance',
     ];

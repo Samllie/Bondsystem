@@ -20,6 +20,7 @@ export default function ConfirmModal({
                 <div className="mt-6 flex justify-end gap-3">
                     <SecondaryButton onClick={onClose}>Cancel</SecondaryButton>
                     <PrimaryButton
+                        type="button"
                         onClick={onConfirm}
                         disabled={processing}
                         className={danger ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' : ''}

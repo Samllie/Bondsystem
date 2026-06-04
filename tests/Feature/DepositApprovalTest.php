@@ -63,6 +63,27 @@ class DepositApprovalTest extends TestCase
         $response->assertSessionHas('success');
     }
 
+    public function test_pending_deposit_show_page_exposes_approve_action_for_approver(): void
+    {
+        $requester = $this->createUser(RoleSlug::Requester);
+        $approver = $this->createUser(RoleSlug::Approver);
+        $bankAccount = BankAccount::factory()->create();
+
+        $deposit = Deposit::factory()->create([
+            'user_id' => $requester->id,
+            'bank_account_id' => $bankAccount->id,
+            'status' => DepositStatus::Pending,
+        ]);
+
+        $this->actingAs($approver)
+            ->get(route('payments.deposits.show', $deposit))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Deposits/Show')
+                ->where('canApprove', true)
+            );
+    }
+
     public function test_approving_a_deposit_cannot_be_done_twice(): void
     {
         $requester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);

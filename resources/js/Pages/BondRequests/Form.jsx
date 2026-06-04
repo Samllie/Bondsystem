@@ -2,14 +2,16 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
 import EditableCombobox from '@/Components/UI/EditableCombobox';
-import { SelectField, TextAreaField, TextField } from '@/Components/UI/FormField';
+import { TextAreaField, TextField } from '@/Components/UI/FormField';
+import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/UI/SearchableSelect';
 import AppLayout from '@/Layouts/AppLayout';
 import { amountInWords } from '@/lib/amountInWords';
+import { buildBondValue } from '@/lib/bondFormat';
+import { formatDateInWords } from '@/lib/formatDateInWords';
 import { formatAmountDisplay, parseAmountInput } from '@/lib/formatAmount';
-import { formatBookNoDisplay, formatBookNoInput } from '@/lib/romanNumerals';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 function formatDate(value) {
     if (!value) {
@@ -23,22 +25,18 @@ function todayIso() {
     return new Date().toISOString().substring(0, 10);
 }
 
-function generateBondSerial(seedId = null) {
-    if (seedId) {
-        return `GEN-${String(seedId).padStart(7, '0')}`;
-    }
-
-    const serial = Math.floor(Math.random() * 10000000);
-
-    return `GEN-${String(serial).padStart(7, '0')}`;
-}
-
-function buildBondValue(bondTypeLabel, bondNumber, serial) {
-    if (!bondTypeLabel || !bondNumber || !serial) {
+function formatExpiryForForm(value) {
+    if (!value) {
         return '';
     }
 
-    return `${bondTypeLabel} NO. ${bondNumber}-${serial}`;
+    const text = String(value).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(text)) {
+        return text.substring(0, 10);
+    }
+
+    return text;
 }
 
 function splitAddressLines(value) {
@@ -57,80 +55,36 @@ function emptyAddressLine() {
     return { address: '', ctm: '', province: '' };
 }
 
-function daySuffix(day) {
-    const remainderTen = day % 10;
-    const remainderHundred = day % 100;
-
-    if (remainderTen === 1 && remainderHundred !== 11) {
-        return 'st';
-    }
-
-    if (remainderTen === 2 && remainderHundred !== 12) {
-        return 'nd';
-    }
-
-    if (remainderTen === 3 && remainderHundred !== 13) {
-        return 'rd';
-    }
-
-    return 'th';
-}
-
-function formatDateInWords(value) {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(`${value}T00:00:00`);
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    const day = date.getDate();
-    const month = date.toLocaleString('en-US', { month: 'long' });
-    const year = date.getFullYear();
-
-    return `${day}${daySuffix(day)} day of ${month}, ${year}`;
-}
-
 export default function Form({
     bondRequest,
     selectedPrincipal,
     selectedObligee,
     bondTypeOptions,
-    signatoryOptions,
-    notaryOptions,
+    certificateTypeOptions,
+    supportingDocumentUrl,
+    requesterBranchCode = '',
 }) {
     const isEdit = Boolean(bondRequest?.id);
-    const generatedBondSerial = generateBondSerial(bondRequest?.id ?? null);
 
-    const { data, setData, post, put, processing, errors, transform } = useForm({
+    const { data, setData, post, put, processing, errors } = useForm({
         obligee_id: bondRequest?.obligee_id || '',
         obligee_name: bondRequest?.obligee_name || selectedObligee?.company_name || '',
         address_1: bondRequest?.address_1 || '',
         address_2: bondRequest?.address_2 || '',
         address_3: bondRequest?.address_3 || '',
-        bond_number: bondRequest?.bond_number || '',
         bond_type_id: bondRequest?.bond_type_id || '',
         bond_type_label: bondRequest?.bondTypeMaster?.name || '',
-        bond: buildBondValue(bondRequest?.bondTypeMaster?.name || '', bondRequest?.bond_number || '', generatedBondSerial),
         principal_id: bondRequest?.principal_id || '',
         request_date: formatDate(bondRequest?.request_date) || todayIso(),
         amount: bondRequest?.amount || '',
         project_name: bondRequest?.project_name || '',
         date_issued: formatDate(bondRequest?.date_issued),
-        expiry_date: formatDate(bondRequest?.expiry_date),
-        signatory_id: bondRequest?.signatory_id || '',
-        signatory_position: bondRequest?.signatory_position || '',
-        notary_id: bondRequest?.notary_id || '',
-        doc_no: bondRequest?.doc_no || '',
-        page_no: bondRequest?.page_no || '',
-        book_no: formatBookNoDisplay(bondRequest?.book_no || ''),
-        series_year: bondRequest?.series_year || '',
+        inception_date: formatDate(bondRequest?.inception_date),
+        attention: bondRequest?.attention || '',
+        supporting_document: null,
+        certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
+        expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
     });
-
-    const [bookNoDraft, setBookNoDraft] = useState(() => formatBookNoDisplay(bondRequest?.book_no || ''));
-    const bookNoDebounceRef = useRef(null);
 
     const [addressLines, setAddressLines] = useState(() => {
         const addressEntries = splitAddressLines(bondRequest?.address_1);
@@ -145,33 +99,10 @@ export default function Form({
         }));
     });
 
-    const signatorySelectOptions = useMemo(
-        () => [{ value: '', label: 'Select signatory…' }, ...signatoryOptions],
-        [signatoryOptions],
-    );
-
-    const notarySelectOptions = useMemo(
-        () => [{ value: '', label: 'Select notary…' }, ...notaryOptions],
-        [notaryOptions],
-    );
-
     const amountWords = useMemo(() => amountInWords(data.amount), [data.amount]);
     const requestDateInWords = useMemo(() => formatDateInWords(data.request_date), [data.request_date]);
     const dateIssuedInWords = useMemo(() => formatDateInWords(data.date_issued), [data.date_issued]);
-
-    useEffect(() => () => clearTimeout(bookNoDebounceRef.current), []);
-
-    const handleBookNoChange = (event) => {
-        const value = event.target.value;
-        setBookNoDraft(value);
-
-        clearTimeout(bookNoDebounceRef.current);
-        bookNoDebounceRef.current = setTimeout(() => {
-            const formatted = formatBookNoInput(value);
-            setBookNoDraft(formatted);
-            setData('book_no', formatted);
-        }, 750);
-    };
+    const inceptionDateInWords = useMemo(() => formatDateInWords(data.inception_date), [data.inception_date]);
 
     useEffect(() => {
         const joinedAddress = addressLines
@@ -195,38 +126,26 @@ export default function Form({
         }));
     }, [addressLines, setData]);
 
-    const handleSignatoryChange = (event) => {
-        const id = event.target.value;
-        const selected = signatoryOptions.find((option) => String(option.value) === String(id));
-
-        setData((current) => ({
-            ...current,
-            signatory_id: id,
-            signatory_position: id ? (selected?.position || '') : '',
-        }));
-    };
-
     const handleBondTypeChange = (event) => {
         const nextBondTypeLabel = event.target.value;
         const selectedBondType = bondTypeOptions.find(
             (option) => option.label.toLowerCase() === nextBondTypeLabel.toLowerCase(),
         );
-        const nextBondNumber = selectedBondType?.code;
 
         setData((current) => ({
             ...current,
             bond_type_id: selectedBondType?.value || '',
             bond_type_label: nextBondTypeLabel,
-            bond_number: typeof nextBondNumber === 'string' ? nextBondNumber : current.bond_number,
-            bond: buildBondValue(
-                nextBondTypeLabel,
-                typeof nextBondNumber === 'string' ? nextBondNumber : current.bond_number,
-                generatedBondSerial,
-            ),
         }));
     };
 
     const handleObligeeSelect = (option) => {
+        setData((current) => ({
+            ...current,
+            obligee_id: option.id,
+            obligee_name: option.label || option.company_name || '',
+        }));
+
         setAddressLines((current) => {
             const next = [...current];
             if (next.length === 0) {
@@ -272,19 +191,12 @@ export default function Form({
     const submit = (e) => {
         e.preventDefault();
 
-        clearTimeout(bookNoDebounceRef.current);
-        const formattedBookNo = formatBookNoInput(bookNoDraft);
-        setBookNoDraft(formattedBookNo);
-
-        transform((current) => ({
-            ...current,
-            book_no: formattedBookNo,
-        }));
+        const options = { forceFormData: true };
 
         if (isEdit) {
-            put(route('bond-requests.update', bondRequest.id));
+            put(route('bond-requests.update', bondRequest.id), options);
         } else {
-            post(route('bond-requests.store'));
+            post(route('bond-requests.store'), options);
         }
     };
 
@@ -312,13 +224,47 @@ export default function Form({
         return selectedBondType?.label || '';
     }, [bondTypeOptions, data.bond_type_id, data.bond_type_label]);
 
+    const selectedBondType = useMemo(
+        () => bondTypeOptions.find((option) => String(option.value) === String(data.bond_type_id)),
+        [bondTypeOptions, data.bond_type_id],
+    );
+
+    const bondTypeBondNumber = useMemo(() => {
+        if (selectedBondType?.code) {
+            return selectedBondType.code;
+        }
+
+        if (bondRequest?.bondTypeMaster?.code) {
+            return bondRequest.bondTypeMaster.code;
+        }
+
+        return '';
+    }, [bondRequest, selectedBondType]);
+
+    const bondTypeSerial = useMemo(() => {
+        if (selectedBondType?.bond_serial) {
+            return selectedBondType.bond_serial;
+        }
+
+        if (bondRequest?.bondTypeMaster?.bond_serial) {
+            return bondRequest.bondTypeMaster.bond_serial;
+        }
+
+        return '';
+    }, [bondRequest, selectedBondType]);
+
+    const bondDisplay = useMemo(
+        () => buildBondValue(selectedBondTypeLabel, requesterBranchCode, bondTypeBondNumber, bondTypeSerial),
+        [bondTypeBondNumber, bondTypeSerial, requesterBranchCode, selectedBondTypeLabel],
+    );
+
     return (
         <AppLayout title={isEdit ? 'Edit Bond Request' : 'New Bond Request'}>
             <Head title={isEdit ? 'Edit Bond Request' : 'New Bond Request'} />
 
             <Card className="max-w-3xl">
                 <CardBody>
-                    <form onSubmit={submit} className="space-y-6">
+                    <form onSubmit={submit} encType="multipart/form-data" className="space-y-6">
                         <section className="space-y-4">
                             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Obligee</h2>
                             <EditableCombobox
@@ -326,14 +272,27 @@ export default function Form({
                                 value={data.obligee_id}
                                 textValue={data.obligee_name}
                                 onChange={(id) => setData('obligee_id', id)}
-                                onTextChange={(text) => setData('obligee_name', text)}
+                                onTextChange={(text) => {
+                                    setData((current) => ({
+                                        ...current,
+                                        obligee_name: text,
+                                        obligee_id:
+                                            text.trim().toLowerCase() ===
+                                            (current.obligee_name || '').trim().toLowerCase()
+                                                ? current.obligee_id
+                                                : '',
+                                    }));
+                                }}
                                 onOptionSelect={handleObligeeSelect}
                                 searchUrl={route('api.obligees.index')}
-                                placeholder="Type or select an obligee…"
+                                placeholder="Type to search, then click a result…"
                                 error={errors.obligee_id || errors.obligee_name}
                                 required
                                 initialOption={obligeeInitial}
                             />
+                            <p className="text-xs text-slate-500">
+                                Choose an obligee from the KYC search results (click a row in the list). Typing a name alone does not link a record.
+                            </p>
                             {addressLines.map((line, index) => (
                                 <div key={`address-line-${index}`} className="space-y-4">
                                     {index > 0 && (
@@ -391,30 +350,31 @@ export default function Form({
                                     id: option.value,
                                     label: option.label,
                                     code: option.code,
+                                    bond_serial: option.bond_serial,
                                 }))}
                                 placeholder="Type or select bond type…"
                                 error={errors.bond_type_id}
                                 required
                             />
                             <TextField
+                                label="Branch Code"
+                                value={requesterBranchCode || ''}
+                                readOnly
+                                className="bg-slate-50 uppercase"
+                            />
+                            <TextField
                                 label="Bond Number"
-                                value={data.bond_number}
-                                onChange={(e) => {
-                                    const nextBondNumber = e.target.value;
-                                    setData((current) => ({
-                                        ...current,
-                                        bond_number: nextBondNumber,
-                                        bond: buildBondValue(selectedBondTypeLabel, nextBondNumber, generatedBondSerial),
-                                    }));
-                                }}
-                                error={errors.bond_number}
+                                value={bondTypeBondNumber}
+                                readOnly
+                                className="bg-slate-50"
+                                error={errors.bond_type_id}
                                 required
                             />
                             <div className="sm:col-span-2">
                                 <TextAreaField
                                     label="Bond"
-                                    value={data.bond}
-                                    onChange={(e) => setData('bond', e.target.value)}
+                                    value={bondDisplay}
+                                    readOnly
                                     rows={2}
                                     className="min-h-[44px] resize-y bg-slate-50 py-2.5 text-sm font-medium tracking-wide text-slate-700"
                                 />
@@ -489,60 +449,93 @@ export default function Form({
                                 className="bg-slate-50"
                             />
                             <TextField
-                                label="Expiry date"
+                                label="Inception date"
                                 type="date"
-                                value={data.expiry_date}
-                                onChange={(e) => setData('expiry_date', e.target.value)}
-                                error={errors.expiry_date}
+                                value={data.inception_date}
+                                onChange={(e) => setData('inception_date', e.target.value)}
+                                error={errors.inception_date}
                                 required
                             />
-                            <SelectField
-                                label="Signatory"
-                                value={data.signatory_id}
-                                onChange={handleSignatoryChange}
-                                options={signatorySelectOptions}
-                                error={errors.signatory_id}
-                            />
                             <TextField
-                                label="Position"
-                                value={data.signatory_position}
+                                label="Inception date in words"
+                                value={inceptionDateInWords}
                                 readOnly
                                 className="bg-slate-50"
-                                error={errors.signatory_position}
-                            />
-                            <SelectField
-                                label="Notary"
-                                value={data.notary_id}
-                                onChange={(e) => setData('notary_id', e.target.value)}
-                                options={notarySelectOptions}
-                                error={errors.notary_id}
                             />
                             <TextField
-                                label="Doc No."
-                                value={data.doc_no}
-                                onChange={(e) => setData('doc_no', e.target.value)}
-                                error={errors.doc_no}
+                                label="Attention"
+                                value={data.attention}
+                                onChange={(e) => setData('attention', e.target.value)}
+                                error={errors.attention}
                             />
-                            <TextField
-                                label="Page No."
-                                value={data.page_no}
-                                onChange={(e) => setData('page_no', e.target.value)}
-                                error={errors.page_no}
-                            />
-                            <TextField
-                                label="Book No."
-                                value={bookNoDraft}
-                                onChange={handleBookNoChange}
-                                placeholder="e.g. V"
-                                error={errors.book_no}
-                            />
-                            <TextField
-                                label="Series year"
-                                value={data.series_year}
-                                onChange={(e) => setData('series_year', e.target.value)}
-                                error={errors.series_year}
-                                maxLength={4}
-                            />
+                            <div className="sm:col-span-2">
+                                <TextAreaField
+                                    label="Expiry date or validity statement"
+                                    value={data.expiry_date}
+                                    onChange={(e) => setData('expiry_date', e.target.value)}
+                                    placeholder="e.g. 2027-05-24 or until fully recouped and liquidated is valid"
+                                    rows={2}
+                                    className="min-h-[44px] resize-y"
+                                    error={errors.expiry_date}
+                                    required
+                                />
+                            </div>
+                        </section>
+
+                        <section className="space-y-4">
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Certificate request</h2>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {certificateTypeOptions.map((option) => (
+                                    <label
+                                        key={option.value}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
+                                            data.certificate_type === option.value
+                                                ? 'border-sterling-gold bg-sterling-gold-50 ring-1 ring-sterling-gold'
+                                                : 'border-slate-200 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="certificate_type"
+                                            value={option.value}
+                                            checked={data.certificate_type === option.value}
+                                            onChange={() => setData('certificate_type', option.value)}
+                                            className="text-sterling-green focus:ring-sterling-gold"
+                                        />
+                                        <span className="text-sm font-medium text-slate-800">{option.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {errors.certificate_type && (
+                                <p className="text-sm text-red-600">{errors.certificate_type}</p>
+                            )}
+                        </section>
+
+                        <section className="space-y-4">
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Supporting document</h2>
+                            {supportingDocumentUrl && (
+                                <a
+                                    href={supportingDocumentUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex text-sm text-sterling-green hover:underline"
+                                >
+                                    View current document →
+                                </a>
+                            )}
+                            <div>
+                                <label htmlFor="supporting_document" className="block text-sm font-medium text-slate-700">
+                                    {isEdit ? 'Replace supporting document (optional)' : 'Supporting document'}
+                                </label>
+                                <input
+                                    id="supporting_document"
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => setData('supporting_document', e.target.files[0] ?? null)}
+                                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded file:border-0 file:bg-sterling-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-sterling-green-darker"
+                                />
+                                <InputError message={errors.supporting_document} className="mt-2" />
+                            </div>
                         </section>
 
                         <div className="flex gap-3">

@@ -80,8 +80,9 @@ class ProfileTest extends TestCase
     {
         $user = User::factory()->create();
         $branch = Branch::query()->create([
-            'name' => 'Cebu Branch',
-            'address' => 'Cebu',
+            'name' => 'Main Office- Makati',
+            'branch_code' => 'MAK',
+            'address' => 'Makati',
             'is_active' => true,
         ]);
 
@@ -91,7 +92,8 @@ class ProfileTest extends TestCase
                 'name' => $user->name,
                 'email' => $user->email,
                 'branch_id' => $branch->id,
-                'branch_city' => 'Cebu',
+                'branch_code' => 'MKT',
+                'branch_city' => 'Makati',
             ]);
 
         $response
@@ -101,7 +103,8 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame($branch->id, $user->branch_id);
-        $this->assertSame('Cebu', $user->branch_city);
+        $this->assertSame('MKT', $user->branch_code);
+        $this->assertSame('Makati', $user->branch_city);
     }
 
     public function test_user_can_delete_their_account(): void

@@ -2,9 +2,13 @@
 
 namespace App\Http\Requests\BondRequest;
 
+use App\Enums\CertificateType;
 use App\Models\BondRequest;
 use App\Rules\ValidKycObligee;
+use App\Support\BondNumberGenerator;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreBondRequestRequest extends FormRequest
 {
@@ -15,11 +19,10 @@ class StoreBondRequestRequest extends FormRequest
 
     public function rules(): array
     {
-        $rules = [
-            'bond_number' => ['required', 'string', 'max:50', 'unique:bond_requests,bond_number'],
+        return [
             'bond_type_id' => ['required', 'exists:bond_type_masters,id'],
             'principal_id' => ['required', 'exists:principals,id'],
-            'obligee_id' => ['required', 'integer', new ValidKycObligee],
+            'obligee_id' => ['required', 'integer', 'min:1', new ValidKycObligee],
             'obligee_name' => ['nullable', 'string', 'max:255'],
             'address_1' => ['nullable', 'string', 'max:500'],
             'address_2' => ['nullable', 'string', 'max:500'],
@@ -28,28 +31,46 @@ class StoreBondRequestRequest extends FormRequest
             'amount_in_words' => ['nullable', 'string', 'max:1000'],
             'project_name' => ['nullable', 'string', 'max:255'],
             'date_issued' => ['nullable', 'date'],
+            'inception_date' => ['required', 'date'],
+            'attention' => ['nullable', 'string', 'max:255'],
+            'supporting_document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'certificate_type' => ['required', Rule::enum(CertificateType::class)],
             'request_date' => ['required', 'date'],
-            'expiry_date' => ['required', 'date', 'after_or_equal:request_date'],
-            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
-            'signatory_position' => ['nullable', 'string', 'max:255'],
-            'notary_id' => ['nullable', 'integer', 'exists:notaries,id'],
-            'doc_no' => ['nullable', 'string', 'max:100'],
-            'page_no' => ['nullable', 'string', 'max:100'],
-            'book_no' => ['nullable', 'string', 'max:100'],
-            'series_year' => ['nullable', 'string', 'max:4'],
+            'expiry_date' => ['required', 'string', 'max:500'],
             'description' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
         ];
+    }
 
-        return $rules;
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->user()->loadMissing('branch');
+
+            if (! BondNumberGenerator::userHasBranchCode($this->user())) {
+                $validator->errors()->add(
+                    'bond_type_id',
+                    'Set your branch (with a branch code) in your profile before submitting a bond request.',
+                );
+            }
+        });
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'obligee_id.required' => 'Please select an obligee from the KYC search results.',
+            'obligee_id.min' => 'Please select an obligee from the KYC search results.',
+        ];
     }
 
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'signatory_id' => $this->input('signatory_id') ?: null,
-            'notary_id' => $this->input('notary_id') ?: null,
-            'signatory_position' => $this->filled('signatory_position') ? $this->input('signatory_position') : null,
+            'attention' => $this->filled('attention') ? $this->input('attention') : null,
         ]);
     }
 }

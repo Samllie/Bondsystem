@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use App\Enums\BondRequestStatus;
+use App\Enums\CertificateType;
 use App\Models\Maintenance\BondTypeMaster;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
+use App\Support\BondFormat;
+use App\Support\BondNumberGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,6 +33,10 @@ class BondRequest extends Model
         'amount_in_words',
         'project_name',
         'date_issued',
+        'inception_date',
+        'attention',
+        'supporting_document_path',
+        'certificate_type',
         'description',
         'expiry_date',
         'request_date',
@@ -51,11 +58,12 @@ class BondRequest extends Model
     {
         return [
             'amount' => 'decimal:2',
-            'expiry_date' => 'date',
             'request_date' => 'date',
             'date_issued' => 'date',
+            'inception_date' => 'date',
             'approved_at' => 'datetime',
             'status' => BondRequestStatus::class,
+            'certificate_type' => CertificateType::class,
         ];
     }
 
@@ -122,5 +130,25 @@ class BondRequest extends Model
     public function getBondTypeLabelAttribute(): string
     {
         return $this->bondTypeMaster?->name ?? $this->bond_type ?? '—';
+    }
+
+    public function getCertificateTypeLabelAttribute(): string
+    {
+        return $this->certificate_type?->label() ?? '—';
+    }
+
+    public function getBondLabelAttribute(): string
+    {
+        $creator = $this->creator;
+        if ($creator && ! $creator->relationLoaded('branch')) {
+            $creator->load('branch');
+        }
+
+        return BondFormat::buildValue(
+            $this->bond_type_label,
+            $creator ? BondNumberGenerator::branchCodeFor($creator) : null,
+            $this->bondTypeMaster?->code ?? $this->bond_number,
+            $this->bondTypeMaster?->bond_serial,
+        );
     }
 }

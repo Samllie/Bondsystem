@@ -9,9 +9,10 @@ return [
     'obligee_type' => env('KYC_OBLIGEE_TYPE', 'obligee'),
 
     'columns' => [
-        'id' => env('KYC_COLUMN_ID', 'id'),
+        'id' => env('KYC_COLUMN_ID', 'client_id'),
         'client_type' => env('KYC_COLUMN_CLIENT_TYPE', 'client_type'),
         'company_name' => env('KYC_COLUMN_COMPANY_NAME', 'company_name'),
+        'client_name' => env('KYC_COLUMN_CLIENT_NAME', 'client_name'),
         'address' => env('KYC_COLUMN_ADDRESS', 'address'),
         'business_address' => env('KYC_COLUMN_BUSINESS_ADDRESS', 'business_address'),
         'business_ctm' => env('KYC_COLUMN_BUSINESS_CTM', 'business_ctm'),
