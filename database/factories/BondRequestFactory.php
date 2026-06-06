@@ -57,6 +57,10 @@ class BondRequestFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (BondRequest $bondRequest): void {
+            if ($bondRequest->certificate_type === CertificateType::CarCertificate) {
+                return;
+            }
+
             $bondRequest->load('bondTypeMaster');
 
             if ($bondRequest->bondTypeMaster) {
@@ -78,6 +82,26 @@ class BondRequestFactory extends Factory
         return $this->state(fn () => [
             'status' => BondRequestStatus::Approved->value,
             'approved_at' => now(),
+        ]);
+    }
+
+    public function carCertificate(string $branchCode = 'MKT', string $serial = '0072056'): static
+    {
+        $car = sprintf('CAR-%s-%s', strtoupper($branchCode), str_pad(preg_replace('/\D/', '', $serial) ?: '0', 7, '0', STR_PAD_LEFT));
+
+        return $this->state(fn () => [
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'car' => $car,
+            'bond_number' => $car,
+            'bond_type' => 'CAR',
+            'bond_type_id' => null,
+            'authorized_representative' => fake()->name(),
+            'tin' => sprintf(
+                '%s-%s-%s-0000',
+                fake()->numerify('###'),
+                fake()->numerify('###'),
+                fake()->numerify('###'),
+            ),
         ]);
     }
 }

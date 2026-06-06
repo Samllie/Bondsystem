@@ -37,6 +37,9 @@ class BondRequest extends Model
         'attention',
         'supporting_document_path',
         'certificate_type',
+        'car',
+        'authorized_representative',
+        'tin',
         'description',
         'expiry_date',
         'request_date',
@@ -139,6 +142,10 @@ class BondRequest extends Model
 
     public function getBondLabelAttribute(): string
     {
+        if ($this->certificate_type === CertificateType::CarCertificate) {
+            return $this->car ?? '';
+        }
+
         $creator = $this->creator;
         if ($creator && ! $creator->relationLoaded('branch')) {
             $creator->load('branch');

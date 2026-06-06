@@ -15,6 +15,7 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
         code: record?.code ?? '',
         bond_serial: record?.bond_serial ?? '',
         branch_code: record?.branch_code ?? '',
+        branch_city: record?.branch_city ?? '',
         notary_price: record?.notary_price ?? '',
         description: record?.description ?? '',
         address: record?.address ?? '',
@@ -100,6 +101,13 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
 
                         {showBranch && (
                             <>
+                                <TextField
+                                    label="Branch City"
+                                    value={data.branch_city}
+                                    onChange={(e) => setData('branch_city', e.target.value)}
+                                    placeholder="e.g. Cebu City"
+                                    error={errors.branch_city}
+                                />
                                 <TextAreaField
                                     label="Address"
                                     value={data.address}

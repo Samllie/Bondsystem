@@ -39,6 +39,7 @@ class BranchController extends MaintenanceController
                 'uppercase',
                 Rule::unique('branches', 'branch_code')->ignore($record?->id),
             ],
+            'branch_city' => ['nullable', 'string', 'max:255'],
             'address' => ['nullable', 'string'],
             'contact' => ['nullable', 'string', 'max:100'],
             'notary_price' => ['nullable', 'numeric', 'min:0'],

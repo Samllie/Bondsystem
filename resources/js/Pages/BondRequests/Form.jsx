@@ -2,12 +2,13 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
 import EditableCombobox from '@/Components/UI/EditableCombobox';
+import TinField from '@/Components/UI/TinField';
 import { TextAreaField, TextField } from '@/Components/UI/FormField';
 import InputError from '@/Components/InputError';
 import SearchableSelect from '@/Components/UI/SearchableSelect';
 import AppLayout from '@/Layouts/AppLayout';
 import { amountInWords } from '@/lib/amountInWords';
-import { buildBondValue } from '@/lib/bondFormat';
+import { buildBondValue, buildCarValue } from '@/lib/bondFormat';
 import { formatDateInWords } from '@/lib/formatDateInWords';
 import { formatAmountDisplay, parseAmountInput } from '@/lib/formatAmount';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -83,6 +84,9 @@ export default function Form({
         attention: bondRequest?.attention || '',
         supporting_document: null,
         certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
+        car: bondRequest?.car || buildCarValue(requesterBranchCode),
+        authorized_representative: bondRequest?.authorized_representative || '',
+        tin: bondRequest?.tin || '',
         expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
     });
 
@@ -258,6 +262,21 @@ export default function Form({
         [bondTypeBondNumber, bondTypeSerial, requesterBranchCode, selectedBondTypeLabel],
     );
 
+    const isCarCertificate = data.certificate_type === 'car_certificate';
+
+    const handleCertificateTypeChange = (value) => {
+        setData((current) => ({
+            ...current,
+            certificate_type: value,
+            car:
+                value === 'car_certificate' && !current.car
+                    ? buildCarValue(requesterBranchCode)
+                    : current.car,
+            authorized_representative: value === 'car_certificate' ? current.authorized_representative : '',
+            tin: value === 'car_certificate' ? current.tin : '',
+        }));
+    };
+
     return (
         <AppLayout title={isEdit ? 'Edit Bond Request' : 'New Bond Request'}>
             <Head title={isEdit ? 'Edit Bond Request' : 'New Bond Request'} />
@@ -265,6 +284,35 @@ export default function Form({
             <Card className="max-w-3xl">
                 <CardBody>
                     <form onSubmit={submit} encType="multipart/form-data" className="space-y-6">
+                        <section className="space-y-4">
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Certificate request</h2>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {certificateTypeOptions.map((option) => (
+                                    <label
+                                        key={option.value}
+                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
+                                            data.certificate_type === option.value
+                                                ? 'border-sterling-gold bg-sterling-gold-50 ring-1 ring-sterling-gold'
+                                                : 'border-slate-200 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="certificate_type"
+                                            value={option.value}
+                                            checked={data.certificate_type === option.value}
+                                            onChange={() => handleCertificateTypeChange(option.value)}
+                                            className="text-sterling-green focus:ring-sterling-gold"
+                                        />
+                                        <span className="text-sm font-medium text-slate-800">{option.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {errors.certificate_type && (
+                                <p className="text-sm text-red-600">{errors.certificate_type}</p>
+                            )}
+                        </section>
+
                         <section className="space-y-4">
                             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Obligee</h2>
                             <EditableCombobox
@@ -339,46 +387,81 @@ export default function Form({
                         </section>
 
                         <section className="grid gap-4 sm:grid-cols-2">
-                            <EditableCombobox
-                                label="Bond Type"
-                                value={data.bond_type_id}
-                                textValue={data.bond_type_label}
-                                onChange={(id) => setData('bond_type_id', id)}
-                                onTextChange={(text) => handleBondTypeChange({ target: { value: text } })}
-                                onOptionSelect={(option) => handleBondTypeChange({ target: { value: option.label } })}
-                                localOptions={bondTypeOptions.map((option) => ({
-                                    id: option.value,
-                                    label: option.label,
-                                    code: option.code,
-                                    bond_serial: option.bond_serial,
-                                }))}
-                                placeholder="Type or select bond type…"
-                                error={errors.bond_type_id}
-                                required
-                            />
-                            <TextField
-                                label="Branch Code"
-                                value={requesterBranchCode || ''}
-                                readOnly
-                                className="bg-slate-50 uppercase"
-                            />
-                            <TextField
-                                label="Bond Number"
-                                value={bondTypeBondNumber}
-                                readOnly
-                                className="bg-slate-50"
-                                error={errors.bond_type_id}
-                                required
-                            />
-                            <div className="sm:col-span-2">
-                                <TextAreaField
-                                    label="Bond"
-                                    value={bondDisplay}
-                                    readOnly
-                                    rows={2}
-                                    className="min-h-[44px] resize-y bg-slate-50 py-2.5 text-sm font-medium tracking-wide text-slate-700"
-                                />
-                            </div>
+                            {isCarCertificate ? (
+                                <>
+                                    <div className="sm:col-span-2">
+                                        <TextField
+                                            label="CAR"
+                                            value={data.car}
+                                            onChange={(e) => setData('car', e.target.value)}
+                                            placeholder={`CAR-${requesterBranchCode || 'MKT'}-0072056`}
+                                            error={errors.car}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <TextField
+                                            label="Authorized Representative"
+                                            value={data.authorized_representative}
+                                            onChange={(e) => setData('authorized_representative', e.target.value)}
+                                            error={errors.authorized_representative}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="sm:col-span-2">
+                                        <TinField
+                                            label="TIN"
+                                            value={data.tin}
+                                            onChange={(value) => setData('tin', value)}
+                                            error={errors.tin}
+                                            required
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <EditableCombobox
+                                        label="Bond Type"
+                                        value={data.bond_type_id}
+                                        textValue={data.bond_type_label}
+                                        onChange={(id) => setData('bond_type_id', id)}
+                                        onTextChange={(text) => handleBondTypeChange({ target: { value: text } })}
+                                        onOptionSelect={(option) => handleBondTypeChange({ target: { value: option.label } })}
+                                        localOptions={bondTypeOptions.map((option) => ({
+                                            id: option.value,
+                                            label: option.label,
+                                            code: option.code,
+                                            bond_serial: option.bond_serial,
+                                        }))}
+                                        placeholder="Type or select bond type…"
+                                        error={errors.bond_type_id}
+                                        required
+                                    />
+                                    <TextField
+                                        label="Branch Code"
+                                        value={requesterBranchCode || ''}
+                                        readOnly
+                                        className="bg-slate-50 uppercase"
+                                    />
+                                    <TextField
+                                        label="Bond Number"
+                                        value={bondTypeBondNumber}
+                                        readOnly
+                                        className="bg-slate-50"
+                                        error={errors.bond_type_id}
+                                        required
+                                    />
+                                    <div className="sm:col-span-2">
+                                        <TextAreaField
+                                            label="Bond"
+                                            value={bondDisplay}
+                                            readOnly
+                                            rows={2}
+                                            className="min-h-[44px] resize-y bg-slate-50 py-2.5 text-sm font-medium tracking-wide text-slate-700"
+                                        />
+                                    </div>
+                                </>
+                            )}
                             <div className="sm:col-span-2">
                                 <SearchableSelect
                                     label="Principal"
@@ -480,35 +563,6 @@ export default function Form({
                                     required
                                 />
                             </div>
-                        </section>
-
-                        <section className="space-y-4">
-                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Certificate request</h2>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                {certificateTypeOptions.map((option) => (
-                                    <label
-                                        key={option.value}
-                                        className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
-                                            data.certificate_type === option.value
-                                                ? 'border-sterling-gold bg-sterling-gold-50 ring-1 ring-sterling-gold'
-                                                : 'border-slate-200 hover:border-slate-300'
-                                        }`}
-                                    >
-                                        <input
-                                            type="radio"
-                                            name="certificate_type"
-                                            value={option.value}
-                                            checked={data.certificate_type === option.value}
-                                            onChange={() => setData('certificate_type', option.value)}
-                                            className="text-sterling-green focus:ring-sterling-gold"
-                                        />
-                                        <span className="text-sm font-medium text-slate-800">{option.label}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            {errors.certificate_type && (
-                                <p className="text-sm text-red-600">{errors.certificate_type}</p>
-                            )}
                         </section>
 
                         <section className="space-y-4">

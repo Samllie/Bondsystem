@@ -288,16 +288,31 @@ class BondRequestController extends Controller
     private function bondRequestAttributes(Request $request, ?BondRequest $bondRequest = null): array
     {
         $obligee = $this->kycObligeeService->find($request->integer('obligee_id'));
-        $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
         $obligeeName = $request->string('obligee_name')->trim()->toString();
+        $certificateType = $request->enum('certificate_type', CertificateType::class);
 
         $attributes = [
             ...$request->validated(),
-            'bond_type' => $bondType->name,
-            'bond_number' => BondNumberGenerator::fromBondType($bondType),
             'obligee_name' => $obligeeName !== '' ? $obligeeName : ($obligee['company_name'] ?? ''),
             'amount_in_words' => AmountInWords::format($request->input('amount')),
         ];
+
+        if ($certificateType === CertificateType::CarCertificate) {
+            $car = $request->string('car')->trim()->toString();
+            $attributes['car'] = $car;
+            $attributes['bond_number'] = $car;
+            $attributes['bond_type'] = 'CAR';
+            $attributes['bond_type_id'] = null;
+            $attributes['authorized_representative'] = $request->string('authorized_representative')->trim()->toString();
+            $attributes['tin'] = $request->string('tin')->trim()->toString();
+        } else {
+            $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
+            $attributes['bond_type'] = $bondType->name;
+            $attributes['bond_number'] = BondNumberGenerator::fromBondType($bondType);
+            $attributes['car'] = null;
+            $attributes['authorized_representative'] = null;
+            $attributes['tin'] = null;
+        }
 
         unset($attributes['supporting_document']);
 

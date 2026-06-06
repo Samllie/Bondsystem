@@ -32,7 +32,7 @@ export default function Show({
         doc_no: '',
         page_no: '',
         book_no: '',
-        series_year: '',
+        series_year: bondRequest.series_year || String(new Date().getFullYear()),
     });
 
     const signatorySelectOptions = useMemo(
@@ -124,9 +124,19 @@ export default function Show({
                 />
                 <CardBody>
                     <dl className="grid gap-4 sm:grid-cols-2">
-                        <Detail label="Bond Number" value={bondRequest.bondTypeMaster?.code ?? bondRequest.bond_number} />
-                        <Detail label="Bond" value={bondRequest.bond_label || '—'} className="sm:col-span-2" capitalize={false} />
-                        <Detail label="Bond Type" value={bondRequest.bond_type_label} />
+                        {(bondRequest.certificate_type?.value || bondRequest.certificate_type) === 'car_certificate' ? (
+                            <>
+                                <Detail label="CAR" value={bondRequest.car || bondRequest.bond_label || '—'} className="sm:col-span-2" capitalize={false} />
+                                <Detail label="Authorized Representative" value={bondRequest.authorized_representative || '—'} className="sm:col-span-2" capitalize={false} />
+                                <Detail label="TIN" value={bondRequest.tin || '—'} capitalize={false} />
+                            </>
+                        ) : (
+                            <>
+                                <Detail label="Bond Number" value={bondRequest.bondTypeMaster?.code ?? bondRequest.bond_number} />
+                                <Detail label="Bond" value={bondRequest.bond_label || '—'} className="sm:col-span-2" capitalize={false} />
+                                <Detail label="Bond Type" value={bondRequest.bond_type_label} />
+                            </>
+                        )}
                         <Detail label="Principal" value={bondRequest.principal?.company_name} />
                         <Detail label="Obligee" value={bondRequest.obligee?.company_name} />
                         <Detail

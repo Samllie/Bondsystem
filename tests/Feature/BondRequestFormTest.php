@@ -125,13 +125,11 @@ class BondRequestFormTest extends TestCase
 
         $requester = $this->requesterUser();
         $principal = Principal::factory()->create();
-        $bondType = BondTypeMaster::factory()->create([
-            'name' => 'Performance Bond',
-            'code' => '7654321',
-        ]);
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
-            'bond_type_id' => $bondType->id,
+            'car' => 'CAR-CEB-0072056',
+            'authorized_representative' => 'Juan Dela Cruz',
+            'tin' => '123-456-789-0000',
             'principal_id' => $principal->id,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
@@ -146,10 +144,87 @@ class BondRequestFormTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => '7654321',
+            'bond_number' => 'CAR-CEB-0072056',
+            'car' => 'CAR-CEB-0072056',
+            'bond_type' => 'CAR',
             'attention' => null,
             'certificate_type' => CertificateType::CarCertificate->value,
         ]);
+    }
+
+    public function test_requester_can_create_car_certificate_bond_request(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')
+                ->with(42)
+                ->andReturn([
+                    'id' => 42,
+                    'company_name' => 'Acme Obligee Corp',
+                    'label' => 'Acme Obligee Corp',
+                ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Maria Santos',
+            'tin' => '111-222-333-0000',
+            'principal_id' => $principal->id,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+
+        $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
+        $this->assertNotNull($bondRequest);
+        $this->assertSame('CAR-MKT-0072056', $bondRequest->car);
+        $this->assertNull($bondRequest->bond_type_id);
+        $this->assertSame('CAR-MKT-0072056', $bondRequest->bond_label);
+        $this->assertSame('Maria Santos', $bondRequest->authorized_representative);
+        $this->assertSame('111-222-333-0000', $bondRequest->tin);
+    }
+
+    public function test_requester_cannot_create_car_certificate_without_valid_tin(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')
+                ->with(42)
+                ->andReturn([
+                    'id' => 42,
+                    'company_name' => 'Acme Obligee Corp',
+                    'label' => 'Acme Obligee Corp',
+                ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Maria Santos',
+            'tin' => '111-222-333',
+            'principal_id' => $principal->id,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionHasErrors('tin');
+        $this->assertDatabaseCount('bond_requests', 0);
     }
 
     public function test_requester_cannot_create_bond_request_without_branch_code(): void

@@ -9,7 +9,7 @@ class Branch extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'branch_code', 'address', 'contact', 'notary_price', 'is_active'];
+    protected $fillable = ['name', 'branch_code', 'branch_city', 'address', 'contact', 'notary_price', 'is_active'];
 
     protected function casts(): array
     {
@@ -27,11 +27,11 @@ class Branch extends Model
         return static::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'address', 'branch_code'])
+            ->get(['id', 'name', 'address', 'branch_city', 'branch_code'])
             ->map(fn (self $branch) => [
                 'value' => $branch->id,
                 'label' => $branch->name,
-                'city' => $branch->address,
+                'city' => $branch->branch_city ?? $branch->address,
                 'branch_code' => $branch->branch_code ? strtoupper($branch->branch_code) : null,
             ])
             ->values()
