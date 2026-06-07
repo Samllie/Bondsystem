@@ -36,6 +36,8 @@ class BondRequest extends Model
         'inception_date',
         'attention',
         'supporting_document_path',
+        'docx_path',
+        'certificate_path',
         'certificate_type',
         'car',
         'authorized_representative',

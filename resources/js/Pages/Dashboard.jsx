@@ -44,7 +44,7 @@ export default function Dashboard({ stats, recentRequests, recentTransactions, c
                         <table className="min-w-full text-sm">
                             <thead className="bg-slate-50">
                                 <tr>
-                                    {['Bond #', 'Amount', 'Status', 'Date'].map((h) => (
+                                    {['Bond #', 'Amount', 'Status', 'Date', 'Certificate'].map((h) => (
                                         <th key={h} className="px-4 py-3 text-left text-xs font-medium text-slate-500">{h}</th>
                                     ))}
                                 </tr>
@@ -58,6 +58,29 @@ export default function Dashboard({ stats, recentRequests, recentTransactions, c
                                         <td className="px-4 py-3">{php(r.amount)}</td>
                                         <td className="px-4 py-3"><StatusBadge label={r.status_label} color={r.status_color} /></td>
                                         <td className="px-4 py-3 text-slate-500">{r.request_date}</td>
+                                        <td className="px-4 py-3">
+                                            {r.has_certificate ? (
+                                                <div className="flex flex-wrap gap-2">
+                                                    <a
+                                                        href={route('bond-requests.view-certificate', r.id)}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-xs font-medium text-sterling-green hover:underline"
+                                                    >
+                                                        View
+                                                    </a>
+                                                    <span className="text-slate-300">|</span>
+                                                    <a
+                                                        href={route('bond-requests.download-certificate', r.id)}
+                                                        className="text-xs font-medium text-sterling-green hover:underline"
+                                                    >
+                                                        Download
+                                                    </a>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-400">Not yet available</span>
+                                            )}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

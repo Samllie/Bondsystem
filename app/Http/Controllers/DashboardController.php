@@ -55,6 +55,7 @@ class DashboardController extends Controller
                 'status_label' => $b->status->label(),
                 'status_color' => $b->status->color(),
                 'request_date' => $b->request_date->format('M d, Y'),
+                'has_certificate' => $b->certificate_path !== null,
             ]);
 
         $recentTransactions = Transaction::where('user_id', $user->id)

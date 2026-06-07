@@ -14,6 +14,7 @@ use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
 use App\Models\PaymentHistory;
 use App\Services\ActivityLogger;
+use App\Services\CertificateGenerationService;
 use App\Services\KycObligeeService;
 use App\Support\AmountInWords;
 use App\Support\BondNumberGenerator;
@@ -22,10 +23,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BondRequestController extends Controller
 {
-    public function __construct(private KycObligeeService $kycObligeeService) {}
+    public function __construct(
+        private KycObligeeService $kycObligeeService,
+        private CertificateGenerationService $certificateGenerationService,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -116,6 +122,11 @@ class BondRequestController extends Controller
         $canApprove = request()->user()->hasPermission('bond-requests.approve')
             && $bondRequest->status === BondRequestStatus::Pending;
 
+        $canGenerateCertificate = request()->user()->hasPermission('bond-requests.approve')
+            && in_array($bondRequest->status->value, [BondRequestStatus::Approved->value, BondRequestStatus::Notarized->value], true);
+
+        $needsOptions = $canApprove || $canGenerateCertificate;
+
         return Inertia::render('BondRequests/Show', [
             'bondRequest' => $bondRequest,
             'supportingDocumentUrl' => $bondRequest->supporting_document_path
@@ -126,8 +137,11 @@ class BondRequestController extends Controller
             'canApprove' => $canApprove,
             'canNotarize' => request()->user()->hasPermission('bond-requests.notarize')
                 && $bondRequest->status === BondRequestStatus::Approved,
-            'signatoryOptions' => $canApprove ? $this->signatoryOptions() : [],
-            'notaryOptions' => $canApprove ? $this->notaryOptions() : [],
+            'canGenerateCertificate' => $canGenerateCertificate,
+            'hasCertificate' => $bondRequest->certificate_path !== null,
+            'hasDocx' => $bondRequest->docx_path !== null,
+            'signatoryOptions' => $needsOptions ? $this->signatoryOptions() : [],
+            'notaryOptions' => $needsOptions ? $this->notaryOptions() : [],
         ]);
     }
 
@@ -228,6 +242,95 @@ class BondRequestController extends Controller
         ActivityLogger::log('notarized', "Bond request {$bondRequest->bond_number} notarized.", $bondRequest);
 
         return back()->with('success', 'Bond request marked as notarized.');
+    }
+
+    public function generateCertificate(Request $request, BondRequest $bondRequest): RedirectResponse
+    {
+        abort_unless($request->user()->hasPermission('bond-requests.approve'), 403);
+        abort_unless(
+            in_array($bondRequest->status->value, [BondRequestStatus::Approved->value, BondRequestStatus::Notarized->value], true),
+            422,
+            'Certificate can only be generated for approved or notarized bond requests.',
+        );
+
+        $validated = $request->validate([
+            'signatory_id' => ['required', 'integer', 'exists:signatories,id'],
+            'notary_id' => ['required', 'integer', 'exists:notaries,id'],
+            'doc_no' => ['required', 'string', 'max:50'],
+            'page_no' => ['required', 'string', 'max:50'],
+            'book_no' => ['required', 'string', 'max:50'],
+            'series_year' => ['required', 'string', 'size:4'],
+        ]);
+
+        $signatory = Signatory::findOrFail($validated['signatory_id']);
+
+        $bondRequest->update([
+            'signatory_id' => $signatory->id,
+            'signatory_position' => $signatory->position,
+            'notary_id' => $validated['notary_id'],
+            'doc_no' => $validated['doc_no'],
+            'page_no' => $validated['page_no'],
+            'book_no' => $validated['book_no'],
+            'series_year' => $validated['series_year'],
+        ]);
+
+        try {
+            $this->certificateGenerationService->generate($bondRequest->fresh());
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Certificate generation failed: '.$e->getMessage());
+        }
+
+        ActivityLogger::log('generated', "Certificate generated for bond request {$bondRequest->bond_number}.", $bondRequest);
+
+        return back()->with('success', 'Certificate generated successfully.');
+    }
+
+    public function viewCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
+    {
+        $this->authorize('view', $bondRequest);
+        abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
+
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($bondRequest->certificate_path), 404, 'Certificate file not found.');
+
+        $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
+        $filename = "{$bondRequest->bond_number}_certificate.{$extension}";
+        $mimeType = $extension === 'pdf' ? 'application/pdf' : 'application/octet-stream';
+
+        return response()->file(
+            $disk->path($bondRequest->certificate_path),
+            [
+                'Content-Type' => $mimeType,
+                'Content-Disposition' => "inline; filename=\"{$filename}\"",
+            ],
+        );
+    }
+
+    public function downloadCertificate(Request $request, BondRequest $bondRequest): StreamedResponse
+    {
+        $this->authorize('view', $bondRequest);
+        abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
+
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($bondRequest->certificate_path), 404, 'Certificate file not found.');
+
+        $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
+        $filename = "{$bondRequest->bond_number}_certificate.{$extension}";
+
+        return $disk->download($bondRequest->certificate_path, $filename);
+    }
+
+    public function downloadDocx(Request $request, BondRequest $bondRequest): StreamedResponse
+    {
+        $this->authorize('view', $bondRequest);
+        abort_if($bondRequest->docx_path === null, 404, 'No DOCX has been generated yet.');
+
+        $disk = Storage::disk('local');
+        abort_unless($disk->exists($bondRequest->docx_path), 404, 'DOCX file not found.');
+
+        $filename = "{$bondRequest->bond_number}_certificate.docx";
+
+        return $disk->download($bondRequest->docx_path, $filename);
     }
 
     /**

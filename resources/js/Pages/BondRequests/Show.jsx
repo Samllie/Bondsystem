@@ -18,13 +18,17 @@ export default function Show({
     canDelete,
     canApprove,
     canNotarize,
+    canGenerateCertificate,
+    hasCertificate,
+    hasDocx,
     signatoryOptions,
     notaryOptions,
 }) {
     const [deleteOpen, setDeleteOpen] = useState(false);
+
+    // ── Approve form ──────────────────────────────────────────────────────────
     const [bookNoDraft, setBookNoDraft] = useState('');
-    const bookNoDebounceRef = useRef(null);
-    const status = bondRequest.status?.value || bondRequest.status;
+    const bookNoRef = useRef(null);
 
     const approveForm = useForm({
         signatory_id: '',
@@ -35,6 +39,30 @@ export default function Show({
         series_year: bondRequest.series_year || String(new Date().getFullYear()),
     });
 
+    // ── Generate Certificate form ─────────────────────────────────────────────
+    const [generateBookNoDraft, setGenerateBookNoDraft] = useState(
+        formatBookNoDisplay(bondRequest.book_no) || '',
+    );
+    const generateBookNoRef = useRef(null);
+
+    const generateForm = useForm({
+        signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
+        notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
+        doc_no: bondRequest.doc_no || '',
+        page_no: bondRequest.page_no || '',
+        book_no: bondRequest.book_no || '',
+        series_year: bondRequest.series_year || String(new Date().getFullYear()),
+    });
+
+    const canGenerate =
+        Boolean(generateForm.data.signatory_id) &&
+        Boolean(generateForm.data.notary_id) &&
+        generateForm.data.doc_no.trim() !== '' &&
+        generateForm.data.page_no.trim() !== '' &&
+        generateForm.data.book_no.trim() !== '' &&
+        generateForm.data.series_year.trim() !== '';
+
+    // ── Shared option lists ───────────────────────────────────────────────────
     const signatorySelectOptions = useMemo(
         () => [{ value: '', label: 'Select signatory…' }, ...signatoryOptions],
         [signatoryOptions],
@@ -45,18 +73,22 @@ export default function Show({
         [notaryOptions],
     );
 
-    useEffect(() => () => clearTimeout(bookNoDebounceRef.current), []);
+    useEffect(
+        () => () => {
+            clearTimeout(bookNoRef.current);
+            clearTimeout(generateBookNoRef.current);
+        },
+        [],
+    );
 
-    const handleSignatoryChange = (event) => {
-        approveForm.setData('signatory_id', event.target.value);
-    };
+    const status = bondRequest.status?.value || bondRequest.status;
 
-    const handleBookNoChange = (event) => {
+    // ── Approve handlers ──────────────────────────────────────────────────────
+    const handleApproveBookNoChange = (event) => {
         const value = event.target.value;
         setBookNoDraft(value);
-
-        clearTimeout(bookNoDebounceRef.current);
-        bookNoDebounceRef.current = setTimeout(() => {
+        clearTimeout(bookNoRef.current);
+        bookNoRef.current = setTimeout(() => {
             const formatted = formatBookNoInput(value);
             setBookNoDraft(formatted);
             approveForm.setData('book_no', formatted);
@@ -65,21 +97,39 @@ export default function Show({
 
     const submitApprove = (e) => {
         e.preventDefault();
-
-        clearTimeout(bookNoDebounceRef.current);
-        const formattedBookNo = formatBookNoInput(bookNoDraft);
-        setBookNoDraft(formattedBookNo);
-
-        approveForm.transform((current) => ({
-            ...current,
-            book_no: formattedBookNo,
-        }));
-
+        clearTimeout(bookNoRef.current);
+        const formatted = formatBookNoInput(bookNoDraft);
+        setBookNoDraft(formatted);
+        approveForm.transform((current) => ({ ...current, book_no: formatted }));
         approveForm.post(route('bond-requests.approve', bondRequest.id), {
             preserveScroll: true,
         });
     };
 
+    // ── Generate handlers ─────────────────────────────────────────────────────
+    const handleGenerateBookNoChange = (event) => {
+        const value = event.target.value;
+        setGenerateBookNoDraft(value);
+        clearTimeout(generateBookNoRef.current);
+        generateBookNoRef.current = setTimeout(() => {
+            const formatted = formatBookNoInput(value);
+            setGenerateBookNoDraft(formatted);
+            generateForm.setData('book_no', formatted);
+        }, 750);
+    };
+
+    const submitGenerate = (e) => {
+        e.preventDefault();
+        clearTimeout(generateBookNoRef.current);
+        const formatted = formatBookNoInput(generateBookNoDraft);
+        setGenerateBookNoDraft(formatted);
+        generateForm.transform((current) => ({ ...current, book_no: formatted }));
+        generateForm.post(route('bond-requests.generate-certificate', bondRequest.id), {
+            preserveScroll: true,
+        });
+    };
+
+    // ── Derived display values ────────────────────────────────────────────────
     const addresses = [bondRequest.address_1, bondRequest.address_2, bondRequest.address_3].filter(Boolean);
     const inceptionDate = bondRequest.inception_date ? String(bondRequest.inception_date).substring(0, 10) : null;
     const hasCertificateDetails = bondRequest.signatory_id || bondRequest.notary_id || bondRequest.doc_no;
@@ -95,7 +145,10 @@ export default function Show({
                         </Link>
                     )}
                     {canApprove && (
-                        <SecondaryButton type="button" onClick={() => router.post(route('bond-requests.reject', bondRequest.id))}>
+                        <SecondaryButton
+                            type="button"
+                            onClick={() => router.post(route('bond-requests.reject', bondRequest.id))}
+                        >
                             Reject
                         </SecondaryButton>
                     )}
@@ -106,6 +159,25 @@ export default function Show({
                         >
                             Mark Notarized
                         </PrimaryButton>
+                    )}
+                    {hasCertificate && (
+                        <a
+                            href={route('bond-requests.view-certificate', bondRequest.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <SecondaryButton type="button">View Certificate</SecondaryButton>
+                        </a>
+                    )}
+                    {hasCertificate && (
+                        <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
+                            <SecondaryButton type="button">Download Certificate</SecondaryButton>
+                        </a>
+                    )}
+                    {hasDocx && (
+                        <a href={route('bond-requests.download-docx', bondRequest.id)} download>
+                            <SecondaryButton type="button">Download DOCX</SecondaryButton>
+                        </a>
                     )}
                     {canDelete && (
                         <SecondaryButton onClick={() => setDeleteOpen(true)} className="!text-red-600">
@@ -207,7 +279,7 @@ export default function Show({
                             <SelectField
                                 label="Signatory"
                                 value={approveForm.data.signatory_id}
-                                onChange={handleSignatoryChange}
+                                onChange={(e) => approveForm.setData('signatory_id', e.target.value)}
                                 options={signatorySelectOptions}
                                 error={approveForm.errors.signatory_id}
                                 required
@@ -216,7 +288,7 @@ export default function Show({
                                 label="Position"
                                 value={
                                     signatoryOptions.find(
-                                        (option) => String(option.value) === String(approveForm.data.signatory_id),
+                                        (o) => String(o.value) === String(approveForm.data.signatory_id),
                                     )?.position || '—'
                                 }
                                 readOnly
@@ -247,7 +319,7 @@ export default function Show({
                             <TextField
                                 label="Book No."
                                 value={bookNoDraft}
-                                onChange={handleBookNoChange}
+                                onChange={handleApproveBookNoChange}
                                 placeholder="e.g. V"
                                 error={approveForm.errors.book_no}
                                 required
@@ -263,6 +335,105 @@ export default function Show({
                             <div className="flex gap-3 sm:col-span-2">
                                 <PrimaryButton disabled={approveForm.processing}>
                                     {approveForm.processing ? 'Approving…' : 'Approve request'}
+                                </PrimaryButton>
+                            </div>
+                        </form>
+                    </CardBody>
+                </Card>
+            )}
+
+            {['approved', 'notarized'].includes(status) && !canGenerateCertificate && (
+                <Card className="mt-6">
+                    <CardHeader title="Certificate" />
+                    <CardBody>
+                        {hasCertificate ? (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <p className="text-sm text-slate-600">Your certificate is ready.</p>
+                                <a
+                                    href={route('bond-requests.view-certificate', bondRequest.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <SecondaryButton type="button">View Certificate</SecondaryButton>
+                                </a>
+                                <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
+                                    <SecondaryButton type="button">Download Certificate</SecondaryButton>
+                                </a>
+                            </div>
+                        ) : (
+                            <p className="text-sm text-slate-500">Certificate not yet available.</p>
+                        )}
+                    </CardBody>
+                </Card>
+            )}
+
+            {canGenerateCertificate && (
+                <Card className="mt-6">
+                    <CardHeader title="Generate Certificate" />
+                    <CardBody>
+                        <p className="mb-4 text-sm text-slate-600">
+                            Review the certificate details below. All fields are required before generating.
+                        </p>
+                        <form onSubmit={submitGenerate} className="grid gap-4 sm:grid-cols-2">
+                            <SelectField
+                                label="Signatory"
+                                value={generateForm.data.signatory_id}
+                                onChange={(e) => generateForm.setData('signatory_id', e.target.value)}
+                                options={signatorySelectOptions}
+                                error={generateForm.errors.signatory_id}
+                                required
+                            />
+                            <TextField
+                                label="Position"
+                                value={
+                                    signatoryOptions.find(
+                                        (o) => String(o.value) === String(generateForm.data.signatory_id),
+                                    )?.position || '—'
+                                }
+                                readOnly
+                                className="bg-slate-50"
+                            />
+                            <SelectField
+                                label="Notary"
+                                value={generateForm.data.notary_id}
+                                onChange={(e) => generateForm.setData('notary_id', e.target.value)}
+                                options={notarySelectOptions}
+                                error={generateForm.errors.notary_id}
+                                required
+                            />
+                            <TextField
+                                label="Doc No."
+                                value={generateForm.data.doc_no}
+                                onChange={(e) => generateForm.setData('doc_no', e.target.value)}
+                                error={generateForm.errors.doc_no}
+                                required
+                            />
+                            <TextField
+                                label="Page No."
+                                value={generateForm.data.page_no}
+                                onChange={(e) => generateForm.setData('page_no', e.target.value)}
+                                error={generateForm.errors.page_no}
+                                required
+                            />
+                            <TextField
+                                label="Book No."
+                                value={generateBookNoDraft}
+                                onChange={handleGenerateBookNoChange}
+                                placeholder="e.g. V"
+                                error={generateForm.errors.book_no}
+                                required
+                            />
+                            <TextField
+                                label="Series year"
+                                value={generateForm.data.series_year}
+                                onChange={(e) => generateForm.setData('series_year', e.target.value)}
+                                error={generateForm.errors.series_year}
+                                maxLength={4}
+                                required
+                            />
+                            <div className="flex gap-3 sm:col-span-2">
+                                <PrimaryButton disabled={!canGenerate || generateForm.processing}>
+                                    {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
                                 </PrimaryButton>
                             </div>
                         </form>
