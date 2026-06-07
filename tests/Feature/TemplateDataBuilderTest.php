@@ -57,17 +57,22 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $expectedKeys = [
+        $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
             'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.',
-            'Bond', 'BOND', 'PRINCIPAL', 'Date in words', 'Date issued in words',
-            'Notary', 'Series year', 'Signature',
+            'Bond', 'BOND', 'PRINCIPAL', 'Date in words', 'Date issued in words', 'Series year',
         ];
 
-        foreach ($expectedKeys as $key) {
+        foreach ($expectedTextKeys as $key) {
             $this->assertArrayHasKey($key, $data['text'], "Missing text placeholder: {$key}");
         }
+
+        // Notary is an image placeholder when a seal exists, otherwise an empty text fallback.
+        $this->assertTrue(
+            isset($data['images']['Notary']) || isset($data['text']['Notary']),
+            'Notary placeholder must appear in either images or text',
+        );
     }
 
     public function test_bond_date_comes_from_request_date(): void
@@ -94,7 +99,7 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $this->assertSame('SEVENTH DAY OF JUNE TWO THOUSAND TWENTY-SIX', $data['text']['Date in words']);
+        $this->assertSame('7th day of June, 2026', $data['text']['Date in words']);
     }
 
     public function test_bond_date_issued_in_words_uses_date_issued(): void
@@ -103,7 +108,7 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $this->assertSame('FIRST DAY OF JANUARY TWO THOUSAND TWENTY-SIX', $data['text']['Date issued in words']);
+        $this->assertSame('1st day of January, 2026', $data['text']['Date issued in words']);
     }
 
     public function test_bond_uses_amount_in_words_stored_value(): void
@@ -240,6 +245,41 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertArrayNotHasKey('Signature', $data['images']);
         $this->assertArrayHasKey('Signature', $data['text']);
         $this->assertSame('', $data['text']['Signature']);
+    }
+
+    public function test_bond_notary_seal_goes_into_images_not_text_when_file_exists(): void
+    {
+        $sealPath = 'notary-seals/test_seal.png';
+        Storage::disk('public')->put($sealPath, 'fake-png-content');
+
+        $notary = Notary::factory()->create([
+            'signature_path' => $sealPath,
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->bondRequest(['notary_id' => $notary->id]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayHasKey('Notary', $data['images']);
+        $this->assertArrayNotHasKey('Notary', $data['text']);
+        $this->assertSame(100, $data['images']['Notary']['width']);
+        $this->assertSame(100, $data['images']['Notary']['height']);
+        $this->assertTrue($data['images']['Notary']['ratio']);
+    }
+
+    public function test_bond_notary_seal_becomes_empty_text_when_no_seal_file(): void
+    {
+        $notary = Notary::factory()->create([
+            'signature_path' => null,
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->bondRequest(['notary_id' => $notary->id]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayNotHasKey('Notary', $data['images']);
+        $this->assertArrayHasKey('Notary', $data['text']);
+        $this->assertSame('', $data['text']['Notary']);
     }
 
     public function test_bond_signatory_missing_produces_empty_strings_not_exception(): void

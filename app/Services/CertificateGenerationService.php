@@ -154,10 +154,11 @@ class CertificateGenerationService
             return null;
         }
 
+        $escapedExe = escapeshellarg($libreOffice);
         $escapedDocx = escapeshellarg($docxAbsolutePath);
         $escapedDir = escapeshellarg($directory);
 
-        $command = "{$libreOffice} --headless --convert-to pdf --outdir {$escapedDir} {$escapedDocx} 2>&1";
+        $command = "{$escapedExe} --headless --convert-to pdf --outdir {$escapedDir} {$escapedDocx} 2>&1";
         exec($command, $output, $exitCode);
 
         if ($exitCode !== 0) {
@@ -178,9 +179,13 @@ class CertificateGenerationService
 
     private function buildFilename(BondRequest $bondRequest, string $extension): string
     {
-        $bondNumber = preg_replace('/[^A-Za-z0-9\-_]/', '_', $bondRequest->bond_number ?? 'bond');
+        $obligee = $bondRequest->obligee_name ?? 'obligee';
+        $bond = $bondRequest->bond_number ?? 'bond';
+        $base = preg_replace('/[^A-Za-z0-9\-_]+/', '_', "{$obligee}_{$bond}");
+        $base = trim((string) $base, '_');
 
-        return "{$bondNumber}_{$bondRequest->id}.{$extension}";
+        // The id keeps the stored file unique (bond numbers can repeat across requests).
+        return "{$base}_{$bondRequest->id}.{$extension}";
     }
 
     private function findLibreOffice(): ?string

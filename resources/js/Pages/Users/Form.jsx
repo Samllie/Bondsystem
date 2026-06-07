@@ -19,6 +19,7 @@ export default function Form({ roleOptions, branchOptions }) {
                 id: option.value,
                 label: option.label,
                 city: option.city,
+                branch_code: option.branch_code,
             })),
         [branchOptions],
     );
@@ -33,6 +34,7 @@ export default function Form({ roleOptions, branchOptions }) {
         password_confirmation: '',
         role_id: '',
         branch_id: '',
+        branch_code: '',
         branch_city: '',
         is_active: true,
     });
@@ -41,6 +43,7 @@ export default function Form({ roleOptions, branchOptions }) {
         setData((current) => ({
             ...current,
             branch_id: option.id,
+            branch_code: option.branch_code ?? current.branch_code,
             branch_city: option.city ?? '',
         }));
         setBranchLabel(option.label);
@@ -124,6 +127,18 @@ export default function Form({ roleOptions, branchOptions }) {
                             localOptions={branchComboboxOptions}
                             placeholder="Type or select a branch…"
                             error={errors.branch_id}
+                        />
+
+                        <TextField
+                            label="Branch Code"
+                            value={data.branch_code}
+                            onChange={(e) =>
+                                setData('branch_code', e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3))
+                            }
+                            maxLength={3}
+                            placeholder="e.g. MKT"
+                            error={errors.branch_code}
+                            className="uppercase"
                         />
 
                         <TextField

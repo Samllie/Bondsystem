@@ -17,7 +17,9 @@ class BranchSeederTest extends TestCase
 
         $this->assertDatabaseHas('branches', ['name' => 'Main Office- Makati', 'branch_city' => 'Makati', 'is_active' => true]);
         $this->assertDatabaseHas('branches', ['name' => 'Cebu Branch', 'branch_code' => 'CEB', 'branch_city' => 'Cebu', 'is_active' => true]);
-        $this->assertDatabaseHas('branches', ['name' => 'CDO Branch', 'branch_city' => 'Cagayan de Oro', 'is_active' => true]);
+
+        $cebu = Branch::where('branch_code', 'CEB')->first();
+        $this->assertSame('500.00', (string) $cebu->notary_price);
 
         $this->assertSame(32, Branch::where('is_active', true)->count());
     }

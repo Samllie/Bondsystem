@@ -16,21 +16,26 @@ use App\Models\PaymentHistory;
 use App\Services\ActivityLogger;
 use App\Services\CertificateGenerationService;
 use App\Services\KycObligeeService;
+use App\Services\NotaryFeeService;
 use App\Support\AmountInWords;
 use App\Support\BondNumberGenerator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Fluent;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BondRequestController extends Controller
 {
     public function __construct(
         private KycObligeeService $kycObligeeService,
         private CertificateGenerationService $certificateGenerationService,
+        private NotaryFeeService $notaryFeeService,
     ) {}
 
     public function index(Request $request): Response
@@ -64,7 +69,8 @@ class BondRequestController extends Controller
         $bondRequests = $query->latest()->paginate(10)->withQueryString();
 
         $bondRequests->getCollection()->transform(function (BondRequest $bondRequest) {
-            $bondRequest->setRelation('obligee', (object) $bondRequest->obligeeSummary());
+            $summary = $bondRequest->obligeeSummary();
+            $bondRequest->setRelation('obligee', $summary ? new Fluent($summary) : null);
 
             return $bondRequest;
         });
@@ -115,8 +121,9 @@ class BondRequestController extends Controller
     {
         $this->authorize('view', $bondRequest);
 
-        $bondRequest->load(['principal', 'bondTypeMaster', 'signatory', 'notary', 'creator:id,name,branch_id', 'creator.branch', 'approver:id,name']);
-        $bondRequest->setRelation('obligee', (object) $bondRequest->obligeeSummary());
+        $bondRequest->load(['principal', 'bondTypeMaster', 'signatory', 'notary', 'creator:id,name,branch_id,branch_code', 'creator.branch', 'approver:id,name']);
+        $summary = $bondRequest->obligeeSummary();
+        $bondRequest->setRelation('obligee', $summary ? new Fluent($summary) : null);
         $bondRequest->append(['status_label', 'status_color', 'bond_type_label', 'certificate_type_label', 'bond_label']);
 
         $canApprove = request()->user()->hasPermission('bond-requests.approve')
@@ -197,20 +204,25 @@ class BondRequestController extends Controller
     {
         abort_unless($bondRequest->status === BondRequestStatus::Pending, 422);
 
-        $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
+        DB::transaction(function () use ($request, $bondRequest): void {
+            $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
 
-        $bondRequest->update([
-            'status' => BondRequestStatus::Approved,
-            'approved_by' => $request->user()->id,
-            'approved_at' => now(),
-            'signatory_id' => $signatory->id,
-            'signatory_position' => $signatory->position,
-            'notary_id' => $request->integer('notary_id'),
-            'doc_no' => $request->input('doc_no'),
-            'page_no' => $request->input('page_no'),
-            'book_no' => $request->input('book_no'),
-            'series_year' => $request->input('series_year'),
-        ]);
+            $bondRequest->update([
+                'status' => BondRequestStatus::Approved,
+                'approved_by' => $request->user()->id,
+                'approved_at' => now(),
+                'signatory_id' => $signatory->id,
+                'signatory_position' => $signatory->position,
+                'notary_id' => $request->filled('notary_id') ? $request->integer('notary_id') : null,
+                'doc_no' => $request->input('doc_no'),
+                'page_no' => $request->input('page_no'),
+                'book_no' => $request->input('book_no'),
+                'series_year' => $request->input('series_year'),
+            ]);
+
+            $bondRequest->loadMissing('creator');
+            $this->notaryFeeService->charge($bondRequest->creator, $bondRequest);
+        });
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
 
@@ -253,9 +265,11 @@ class BondRequestController extends Controller
             'Certificate can only be generated for approved or notarized bond requests.',
         );
 
+        $notaryRequired = $bondRequest->certificate_type === CertificateType::BondCertificate;
+
         $validated = $request->validate([
             'signatory_id' => ['required', 'integer', 'exists:signatories,id'],
-            'notary_id' => ['required', 'integer', 'exists:notaries,id'],
+            'notary_id' => [Rule::requiredIf($notaryRequired), 'nullable', 'integer', 'exists:notaries,id'],
             'doc_no' => ['required', 'string', 'max:50'],
             'page_no' => ['required', 'string', 'max:50'],
             'book_no' => ['required', 'string', 'max:50'],
@@ -267,7 +281,7 @@ class BondRequestController extends Controller
         $bondRequest->update([
             'signatory_id' => $signatory->id,
             'signatory_position' => $signatory->position,
-            'notary_id' => $validated['notary_id'],
+            'notary_id' => $validated['notary_id'] ?? null,
             'doc_no' => $validated['doc_no'],
             'page_no' => $validated['page_no'],
             'book_no' => $validated['book_no'],
@@ -277,6 +291,10 @@ class BondRequestController extends Controller
         try {
             $this->certificateGenerationService->generate($bondRequest->fresh());
         } catch (\Throwable $e) {
+            Log::error("Certificate generation failed for bond request #{$bondRequest->id}: {$e->getMessage()}", [
+                'exception' => $e,
+            ]);
+
             return back()->with('error', 'Certificate generation failed: '.$e->getMessage());
         }
 
@@ -287,18 +305,18 @@ class BondRequestController extends Controller
 
     public function viewCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
     {
-        $this->authorize('view', $bondRequest);
+        $this->authorize('viewCertificate', $bondRequest);
         abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
 
-        $disk = Storage::disk('local');
-        abort_unless($disk->exists($bondRequest->certificate_path), 404, 'Certificate file not found.');
+        $absolutePath = storage_path('app/'.$bondRequest->certificate_path);
+        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
 
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
-        $filename = "{$bondRequest->bond_number}_certificate.{$extension}";
-        $mimeType = $extension === 'pdf' ? 'application/pdf' : 'application/octet-stream';
+        $filename = $this->certificateFilename($bondRequest, $extension);
+        $mimeType = $extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
         return response()->file(
-            $disk->path($bondRequest->certificate_path),
+            $absolutePath,
             [
                 'Content-Type' => $mimeType,
                 'Content-Disposition' => "inline; filename=\"{$filename}\"",
@@ -306,31 +324,47 @@ class BondRequestController extends Controller
         );
     }
 
-    public function downloadCertificate(Request $request, BondRequest $bondRequest): StreamedResponse
+    public function downloadCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
     {
-        $this->authorize('view', $bondRequest);
+        $this->authorize('viewCertificate', $bondRequest);
         abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
 
-        $disk = Storage::disk('local');
-        abort_unless($disk->exists($bondRequest->certificate_path), 404, 'Certificate file not found.');
+        $absolutePath = storage_path('app/'.$bondRequest->certificate_path);
+        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
 
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
-        $filename = "{$bondRequest->bond_number}_certificate.{$extension}";
+        $filename = $this->certificateFilename($bondRequest, $extension);
 
-        return $disk->download($bondRequest->certificate_path, $filename);
+        return response()->download($absolutePath, $filename);
     }
 
-    public function downloadDocx(Request $request, BondRequest $bondRequest): StreamedResponse
+    public function downloadDocx(Request $request, BondRequest $bondRequest): BinaryFileResponse
     {
-        $this->authorize('view', $bondRequest);
+        $this->authorize('viewCertificate', $bondRequest);
         abort_if($bondRequest->docx_path === null, 404, 'No DOCX has been generated yet.');
 
-        $disk = Storage::disk('local');
-        abort_unless($disk->exists($bondRequest->docx_path), 404, 'DOCX file not found.');
+        $absolutePath = storage_path('app/'.$bondRequest->docx_path);
+        abort_unless(file_exists($absolutePath), 404, 'DOCX file not found.');
 
-        $filename = "{$bondRequest->bond_number}_certificate.docx";
+        $filename = $this->certificateFilename($bondRequest, 'docx');
 
-        return $disk->download($bondRequest->docx_path, $filename);
+        return response()->download($absolutePath, $filename);
+    }
+
+    /**
+     * Build a human-readable download filename: "{Obligee} - {Bond}.{ext}".
+     */
+    private function certificateFilename(BondRequest $bondRequest, string $extension): string
+    {
+        $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Certificate';
+        $bond = trim((string) ($bondRequest->bond_number ?? ''));
+        $name = $bond !== '' ? "{$obligee} - {$bond}" : $obligee;
+
+        // Strip characters that are invalid in filenames while keeping it readable.
+        $name = preg_replace('/[\/\\\\:*?"<>|]+/', ' ', $name);
+        $name = trim(preg_replace('/\s+/', ' ', (string) $name));
+
+        return "{$name}.{$extension}";
     }
 
     /**
@@ -390,13 +424,18 @@ class BondRequestController extends Controller
      */
     private function bondRequestAttributes(Request $request, ?BondRequest $bondRequest = null): array
     {
-        $obligee = $this->kycObligeeService->find($request->integer('obligee_id'));
+        $obligeeId = $request->filled('obligee_id') ? $request->integer('obligee_id') : null;
+        $obligee = $obligeeId !== null ? $this->kycObligeeService->find($obligeeId) : null;
         $obligeeName = $request->string('obligee_name')->trim()->toString();
+        $principalName = $request->string('principal_name')->trim()->toString();
         $certificateType = $request->enum('certificate_type', CertificateType::class);
 
         $attributes = [
             ...$request->validated(),
+            'obligee_id' => $obligeeId,
             'obligee_name' => $obligeeName !== '' ? $obligeeName : ($obligee['company_name'] ?? ''),
+            'principal_id' => $request->filled('principal_id') ? $request->integer('principal_id') : null,
+            'principal_name' => $principalName,
             'amount_in_words' => AmountInWords::format($request->input('amount')),
         ];
 

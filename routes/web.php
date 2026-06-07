@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ObligeeController as ApiObligeeController;
 use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
 use App\Http\Controllers\BondRequestController;
+use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
@@ -49,6 +50,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('bond-requests/{bond_request}/view-certificate', [BondRequestController::class, 'viewCertificate'])->name('bond-requests.view-certificate');
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
     Route::get('bond-requests/{bond_request}/download-docx', [BondRequestController::class, 'downloadDocx'])->name('bond-requests.download-docx');
+
+    // Certifications (branch-scoped certificate registry)
+    Route::get('/certifications', [CertificateController::class, 'index'])->name('certifications.index');
 
     // Obligees & Principals
     Route::resource('obligees', ObligeeController::class);

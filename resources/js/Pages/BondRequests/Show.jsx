@@ -45,6 +45,25 @@ export default function Show({
     );
     const generateBookNoRef = useRef(null);
 
+    const isCarCertificate =
+        (bondRequest.certificate_type?.value || bondRequest.certificate_type) === 'car_certificate';
+
+    // True when all certificate details were already saved during approval.
+    // CAR certificates have no notary, so it is not part of the requirement.
+    const detailsAlreadySaved = Boolean(
+        bondRequest.signatory_id &&
+            (isCarCertificate || bondRequest.notary_id) &&
+            bondRequest.doc_no &&
+            bondRequest.page_no &&
+            bondRequest.book_no &&
+            bondRequest.series_year,
+    );
+
+    // The approver opted to edit the saved details. Defaults to false so that an
+    // approved request lands directly on the generate-ready (compact) view.
+    const [forceEditGenerateDetails, setForceEditGenerateDetails] = useState(false);
+    const showGenerateForm = !detailsAlreadySaved || forceEditGenerateDetails;
+
     const generateForm = useForm({
         signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
         notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
@@ -56,7 +75,7 @@ export default function Show({
 
     const canGenerate =
         Boolean(generateForm.data.signatory_id) &&
-        Boolean(generateForm.data.notary_id) &&
+        (isCarCertificate || Boolean(generateForm.data.notary_id)) &&
         generateForm.data.doc_no.trim() !== '' &&
         generateForm.data.page_no.trim() !== '' &&
         generateForm.data.book_no.trim() !== '' &&
@@ -209,7 +228,7 @@ export default function Show({
                             </>
                         )}
                         <Detail label="TIN" value={bondRequest.tin || '—'} capitalize={false} />
-                        <Detail label="Principal" value={bondRequest.principal?.company_name} />
+                        <Detail label="Principal" value={bondRequest.principal?.company_name || bondRequest.principal_name} />
                         <Detail label="Obligee" value={bondRequest.obligee?.company_name} />
                         <Detail
                             label="Address"
@@ -295,12 +314,12 @@ export default function Show({
                                 className="bg-slate-50"
                             />
                             <SelectField
-                                label="Notary"
+                                label={isCarCertificate ? 'Notary (optional)' : 'Notary'}
                                 value={approveForm.data.notary_id}
                                 onChange={(e) => approveForm.setData('notary_id', e.target.value)}
                                 options={notarySelectOptions}
                                 error={approveForm.errors.notary_id}
-                                required
+                                required={!isCarCertificate}
                             />
                             <TextField
                                 label="Doc No."
@@ -369,74 +388,126 @@ export default function Show({
 
             {canGenerateCertificate && (
                 <Card className="mt-6">
-                    <CardHeader title="Generate Certificate" />
+                    <CardHeader
+                        title="Generate Certificate"
+                        action={
+                            detailsAlreadySaved && (
+                                <button
+                                    type="button"
+                                    onClick={() => setForceEditGenerateDetails((v) => !v)}
+                                    className="text-sm text-sterling-green hover:underline"
+                                >
+                                    {forceEditGenerateDetails ? 'Hide details' : 'Edit details'}
+                                </button>
+                            )
+                        }
+                    />
                     <CardBody>
-                        <p className="mb-4 text-sm text-slate-600">
-                            Review the certificate details below. All fields are required before generating.
-                        </p>
-                        <form onSubmit={submitGenerate} className="grid gap-4 sm:grid-cols-2">
-                            <SelectField
-                                label="Signatory"
-                                value={generateForm.data.signatory_id}
-                                onChange={(e) => generateForm.setData('signatory_id', e.target.value)}
-                                options={signatorySelectOptions}
-                                error={generateForm.errors.signatory_id}
-                                required
-                            />
-                            <TextField
-                                label="Position"
-                                value={
-                                    signatoryOptions.find(
-                                        (o) => String(o.value) === String(generateForm.data.signatory_id),
-                                    )?.position || '—'
-                                }
-                                readOnly
-                                className="bg-slate-50"
-                            />
-                            <SelectField
-                                label="Notary"
-                                value={generateForm.data.notary_id}
-                                onChange={(e) => generateForm.setData('notary_id', e.target.value)}
-                                options={notarySelectOptions}
-                                error={generateForm.errors.notary_id}
-                                required
-                            />
-                            <TextField
-                                label="Doc No."
-                                value={generateForm.data.doc_no}
-                                onChange={(e) => generateForm.setData('doc_no', e.target.value)}
-                                error={generateForm.errors.doc_no}
-                                required
-                            />
-                            <TextField
-                                label="Page No."
-                                value={generateForm.data.page_no}
-                                onChange={(e) => generateForm.setData('page_no', e.target.value)}
-                                error={generateForm.errors.page_no}
-                                required
-                            />
-                            <TextField
-                                label="Book No."
-                                value={generateBookNoDraft}
-                                onChange={handleGenerateBookNoChange}
-                                placeholder="e.g. V"
-                                error={generateForm.errors.book_no}
-                                required
-                            />
-                            <TextField
-                                label="Series year"
-                                value={generateForm.data.series_year}
-                                onChange={(e) => generateForm.setData('series_year', e.target.value)}
-                                error={generateForm.errors.series_year}
-                                maxLength={4}
-                                required
-                            />
-                            <div className="flex gap-3 sm:col-span-2">
-                                <PrimaryButton disabled={!canGenerate || generateForm.processing}>
-                                    {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
-                                </PrimaryButton>
+                        {!showGenerateForm ? (
+                            /* ── Compact view: details saved during approval ── */
+                            <div className="space-y-4">
+                                <dl className="grid gap-3 sm:grid-cols-3 text-sm">
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Signatory</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.signatory?.name || '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Position</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.signatory_position || bondRequest.signatory?.position || '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Notary</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.notary?.name || '—'}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Doc No.</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.doc_no}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Page No.</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.page_no}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Book No.</dt>
+                                        <dd className="mt-1 text-slate-900">{formatBookNoDisplay(bondRequest.book_no)}</dd>
+                                    </div>
+                                    <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Series year</dt>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.series_year}</dd>
+                                    </div>
+                                </dl>
+                                <form onSubmit={submitGenerate}>
+                                    <PrimaryButton disabled={generateForm.processing}>
+                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
+                                    </PrimaryButton>
+                                </form>
                             </div>
-                        </form>
+                        ) : (
+                            /* ── Full editable form ── */
+                            <form onSubmit={submitGenerate} className="grid gap-4 sm:grid-cols-2">
+                                <SelectField
+                                    label="Signatory"
+                                    value={generateForm.data.signatory_id}
+                                    onChange={(e) => generateForm.setData('signatory_id', e.target.value)}
+                                    options={signatorySelectOptions}
+                                    error={generateForm.errors.signatory_id}
+                                    required
+                                />
+                                <TextField
+                                    label="Position"
+                                    value={
+                                        signatoryOptions.find(
+                                            (o) => String(o.value) === String(generateForm.data.signatory_id),
+                                        )?.position || '—'
+                                    }
+                                    readOnly
+                                    className="bg-slate-50"
+                                />
+                                <SelectField
+                                    label={isCarCertificate ? 'Notary (optional)' : 'Notary'}
+                                    value={generateForm.data.notary_id}
+                                    onChange={(e) => generateForm.setData('notary_id', e.target.value)}
+                                    options={notarySelectOptions}
+                                    error={generateForm.errors.notary_id}
+                                    required={!isCarCertificate}
+                                />
+                                <TextField
+                                    label="Doc No."
+                                    value={generateForm.data.doc_no}
+                                    onChange={(e) => generateForm.setData('doc_no', e.target.value)}
+                                    error={generateForm.errors.doc_no}
+                                    required
+                                />
+                                <TextField
+                                    label="Page No."
+                                    value={generateForm.data.page_no}
+                                    onChange={(e) => generateForm.setData('page_no', e.target.value)}
+                                    error={generateForm.errors.page_no}
+                                    required
+                                />
+                                <TextField
+                                    label="Book No."
+                                    value={generateBookNoDraft}
+                                    onChange={handleGenerateBookNoChange}
+                                    placeholder="e.g. V"
+                                    error={generateForm.errors.book_no}
+                                    required
+                                />
+                                <TextField
+                                    label="Series year"
+                                    value={generateForm.data.series_year}
+                                    onChange={(e) => generateForm.setData('series_year', e.target.value)}
+                                    error={generateForm.errors.series_year}
+                                    maxLength={4}
+                                    required
+                                />
+                                <div className="flex gap-3 sm:col-span-2">
+                                    <PrimaryButton disabled={!canGenerate || generateForm.processing}>
+                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
+                                    </PrimaryButton>
+                                </div>
+                            </form>
+                        )}
                     </CardBody>
                 </Card>
             )}

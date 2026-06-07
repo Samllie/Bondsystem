@@ -116,7 +116,7 @@ export default function Index({ bondRequests, filters, statusOptions, bondTypeOp
                                 <tr key={bond.id} className="hover:bg-slate-50">
                                     <td className="px-4 py-3 font-medium">{bond.bond_number}</td>
                                     <td className="px-4 py-3 capitalize">{bond.bond_type}</td>
-                                    <td className="px-4 py-3">{bond.principal?.company_name}</td>
+                                    <td className="px-4 py-3">{bond.principal?.company_name ?? bond.principal_name}</td>
                                     <td className="px-4 py-3">{bond.obligee_name ?? bond.obligee?.company_name}</td>
                                     <td className="px-4 py-3">
                                         {Number(bond.amount).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })}

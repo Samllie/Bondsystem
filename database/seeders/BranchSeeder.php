@@ -7,6 +7,8 @@ use Illuminate\Database\Seeder;
 
 class BranchSeeder extends Seeder
 {
+    private const SAMPLE_NOTARY_PRICE = 500.00;
+
     /**
      * @return array<int, array{name: string, branch_code: string, branch_city: string|null, contact: string|null}>
      */
@@ -63,6 +65,7 @@ class BranchSeeder extends Seeder
                     'branch_code' => $branch['branch_code'],
                     'branch_city' => $branch['branch_city'],
                     'contact' => $branch['contact'],
+                    'notary_price' => self::SAMPLE_NOTARY_PRICE,
                     'is_active' => true,
                 ],
             );

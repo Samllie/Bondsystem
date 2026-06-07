@@ -66,106 +66,116 @@ class TemplateNormalizerService
      * then convert every [[placeholder]] to ${placeholder} so that
      * PHPWord TemplateProcessor::setValue() can find it.
      *
-     * The algorithm walks each <w:p> (paragraph) element and concatenates the
-     * text of consecutive <w:r> elements. When the running buffer matches
-     * /\[\[.+?\]\]/ it replaces those runs with a single run that carries the
-     * first run's properties (<w:rPr>) and the merged text. Runs that do not
-     * participate in any placeholder are left unchanged.
+     * The algorithm walks every <w:r> run in document order (regardless of how
+     * paragraphs are nested — e.g. inside VML textboxes). When a run opens a
+     * placeholder ('[[') that is not closed within the same run, it accumulates
+     * the text of following runs until the placeholder is closed, then emits a
+     * single merged run carrying the opening run's properties (<w:rPr>). Merging
+     * never crosses a paragraph boundary (</w:p>) because placeholders never
+     * span paragraphs.
      */
     private function normalizeSplitRuns(string $xml): string
     {
-        // Step 1: merge runs per paragraph.
-        $merged = preg_replace_callback(
-            '/<w:p[ >].*?<\/w:p>/s',
-            fn (array $match) => $this->normalizeParagraph($match[0]),
-            $xml,
-        ) ?? $xml;
-
-        // Step 2: convert [[Foo]] → ${Foo} so TemplateProcessor can find them.
-        return (string) preg_replace('/\[\[([^\[\]]+)\]\]/', '${$1}', $merged);
-    }
-
-    private function normalizeParagraph(string $paragraphXml): string
-    {
-        // Extract all <w:r>…</w:r> blocks (runs) from the paragraph.
-        if (! preg_match_all('/<w:r[ >].*?<\/w:r>/s', $paragraphXml, $runMatches)) {
-            return $paragraphXml;
+        if (! preg_match_all('/<w:r\b[^>]*>.*?<\/w:r>/s', $xml, $matches, PREG_OFFSET_CAPTURE)) {
+            return $this->convertBrackets($xml);
         }
 
-        $runs = $runMatches[0];
-        $texts = array_map([$this, 'extractRunText'], $runs);
-        $fullText = implode('', $texts);
-
-        // If there are no placeholder fragments in this paragraph, skip it.
-        if (! str_contains($fullText, '[[') && ! str_contains($fullText, ']]')) {
-            return $paragraphXml;
-        }
-
-        $mergedRuns = $this->mergeRunsForPlaceholders($runs, $texts);
-
-        // Rebuild the paragraph by replacing the original run sequence with the
-        // merged one. We replace the entire block of consecutive runs in one
-        // shot to avoid mis-matched replacements.
-        $firstRun = $runs[0];
-        $lastRun = $runs[count($runs) - 1];
-
-        // Find the span from the first run to the last run in the paragraph XML.
-        $startPos = strpos($paragraphXml, $firstRun);
-        $endPos = strrpos($paragraphXml, $lastRun);
-
-        if ($startPos === false || $endPos === false) {
-            return $paragraphXml;
-        }
-
-        $endPos += strlen($lastRun);
-        $before = substr($paragraphXml, 0, $startPos);
-        $after = substr($paragraphXml, $endPos);
-
-        return $before.implode('', $mergedRuns).$after;
-    }
-
-    /**
-     * @param  array<int, string>  $runs
-     * @param  array<int, string>  $texts
-     * @return array<int, string>
-     */
-    private function mergeRunsForPlaceholders(array $runs, array $texts): array
-    {
-        $result = [];
-        $i = 0;
+        $runs = $matches[0];
         $total = count($runs);
+        $out = '';
+        $cursor = 0;
+        $i = 0;
 
         while ($i < $total) {
-            $buffer = $texts[$i];
+            [$runXml, $offset] = $runs[$i];
 
-            // No placeholder start here — emit the run as-is and move on.
-            if (! str_contains($buffer, '[[') || str_contains($buffer, '[[') && str_contains($buffer, ']]')) {
-                // If we already have a complete placeholder in a single run, just emit it.
-                $result[] = $this->rebuildRun($runs[$i], $buffer);
+            // Emit any markup that precedes this run unchanged.
+            $out .= substr($xml, $cursor, $offset - $cursor);
+
+            $text = $this->extractRunText($runXml);
+
+            // A run is left untouched unless it opens a placeholder ('[[') that is
+            // not closed within the same run. A run may legitimately contain
+            // complete placeholders AND a trailing unterminated '[[', so we look
+            // for an open bracket that has no ']]' after it — not just any ']]'.
+            if (! $this->hasUnterminatedOpen($text)) {
+                $out .= $runXml;
+                $cursor = $offset + strlen($runXml);
                 $i++;
 
                 continue;
             }
 
-            // We have a '[[ ' that doesn't yet have ']]' — start accumulating.
-            $groupStart = $i;
-            $rprXml = $this->extractRpr($runs[$i]);
+            $rprXml = $this->extractRpr($runXml);
+            $buffer = $text;
+            $endOffset = $offset + strlen($runXml);
             $j = $i + 1;
+            $closed = false;
 
-            while ($j < $total && ! str_contains($buffer, ']]')) {
-                $buffer .= $texts[$j];
+            while ($j < $total) {
+                [$nextRun, $nextOffset] = $runs[$j];
+
+                // Never merge across a paragraph boundary.
+                $between = substr($xml, $endOffset, $nextOffset - $endOffset);
+                if (str_contains($between, '</w:p>')) {
+                    break;
+                }
+
+                $buffer .= $this->extractRunText($nextRun);
+                $endOffset = $nextOffset + strlen($nextRun);
                 $j++;
+
+                if (! $this->hasUnterminatedOpen($buffer)) {
+                    $closed = true;
+                    break;
+                }
             }
 
-            // Build a single merged run for the whole placeholder group.
-            $result[] = $this->buildMergedRun($rprXml, $buffer);
-
-            // Any runs that were consumed but don't need their original form
-            // are already absorbed into $buffer — skip them.
-            $i = $j;
+            if ($closed) {
+                $out .= $this->buildMergedRun($rprXml, $buffer);
+                $cursor = $endOffset;
+                $i = $j;
+            } else {
+                // Placeholder never closes within this paragraph — leave as-is.
+                $out .= $runXml;
+                $cursor = $offset + strlen($runXml);
+                $i++;
+            }
         }
 
-        return $result;
+        $out .= substr($xml, $cursor);
+
+        return $this->convertBrackets($out);
+    }
+
+    /**
+     * Convert [[Foo]] tokens to ${Foo} so TemplateProcessor::setValue() can find
+     * them. The inner match excludes '<' and '>' so only placeholders contained
+     * within a single text node are converted; this prevents an unmerged token
+     * (split across runs/paragraphs) from being turned into a malformed macro
+     * that spans XML tags.
+     */
+    private function convertBrackets(string $xml): string
+    {
+        return (string) preg_replace('/\[\[([^\[\]<>]+)\]\]/', '${$1}', $xml);
+    }
+
+    /**
+     * Determine whether the text contains a '[[' that is not yet closed by a
+     * later ']]'. This correctly ignores complete placeholders that appear
+     * earlier in the same run.
+     */
+    private function hasUnterminatedOpen(string $text): bool
+    {
+        $lastOpen = strrpos($text, '[[');
+
+        if ($lastOpen === false) {
+            return false;
+        }
+
+        $lastClose = strrpos($text, ']]');
+
+        return $lastClose === false || $lastClose < $lastOpen;
     }
 
     private function extractRunText(string $runXml): string
@@ -183,25 +193,6 @@ class TemplateNormalizerService
         }
 
         return '';
-    }
-
-    private function rebuildRun(string $originalRun, string $text): string
-    {
-        // Replace the text inside <w:t> nodes with the (possibly unchanged) text.
-        // This handles xml:space="preserve" correctly.
-        return preg_replace_callback(
-            '/<w:t([^>]*)>.*?<\/w:t>/s',
-            function (array $m) use ($text): string {
-                $attrs = $m[1];
-                if (str_contains($text, ' ') && ! str_contains($attrs, 'xml:space')) {
-                    $attrs .= ' xml:space="preserve"';
-                }
-
-                return "<w:t{$attrs}>{$this->escapeXml($text)}</w:t>";
-            },
-            $originalRun,
-            1,
-        ) ?? $originalRun;
     }
 
     private function buildMergedRun(string $rprXml, string $text): string

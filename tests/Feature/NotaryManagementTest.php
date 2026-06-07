@@ -33,7 +33,7 @@ class NotaryManagementTest extends TestCase
         $response = $this->actingAs($admin)->post(route('maintenance.notaries.store'), [
             'name' => 'Atty. Maria Santos',
             'commission_number' => '2024-001-NCR',
-            'tin' => '123-456-789-000',
+            'tin' => '123-456-789-0000',
             'signature' => UploadedFile::fake()->createWithContent('seal.png', $png, 'image/png'),
         ]);
 
@@ -43,9 +43,39 @@ class NotaryManagementTest extends TestCase
         $this->assertNotNull($notary);
         $this->assertSame('Atty. Maria Santos', $notary->name);
         $this->assertSame('2024-001-NCR', $notary->commission_number);
-        $this->assertSame('123-456-789-000', $notary->tin);
+        $this->assertSame('123-456-789-0000', $notary->tin);
         $this->assertNotNull($notary->signature_path);
         Storage::disk('public')->assertExists($notary->signature_path);
+    }
+
+    public function test_notary_tin_must_follow_locked_format(): void
+    {
+        $admin = $this->adminUser();
+
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
+
+        $this->actingAs($admin)->post(route('maintenance.notaries.store'), [
+            'name' => 'Bad Tin',
+            'commission_number' => '2024-003',
+            'tin' => '123-456-789-1234',
+            'signature' => UploadedFile::fake()->createWithContent('seal.png', $png, 'image/png'),
+        ])->assertSessionHasErrors('tin');
+
+        $this->assertDatabaseCount('notaries', 0);
+    }
+
+    public function test_notary_seal_may_not_exceed_ten_megabytes(): void
+    {
+        $admin = $this->adminUser();
+
+        $this->actingAs($admin)->post(route('maintenance.notaries.store'), [
+            'name' => 'Big Seal',
+            'commission_number' => '2024-004',
+            'tin' => '123-456-789-0000',
+            'signature' => UploadedFile::fake()->create('seal.png', 10 * 1024 + 1, 'image/png'),
+        ])->assertSessionHasErrors('signature');
+
+        $this->assertDatabaseCount('notaries', 0);
     }
 
     public function test_notary_seal_must_be_png(): void

@@ -5,7 +5,6 @@ import EditableCombobox from '@/Components/UI/EditableCombobox';
 import TinField from '@/Components/UI/TinField';
 import { TextAreaField, TextField } from '@/Components/UI/FormField';
 import InputError from '@/Components/InputError';
-import SearchableSelect from '@/Components/UI/SearchableSelect';
 import AppLayout from '@/Layouts/AppLayout';
 import { amountInWords } from '@/lib/amountInWords';
 import { buildBondValue, buildCarValue } from '@/lib/bondFormat';
@@ -67,7 +66,7 @@ export default function Form({
 }) {
     const isEdit = Boolean(bondRequest?.id);
 
-    const { data, setData, post, put, processing, errors } = useForm({
+    const { data, setData, post, transform, processing, errors } = useForm({
         obligee_id: bondRequest?.obligee_id || '',
         obligee_name: bondRequest?.obligee_name || selectedObligee?.company_name || '',
         address_1: bondRequest?.address_1 || '',
@@ -76,10 +75,11 @@ export default function Form({
         bond_type_id: bondRequest?.bond_type_id || '',
         bond_type_label: bondRequest?.bondTypeMaster?.name || '',
         principal_id: bondRequest?.principal_id || '',
+        principal_name: bondRequest?.principal_name || selectedPrincipal?.company_name || '',
         request_date: formatDate(bondRequest?.request_date) || todayIso(),
         amount: bondRequest?.amount || '',
         project_name: bondRequest?.project_name || '',
-        date_issued: formatDate(bondRequest?.date_issued),
+        date_issued: formatDate(bondRequest?.date_issued) || todayIso(),
         inception_date: formatDate(bondRequest?.inception_date),
         attention: bondRequest?.attention || '',
         supporting_document: null,
@@ -198,8 +198,12 @@ export default function Form({
         const options = { forceFormData: true };
 
         if (isEdit) {
-            put(route('bond-requests.update', bondRequest.id), options);
+            // PHP can't parse multipart/form-data on PUT requests, so spoof the
+            // method by POSTing with a _method field.
+            transform((current) => ({ ...current, _method: 'put' }));
+            post(route('bond-requests.update', bondRequest.id), options);
         } else {
+            transform((current) => current);
             post(route('bond-requests.store'), options);
         }
     };
@@ -332,13 +336,13 @@ export default function Form({
                                 }}
                                 onOptionSelect={handleObligeeSelect}
                                 searchUrl={route('api.obligees.index')}
-                                placeholder="Type to search, then click a result…"
+                                placeholder="Type to search or enter an obligee name…"
                                 error={errors.obligee_id || errors.obligee_name}
                                 required
                                 initialOption={obligeeInitial}
                             />
                             <p className="text-xs text-slate-500">
-                                Choose an obligee from the KYC search results (click a row in the list). Typing a name alone does not link a record.
+                                Select from KYC search results to auto-fill address details, or type a name directly.
                             </p>
                             {addressLines.map((line, index) => (
                                 <div key={`address-line-${index}`} className="space-y-4">
@@ -360,7 +364,7 @@ export default function Form({
                                         error={index === 0 ? errors.address_1 : undefined}
                                     />
                                     <TextField
-                                        label={index === 0 ? 'Business CTM' : `Business CTM (Line ${index + 1})`}
+                                        label={index === 0 ? 'Business CTM (City, Town, or Municipality)' : `Business CTM (City, Town, or Municipality) (Line ${index + 1})`}
                                         value={line.ctm}
                                         onChange={(e) => updateAddressLine(index, 'ctm', e.target.value)}
                                         error={index === 0 ? errors.address_2 : undefined}
@@ -462,13 +466,32 @@ export default function Form({
                                 />
                             </div>
                             <div className="sm:col-span-2">
-                                <SearchableSelect
+                                <EditableCombobox
                                     label="Principal"
                                     value={data.principal_id}
+                                    textValue={data.principal_name}
                                     onChange={(id) => setData('principal_id', id)}
+                                    onTextChange={(text) => {
+                                        setData((current) => ({
+                                            ...current,
+                                            principal_name: text,
+                                            principal_id:
+                                                text.trim().toLowerCase() ===
+                                                (current.principal_name || '').trim().toLowerCase()
+                                                    ? current.principal_id
+                                                    : '',
+                                        }));
+                                    }}
+                                    onOptionSelect={(option) => {
+                                        setData((current) => ({
+                                            ...current,
+                                            principal_id: option.id,
+                                            principal_name: option.label || option.company_name || '',
+                                        }));
+                                    }}
                                     searchUrl={route('api.principals.index')}
-                                    placeholder="Type to search principals…"
-                                    error={errors.principal_id}
+                                    placeholder="Type to search or enter a principal name…"
+                                    error={errors.principal_id || errors.principal_name}
                                     required
                                     initialOption={principalInitial}
                                 />
@@ -536,7 +559,7 @@ export default function Form({
                                 value={data.inception_date}
                                 onChange={(e) => setData('inception_date', e.target.value)}
                                 error={errors.inception_date}
-                                required
+                                required={!isCarCertificate}
                             />
                             <TextField
                                 label="Inception date in words"
@@ -578,7 +601,7 @@ export default function Form({
                             )}
                             <div>
                                 <label htmlFor="supporting_document" className="block text-sm font-medium text-slate-700">
-                                    {isEdit ? 'Replace supporting document (optional)' : 'Supporting document'}
+                                    {isEdit ? 'Replace supporting document (optional)' : 'Supporting document (optional)'}
                                 </label>
                                 <input
                                     id="supporting_document"

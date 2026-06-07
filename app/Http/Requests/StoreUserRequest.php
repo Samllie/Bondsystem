@@ -45,6 +45,7 @@ class StoreUserRequest extends FormRequest
                 },
             ],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'branch_code' => ['nullable', 'string', 'size:3', 'alpha', 'uppercase'],
             'branch_city' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'is_active' => ['boolean'],

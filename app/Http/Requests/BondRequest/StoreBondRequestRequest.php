@@ -39,9 +39,10 @@ class StoreBondRequestRequest extends FormRequest
                 'max:255',
             ],
             'tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-0000$/'],
-            'principal_id' => ['required', 'exists:principals,id'],
-            'obligee_id' => ['required', 'integer', 'min:1', new ValidKycObligee],
-            'obligee_name' => ['nullable', 'string', 'max:255'],
+            'principal_id' => ['nullable', 'integer', 'exists:principals,id'],
+            'principal_name' => ['required', 'string', 'max:255'],
+            'obligee_id' => ['nullable', 'integer', 'min:1', new ValidKycObligee],
+            'obligee_name' => ['required', 'string', 'max:255'],
             'address_1' => ['nullable', 'string', 'max:500'],
             'address_2' => ['nullable', 'string', 'max:500'],
             'address_3' => ['nullable', 'string', 'max:500'],
@@ -49,9 +50,13 @@ class StoreBondRequestRequest extends FormRequest
             'amount_in_words' => ['nullable', 'string', 'max:1000'],
             'project_name' => ['nullable', 'string', 'max:255'],
             'date_issued' => ['nullable', 'date'],
-            'inception_date' => ['required', 'date'],
+            'inception_date' => [
+                Rule::requiredIf(fn (): bool => $this->certificateType() === CertificateType::BondCertificate),
+                'nullable',
+                'date',
+            ],
             'attention' => ['nullable', 'string', 'max:255'],
-            'supporting_document' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
             'certificate_type' => ['required', Rule::enum(CertificateType::class)],
             'request_date' => ['required', 'date'],
             'expiry_date' => ['required', 'string', 'max:500'],
@@ -84,8 +89,8 @@ class StoreBondRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'obligee_id.required' => 'Please select an obligee from the KYC search results.',
-            'obligee_id.min' => 'Please select an obligee from the KYC search results.',
+            'obligee_name.required' => 'The obligee name is required.',
+            'principal_name.required' => 'The principal name is required.',
             'car.required' => 'The CAR field is required for CAR certificate requests.',
             'authorized_representative.required' => 'The authorized representative is required for CAR certificate requests.',
             'tin.required' => 'The TIN is required.',
@@ -98,6 +103,9 @@ class StoreBondRequestRequest extends FormRequest
     {
         $this->merge([
             'attention' => $this->filled('attention') ? $this->input('attention') : null,
+            'obligee_id' => $this->filled('obligee_id') ? $this->input('obligee_id') : null,
+            'principal_id' => $this->filled('principal_id') ? $this->input('principal_id') : null,
+            'date_issued' => $this->filled('date_issued') ? $this->input('date_issued') : now()->toDateString(),
         ]);
     }
 

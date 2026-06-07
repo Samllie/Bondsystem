@@ -12,18 +12,27 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CertificateAccessTest extends TestCase
 {
     use RefreshDatabase;
 
+    private string $testCertPath;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->seed(RolePermissionSeeder::class);
-        Storage::fake('local');
+        $this->testCertPath = storage_path('app/private/certificates/test_certificate.pdf');
+    }
+
+    protected function tearDown(): void
+    {
+        if (file_exists($this->testCertPath)) {
+            @unlink($this->testCertPath);
+        }
+        parent::tearDown();
     }
 
     // -------------------------------------------------------------------------
@@ -41,10 +50,11 @@ class CertificateAccessTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_requester_cannot_view_certificate_for_another_users_request(): void
+    public function test_requester_cannot_view_certificate_for_another_branch(): void
     {
         $requester = $this->requesterUser();
         $otherRequester = $this->requesterUser();
+        $otherRequester->update(['branch_id' => $this->makeBranch('OTH')->id]);
         $bondRequest = $this->bondRequestWithCertificate(ownedBy: $otherRequester);
 
         $response = $this->actingAs($requester)
@@ -102,16 +112,32 @@ class CertificateAccessTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_requester_cannot_download_certificate_for_another_users_request(): void
+    public function test_requester_cannot_download_certificate_for_another_branch(): void
     {
         $requester = $this->requesterUser();
         $otherRequester = $this->requesterUser();
+        $otherRequester->update(['branch_id' => $this->makeBranch('OTH')->id]);
         $bondRequest = $this->bondRequestWithCertificate(ownedBy: $otherRequester);
 
         $response = $this->actingAs($requester)
             ->get(route('bond-requests.download-certificate', $bondRequest));
 
         $response->assertForbidden();
+    }
+
+    public function test_requester_can_download_certificate_from_same_branch_colleague(): void
+    {
+        $branch = $this->makeBranch('SHR');
+        $requester = $this->requesterUser();
+        $requester->update(['branch_id' => $branch->id]);
+        $colleague = $this->requesterUser();
+        $colleague->update(['branch_id' => $branch->id]);
+        $bondRequest = $this->bondRequestWithCertificate(ownedBy: $colleague);
+
+        $response = $this->actingAs($requester)
+            ->get(route('bond-requests.download-certificate', $bondRequest));
+
+        $response->assertOk();
     }
 
     public function test_approver_can_download_certificate_for_any_request(): void
@@ -215,6 +241,16 @@ class CertificateAccessTest extends TestCase
     // Helpers
     // -------------------------------------------------------------------------
 
+    private function makeBranch(string $code): Branch
+    {
+        return Branch::query()->create([
+            'name' => "{$code} Branch",
+            'branch_code' => $code,
+            'branch_city' => 'City',
+            'is_active' => true,
+        ]);
+    }
+
     private function requesterUser(): User
     {
         $role = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
@@ -273,11 +309,15 @@ class CertificateAccessTest extends TestCase
 
     private function bondRequestWithCertificate(?User $ownedBy = null): BondRequest
     {
-        $fakePdfPath = 'private/certificates/test_certificate.pdf';
-        Storage::disk('local')->put($fakePdfPath, '%PDF-1.4 fake pdf content');
+        $relativePath = 'private/certificates/test_certificate.pdf';
+
+        if (! is_dir(dirname($this->testCertPath))) {
+            mkdir(dirname($this->testCertPath), 0755, true);
+        }
+        file_put_contents($this->testCertPath, '%PDF-1.4 fake pdf content');
 
         $bondRequest = $this->approvedBondRequest($ownedBy);
-        $bondRequest->update(['certificate_path' => $fakePdfPath]);
+        $bondRequest->update(['certificate_path' => $relativePath]);
 
         return $bondRequest->fresh();
     }

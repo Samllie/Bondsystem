@@ -38,11 +38,22 @@ class NotaryController extends MaintenanceController
         return [
             'name' => ['required', 'string', 'max:255'],
             'commission_number' => ['required', 'string', 'max:100'],
-            'tin' => ['required', 'string', 'max:50'],
+            'tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-0000$/'],
             'signature' => [
                 $isUpdate ? 'nullable' : 'required',
-                File::types(['png'])->max(2048),
+                File::types(['png'])->max(10 * 1024),
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function messages(): array
+    {
+        return [
+            'tin.regex' => 'Enter a valid TIN in the format 000-000-000-0000.',
+            'signature.max' => 'The seal image may not be larger than 10 MB.',
         ];
     }
 
@@ -82,7 +93,7 @@ class NotaryController extends MaintenanceController
     {
         abort_unless($request->user()->hasPermission('maintenance.manage'), 403);
 
-        $validated = $request->validate($this->rules());
+        $validated = $request->validate($this->rules(), $this->messages());
 
         Notary::create([
             'name' => $validated['name'],
@@ -110,7 +121,7 @@ class NotaryController extends MaintenanceController
         abort_unless($request->user()->hasPermission('maintenance.manage'), 403);
 
         $notary = Notary::findOrFail($id);
-        $validated = $request->validate($this->rules(true, $notary));
+        $validated = $request->validate($this->rules(true, $notary), $this->messages());
 
         $data = [
             'name' => $validated['name'],

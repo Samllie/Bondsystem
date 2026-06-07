@@ -24,6 +24,7 @@ class BondRequest extends Model
         'bond_type_id',
         'bond_type',
         'principal_id',
+        'principal_name',
         'obligee_id',
         'obligee_name',
         'address_1',
@@ -97,7 +98,7 @@ class BondRequest extends Model
      */
     public function obligeeSummary(): ?array
     {
-        if (! $this->obligee_id) {
+        if (! filled($this->obligee_name) && ! $this->obligee_id) {
             return null;
         }
 

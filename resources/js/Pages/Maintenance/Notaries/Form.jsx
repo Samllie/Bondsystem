@@ -1,4 +1,5 @@
 import { FormField, TextField } from '@/Components/UI/FormField';
+import TinField from '@/Components/UI/TinField';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
@@ -43,11 +44,11 @@ export default function NotaryForm({ notary }) {
                             onChange={(e) => setData('commission_number', e.target.value)}
                             error={errors.commission_number}
                         />
-                        <TextField
+                        <TinField
                             label="TIN"
                             required
                             value={data.tin}
-                            onChange={(e) => setData('tin', e.target.value)}
+                            onChange={(value) => setData('tin', value)}
                             error={errors.tin}
                         />
 
@@ -72,7 +73,7 @@ export default function NotaryForm({ notary }) {
                                 onChange={(e) => setData('signature', e.target.files[0] ?? null)}
                                 className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-sterling-gold-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-sterling-green-darker hover:file:bg-sterling-gold/30"
                             />
-                            <p className="mt-1 text-xs text-slate-500">PNG format only, max 2 MB.</p>
+                            <p className="mt-1 text-xs text-slate-500">PNG format only, max 10 MB.</p>
                         </FormField>
 
                         <div className="flex justify-end gap-3 pt-2">

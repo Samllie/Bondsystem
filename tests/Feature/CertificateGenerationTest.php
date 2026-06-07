@@ -90,6 +90,33 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHasErrors(['signatory_id', 'notary_id', 'doc_no', 'page_no', 'book_no', 'series_year']);
     }
 
+    public function test_car_certificate_can_generate_without_notary(): void
+    {
+        $approver = $this->approverUser();
+        $bondRequest = $this->approvedCarBondRequest();
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $signatory = Signatory::factory()->create(['is_active' => true]);
+
+        $response = $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+                'signatory_id' => $signatory->id,
+                'doc_no' => '1',
+                'page_no' => '1',
+                'book_no' => 'I',
+                'series_year' => '2026',
+            ]);
+
+        $response->assertSessionDoesntHaveErrors('notary_id');
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertNull($bondRequest->fresh()->notary_id);
+    }
+
     public function test_generate_certificate_updates_bond_request_fields(): void
     {
         $approver = $this->approverUser();
@@ -143,10 +170,10 @@ class CertificateGenerationTest extends TestCase
 
     public function test_download_certificate_returns_404_when_no_certificate(): void
     {
-        $approver = $this->approverUser();
+        $superAdmin = $this->superAdminUser();
         $bondRequest = $this->approvedBondRequest();
 
-        $response = $this->actingAs($approver)
+        $response = $this->actingAs($superAdmin)
             ->get(route('bond-requests.download-certificate', $bondRequest));
 
         $response->assertNotFound();
@@ -154,10 +181,10 @@ class CertificateGenerationTest extends TestCase
 
     public function test_download_docx_returns_404_when_no_docx(): void
     {
-        $approver = $this->approverUser();
+        $superAdmin = $this->superAdminUser();
         $bondRequest = $this->approvedBondRequest();
 
-        $response = $this->actingAs($approver)
+        $response = $this->actingAs($superAdmin)
             ->get(route('bond-requests.download-docx', $bondRequest));
 
         $response->assertNotFound();
@@ -243,6 +270,17 @@ class CertificateGenerationTest extends TestCase
         ]);
     }
 
+    private function superAdminUser(): User
+    {
+        $role = Role::where('slug', RoleSlug::SuperAdmin->value)->firstOrFail();
+
+        return User::factory()->create([
+            'role_id' => $role->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+    }
+
     private function approvedBondRequest(): BondRequest
     {
         $signatory = Signatory::factory()->create(['is_active' => true]);
@@ -256,6 +294,23 @@ class CertificateGenerationTest extends TestCase
                 'certificate_type' => CertificateType::BondCertificate->value,
                 'signatory_id' => $signatory->id,
                 'notary_id' => $notary->id,
+                'created_by' => $creator->id,
+                'tin' => '123-456-789-0000',
+            ]);
+    }
+
+    private function approvedCarBondRequest(): BondRequest
+    {
+        $branch = Branch::query()->create(['name' => 'MKT Branch', 'branch_code' => 'MKT', 'branch_city' => 'Makati', 'is_active' => true]);
+        $creator = User::factory()->create(['branch_id' => $branch->id]);
+
+        return BondRequest::factory()
+            ->approved()
+            ->create([
+                'certificate_type' => CertificateType::CarCertificate->value,
+                'bond_type_id' => null,
+                'car' => 'CAR-MKT-0072056',
+                'notary_id' => null,
                 'created_by' => $creator->id,
                 'tin' => '123-456-789-0000',
             ]);

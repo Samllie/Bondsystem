@@ -60,6 +60,7 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'address_1' => '123 Rizal Avenue',
@@ -92,6 +93,7 @@ class BondRequestFormTest extends TestCase
             'bond_type_id' => $bondType->id,
             'bond_type' => 'Retention Money Bond',
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'address_1' => '123 Rizal Avenue',
@@ -111,6 +113,97 @@ class BondRequestFormTest extends TestCase
             'bond_number' => 'G(42)',
             'amount_in_words' => 'One Thousand Five Hundred Pesos and Seventy Five Centavos Only',
         ]);
+
+        $requester->refresh();
+        $this->assertEquals(10000, (float) $requester->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_bond_request_creation_succeeds_even_when_balance_is_insufficient_for_notary_fee(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')->andReturn([
+                'id' => 42,
+                'company_name' => 'Acme Obligee Corp',
+                'label' => 'Acme Obligee Corp',
+            ]);
+        });
+
+        $requester = $this->requesterUser('MKT', balance: 100, notaryPrice: 500);
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'tin' => self::VALID_TIN,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseCount('bond_requests', 1);
+        $this->assertEquals(100, (float) $requester->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_approval_fails_when_requester_balance_is_insufficient_for_notary_fee(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 100, notaryPrice: 500);
+        $approver = $this->approverUser();
+        $signatory = Signatory::factory()->create();
+        $notary = Notary::factory()->create();
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::BondCertificate,
+            'created_by' => $requester->id,
+            'tin' => self::VALID_TIN,
+        ]);
+
+        $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'doc_no' => 'DOC-1',
+            'page_no' => '10',
+            'book_no' => 'V',
+            'series_year' => '2026',
+        ]);
+
+        $response->assertSessionHasErrors('signatory_id');
+        $this->assertSame(BondRequestStatus::Pending, $bondRequest->fresh()->status);
+        $this->assertDatabaseCount('transactions', 0);
+        $this->assertEquals(100, (float) $requester->fresh()->balance);
+    }
+
+    public function test_approval_fails_when_requester_branch_has_no_notary_price(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 0);
+        $approver = $this->approverUser();
+        $signatory = Signatory::factory()->create();
+        $notary = Notary::factory()->create();
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::BondCertificate,
+            'created_by' => $requester->id,
+            'tin' => self::VALID_TIN,
+        ]);
+
+        $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'doc_no' => 'DOC-1',
+            'page_no' => '10',
+            'book_no' => 'V',
+            'series_year' => '2026',
+        ]);
+
+        $response->assertSessionHasErrors('signatory_id');
+        $this->assertSame(BondRequestStatus::Pending, $bondRequest->fresh()->status);
+        $this->assertDatabaseCount('transactions', 0);
     }
 
     public function test_requester_can_create_bond_request_without_attention(): void
@@ -136,6 +229,7 @@ class BondRequestFormTest extends TestCase
             'authorized_representative' => 'Juan Dela Cruz',
             'tin' => '123-456-789-0000',
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -177,6 +271,7 @@ class BondRequestFormTest extends TestCase
             'authorized_representative' => 'Maria Santos',
             'tin' => '111-222-333-0000',
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -196,6 +291,73 @@ class BondRequestFormTest extends TestCase
         $this->assertSame('CAR-MKT-0072056', $bondRequest->bond_label);
         $this->assertSame('Maria Santos', $bondRequest->authorized_representative);
         $this->assertSame('111-222-333-0000', $bondRequest->tin);
+    }
+
+    public function test_car_certificate_does_not_require_inception_date(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')
+                ->with(42)
+                ->andReturn([
+                    'id' => 42,
+                    'company_name' => 'Acme Obligee Corp',
+                    'label' => 'Acme Obligee Corp',
+                ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Maria Santos',
+            'tin' => '111-222-333-0000',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionDoesntHaveErrors('inception_date');
+        $response->assertRedirect();
+
+        $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
+        $this->assertNotNull($bondRequest);
+        $this->assertNull($bondRequest->inception_date);
+    }
+
+    public function test_bond_certificate_still_requires_inception_date(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')->andReturn([
+                'id' => 42,
+                'company_name' => 'Acme Obligee Corp',
+                'label' => 'Acme Obligee Corp',
+            ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $bondType = BondTypeMaster::factory()->create();
+        $principal = Principal::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'tin' => '111-222-333-0000',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionHasErrors('inception_date');
     }
 
     public function test_requester_cannot_create_car_certificate_without_valid_tin(): void
@@ -218,6 +380,7 @@ class BondRequestFormTest extends TestCase
             'authorized_representative' => 'Maria Santos',
             'tin' => '111-222-333',
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -251,6 +414,7 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -290,6 +454,7 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -327,6 +492,7 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -365,6 +531,7 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
             'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -396,11 +563,13 @@ class BondRequestFormTest extends TestCase
         });
 
         $requester = $this->requesterUser();
+        $principal = Principal::factory()->create();
         $statement = 'until fully recouped and liquidated is valid';
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => BondTypeMaster::factory()->create()->id,
-            'principal_id' => Principal::factory()->create()->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 42,
             'obligee_name' => 'Acme Obligee Corp',
             'amount' => 1500.75,
@@ -420,13 +589,75 @@ class BondRequestFormTest extends TestCase
         ]);
     }
 
+    public function test_requester_can_create_bond_request_with_typed_obligee_and_principal(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $bondType = BondTypeMaster::factory()->create([
+            'name' => 'Retention Money Bond',
+            'code' => 'G(42)',
+            'bond_serial' => '0008384',
+        ]);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_name' => 'Custom Principal Corp',
+            'obligee_name' => 'Custom Obligee Corp',
+            'address_1' => '456 Custom Street',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'tin' => self::VALID_TIN,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('bond_requests', [
+            'bond_number' => 'G(42)',
+            'principal_id' => null,
+            'principal_name' => 'Custom Principal Corp',
+            'obligee_id' => null,
+            'obligee_name' => 'Custom Obligee Corp',
+            'created_by' => $requester->id,
+        ]);
+    }
+
+    public function test_requester_can_create_bond_request_without_supporting_document(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'tin' => self::VALID_TIN,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+
+        $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
+        $this->assertNotNull($bondRequest);
+        $this->assertNull($bondRequest->supporting_document_path);
+    }
+
     public function test_requester_cannot_submit_bond_request_with_zero_obligee_id(): void
     {
         $requester = $this->requesterUser();
+        $principal = Principal::factory()->create();
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => BondTypeMaster::factory()->create()->id,
-            'principal_id' => Principal::factory()->create()->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
             'obligee_id' => 0,
             'obligee_name' => 'Typed But Not Selected',
             'amount' => 1500.75,
@@ -444,12 +675,15 @@ class BondRequestFormTest extends TestCase
 
     public function test_approver_can_approve_pending_bond_request_with_certificate_details(): void
     {
+        $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);
         $approver = $this->approverUser();
         $signatory = Signatory::factory()->create(['name' => 'Jane Signer', 'position' => 'President']);
         $notary = Notary::factory()->create(['name' => 'Atty. Juan Notary']);
         $bondRequest = BondRequest::factory()->pending()->create([
             'certificate_type' => CertificateType::BondCertificate,
             'inception_date' => '2026-05-01',
+            'created_by' => $requester->id,
+            'tin' => self::VALID_TIN,
         ]);
 
         $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
@@ -471,15 +705,29 @@ class BondRequestFormTest extends TestCase
         $this->assertSame($notary->id, $bondRequest->notary_id);
         $this->assertSame('DOC-1', $bondRequest->doc_no);
         $this->assertSame('V', $bondRequest->book_no);
+
+        $requester->refresh();
+        $this->assertEquals(9500, (float) $requester->balance);
+
+        $this->assertDatabaseHas('transactions', [
+            'user_id' => $requester->id,
+            'type' => 'debit',
+            'amount' => 500,
+            'balance_before' => 10000,
+            'balance_after' => 9500,
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
     }
 
-    private function requesterUser(string $branchCode = 'CEB'): User
+    private function requesterUser(string $branchCode = 'CEB', float $balance = 10000, float $notaryPrice = 500): User
     {
         $role = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
         $branch = Branch::query()->create([
             'name' => "{$branchCode} Branch",
             'branch_code' => $branchCode,
             'address' => 'Branch City',
+            'notary_price' => $notaryPrice,
             'is_active' => true,
         ]);
 
@@ -488,6 +736,7 @@ class BondRequestFormTest extends TestCase
             'branch_id' => $branch->id,
             'branch_code' => $branchCode,
             'branch_city' => 'Branch City',
+            'balance' => $balance,
             'is_active' => true,
             'email_verified_at' => now(),
         ]);

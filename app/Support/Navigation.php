@@ -39,6 +39,16 @@ class Navigation
             ];
         }
 
+        if ($user->hasPermission('bond-requests.view')) {
+            $items[] = [
+                'type' => 'link',
+                'name' => 'Certifications',
+                'href' => route('certifications.index'),
+                'icon' => 'certificate',
+                'routes' => ['certifications.index'],
+            ];
+        }
+
         if ($user->hasPermission('obligees.view')) {
             $items[] = [
                 'type' => 'link',

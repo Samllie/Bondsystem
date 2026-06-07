@@ -132,21 +132,27 @@ class TemplateDataBuilder
             'Bond' => $bondLabel,
             'BOND' => strtoupper($bondLabel),
             'PRINCIPAL' => strtoupper($principalName),
-            'Date in words' => DateFormatter::writtenDate($bondRequest->request_date),
-            'Date issued in words' => DateFormatter::writtenDate($bondRequest->date_issued),
-            'Notary' => (string) ($notary?->name ?? ''),
+            'Date in words' => DateFormatter::inWords($bondRequest->request_date),
+            'Date issued in words' => DateFormatter::inWords($bondRequest->date_issued),
             'Series year' => (string) ($bondRequest->series_year ?? ''),
         ];
 
         $images = [];
+
         $signatureImage = $this->resolveSignatureImage($bondRequest, $signatory);
 
         if ($signatureImage !== null) {
             $images['Signature'] = $signatureImage;
         } else {
-            // Placeholder is in the template; replace with empty text so it doesn't
-            // render as a raw ${Signature} token in the output document.
             $text['Signature'] = '';
+        }
+
+        $notarySealImage = $this->resolveNotarySealImage($bondRequest, $notary);
+
+        if ($notarySealImage !== null) {
+            $images['Notary'] = $notarySealImage;
+        } else {
+            $text['Notary'] = '';
         }
 
         return ['text' => $text, 'images' => $images];
@@ -251,6 +257,38 @@ class TemplateDataBuilder
             'path' => $absolutePath,
             'width' => 120,
             'height' => 60,
+            'ratio' => true,
+        ];
+    }
+
+    /**
+     * Resolve the notary seal image for TemplateProcessor::setImageValue().
+     * Returns null when no usable image exists (caller falls back to empty text).
+     *
+     * @return array{path: string, width: int, height: int, ratio: bool}|null
+     */
+    private function resolveNotarySealImage(BondRequest $bondRequest, mixed $notary): ?array
+    {
+        $sealPath = $notary?->signature_path ?? null;
+
+        if ($sealPath === null || $sealPath === '') {
+            Log::warning("Bond request #{$bondRequest->id}: notary has no seal image. Notary placeholder will be blank.");
+
+            return null;
+        }
+
+        $absolutePath = Storage::disk('public')->path($sealPath);
+
+        if (! file_exists($absolutePath)) {
+            Log::warning("Bond request #{$bondRequest->id}: notary seal file does not exist at {$absolutePath}. Notary placeholder will be blank.");
+
+            return null;
+        }
+
+        return [
+            'path' => $absolutePath,
+            'width' => 100,
+            'height' => 100,
             'ratio' => true,
         ];
     }
