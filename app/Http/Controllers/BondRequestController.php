@@ -304,15 +304,15 @@ class BondRequestController extends Controller
             $attributes['bond_type'] = 'CAR';
             $attributes['bond_type_id'] = null;
             $attributes['authorized_representative'] = $request->string('authorized_representative')->trim()->toString();
-            $attributes['tin'] = $request->string('tin')->trim()->toString();
         } else {
             $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
             $attributes['bond_type'] = $bondType->name;
             $attributes['bond_number'] = BondNumberGenerator::fromBondType($bondType);
             $attributes['car'] = null;
             $attributes['authorized_representative'] = null;
-            $attributes['tin'] = null;
         }
+
+        $attributes['tin'] = $request->string('tin')->trim()->toString();
 
         unset($attributes['supporting_document']);
 

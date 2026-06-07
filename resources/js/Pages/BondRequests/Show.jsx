@@ -128,7 +128,6 @@ export default function Show({
                             <>
                                 <Detail label="CAR" value={bondRequest.car || bondRequest.bond_label || '—'} className="sm:col-span-2" capitalize={false} />
                                 <Detail label="Authorized Representative" value={bondRequest.authorized_representative || '—'} className="sm:col-span-2" capitalize={false} />
-                                <Detail label="TIN" value={bondRequest.tin || '—'} capitalize={false} />
                             </>
                         ) : (
                             <>
@@ -137,6 +136,7 @@ export default function Show({
                                 <Detail label="Bond Type" value={bondRequest.bond_type_label} />
                             </>
                         )}
+                        <Detail label="TIN" value={bondRequest.tin || '—'} capitalize={false} />
                         <Detail label="Principal" value={bondRequest.principal?.company_name} />
                         <Detail label="Obligee" value={bondRequest.obligee?.company_name} />
                         <Detail

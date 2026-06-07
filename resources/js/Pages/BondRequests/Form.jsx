@@ -273,7 +273,6 @@ export default function Form({
                     ? buildCarValue(requesterBranchCode)
                     : current.car,
             authorized_representative: value === 'car_certificate' ? current.authorized_representative : '',
-            tin: value === 'car_certificate' ? current.tin : '',
         }));
     };
 
@@ -408,15 +407,6 @@ export default function Form({
                                             required
                                         />
                                     </div>
-                                    <div className="sm:col-span-2">
-                                        <TinField
-                                            label="TIN"
-                                            value={data.tin}
-                                            onChange={(value) => setData('tin', value)}
-                                            error={errors.tin}
-                                            required
-                                        />
-                                    </div>
                                 </>
                             ) : (
                                 <>
@@ -462,6 +452,15 @@ export default function Form({
                                     </div>
                                 </>
                             )}
+                            <div className="sm:col-span-2">
+                                <TinField
+                                    label="TIN"
+                                    value={data.tin}
+                                    onChange={(value) => setData('tin', value)}
+                                    error={errors.tin}
+                                    required
+                                />
+                            </div>
                             <div className="sm:col-span-2">
                                 <SearchableSelect
                                     label="Principal"
