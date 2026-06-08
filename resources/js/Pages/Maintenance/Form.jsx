@@ -1,6 +1,14 @@
 import { SelectField, TextAreaField, TextField } from '@/Components/UI/FormField';
+import BackLink from '@/Components/UI/BackLink';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+
+const backLabels = {
+    'maintenance.bond-types': 'Bond Types',
+    'maintenance.branches': 'Branches',
+    'maintenance.certifications': 'Certifications',
+    'maintenance.ctcs': 'CTCs',
+};
 
 export default function MaintenanceForm({ record, routePrefix, label }) {
     const isEditing = !!record;
@@ -43,6 +51,10 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
             <Head title={`${isEditing ? 'Edit' : 'New'} ${label}`} />
 
             <div className="mx-auto max-w-xl">
+                <BackLink href={route(`${routePrefix}.index`)}>
+                    Back to {backLabels[routePrefix] ?? label}
+                </BackLink>
+
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <form onSubmit={submit} className="space-y-5">
                         <TextField

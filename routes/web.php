@@ -12,6 +12,7 @@ use App\Http\Controllers\Maintenance\CertificationController;
 use App\Http\Controllers\Maintenance\CtcController;
 use App\Http\Controllers\Maintenance\NotaryController;
 use App\Http\Controllers\Maintenance\SignatoryController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ObligeeController;
 use App\Http\Controllers\PaymentHistoryController;
 use App\Http\Controllers\PrincipalController;
@@ -87,6 +88,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
 });
 
 require __DIR__.'/auth.php';

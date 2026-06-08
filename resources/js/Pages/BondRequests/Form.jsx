@@ -5,6 +5,7 @@ import EditableCombobox from '@/Components/UI/EditableCombobox';
 import TinField from '@/Components/UI/TinField';
 import { TextAreaField, TextField } from '@/Components/UI/FormField';
 import InputError from '@/Components/InputError';
+import BackLink from '@/Components/UI/BackLink';
 import AppLayout from '@/Layouts/AppLayout';
 import { amountInWords } from '@/lib/amountInWords';
 import { buildBondValue, buildCarValue } from '@/lib/bondFormat';
@@ -283,6 +284,12 @@ export default function Form({
     return (
         <AppLayout title={isEdit ? 'Edit Bond Request' : 'New Bond Request'}>
             <Head title={isEdit ? 'Edit Bond Request' : 'New Bond Request'} />
+
+            <BackLink
+                href={isEdit ? route('bond-requests.show', bondRequest.id) : route('bond-requests.index')}
+            >
+                {isEdit ? 'Back to Bond Request' : 'Back to Bond Requests'}
+            </BackLink>
 
             <Card className="max-w-3xl">
                 <CardBody>

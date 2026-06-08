@@ -1,4 +1,5 @@
 import { FormField, TextField } from '@/Components/UI/FormField';
+import BackLink from '@/Components/UI/BackLink';
 import TinField from '@/Components/UI/TinField';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -28,6 +29,8 @@ export default function NotaryForm({ notary }) {
             <Head title={`${isEditing ? 'Edit' : 'New'} Notary`} />
 
             <div className="mx-auto max-w-xl">
+                <BackLink href={route('maintenance.notaries.index')}>Back to Notaries</BackLink>
+
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
                     <form onSubmit={submit} encType="multipart/form-data" className="space-y-5">
                         <TextField

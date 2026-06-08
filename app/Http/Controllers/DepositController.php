@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DepositStatus;
-use App\Enums\RoleSlug;
 use App\Models\BankAccount;
 use App\Models\Deposit;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\DepositService;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +17,10 @@ use Inertia\Response;
 
 class DepositController extends Controller
 {
-    public function __construct(private DepositService $depositService) {}
+    public function __construct(
+        private DepositService $depositService,
+        private NotificationService $notificationService,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -77,7 +80,7 @@ class DepositController extends Controller
 
         $path = $request->file('receipt')->store('receipts', 'public');
 
-        Deposit::create([
+        $deposit = Deposit::create([
             ...$validated,
             'user_id' => $request->user()->id,
             'receipt_path' => $path,
@@ -85,6 +88,7 @@ class DepositController extends Controller
         ]);
 
         ActivityLogger::log('deposit.submitted', 'Deposit request submitted for ₱'.number_format($validated['amount'], 2));
+        $this->notificationService->depositSubmitted($deposit);
 
         return redirect()->route('payments.deposits.index')
             ->with('success', 'Deposit request submitted. Please wait for admin approval.');
@@ -121,6 +125,7 @@ class DepositController extends Controller
         $creditedUser = $transaction->user;
 
         ActivityLogger::log('deposit.approved', "Deposit #{$deposit->id} approved for {$creditedUser->name}.", $deposit);
+        $this->notificationService->depositApproved($deposit);
 
         return back()->with(
             'success',
@@ -139,6 +144,7 @@ class DepositController extends Controller
         $this->depositService->reject($deposit, $request->user(), $request->input('remarks'));
 
         ActivityLogger::log('deposit.rejected', "Deposit #{$deposit->id} rejected.", $deposit);
+        $this->notificationService->depositRejected($deposit);
 
         return back()->with('success', 'Deposit rejected.');
     }

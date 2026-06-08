@@ -17,6 +17,7 @@ use App\Services\ActivityLogger;
 use App\Services\CertificateGenerationService;
 use App\Services\KycObligeeService;
 use App\Services\NotaryFeeService;
+use App\Services\NotificationService;
 use App\Support\AmountInWords;
 use App\Support\BondNumberGenerator;
 use Illuminate\Http\RedirectResponse;
@@ -36,6 +37,7 @@ class BondRequestController extends Controller
         private KycObligeeService $kycObligeeService,
         private CertificateGenerationService $certificateGenerationService,
         private NotaryFeeService $notaryFeeService,
+        private NotificationService $notificationService,
     ) {}
 
     public function index(Request $request): Response
@@ -112,6 +114,7 @@ class BondRequestController extends Controller
         ]);
 
         ActivityLogger::log('created', "Bond request {$bondRequest->bond_number} created.", $bondRequest);
+        $this->notificationService->bondRequestSubmitted($bondRequest);
 
         return redirect()->route('bond-requests.show', $bondRequest)
             ->with('success', 'Bond request created successfully.');
@@ -225,6 +228,7 @@ class BondRequestController extends Controller
         });
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
+        $this->notificationService->bondRequestApproved($bondRequest);
 
         return back()->with('success', 'Bond request approved.');
     }
@@ -240,6 +244,7 @@ class BondRequestController extends Controller
         ]);
 
         ActivityLogger::log('rejected', "Bond request {$bondRequest->bond_number} rejected.", $bondRequest);
+        $this->notificationService->bondRequestRejected($bondRequest);
 
         return back()->with('success', 'Bond request rejected.');
     }
@@ -252,6 +257,7 @@ class BondRequestController extends Controller
         $bondRequest->update(['status' => BondRequestStatus::Notarized]);
 
         ActivityLogger::log('notarized', "Bond request {$bondRequest->bond_number} notarized.", $bondRequest);
+        $this->notificationService->bondRequestNotarized($bondRequest);
 
         return back()->with('success', 'Bond request marked as notarized.');
     }
@@ -299,6 +305,7 @@ class BondRequestController extends Controller
         }
 
         ActivityLogger::log('generated', "Certificate generated for bond request {$bondRequest->bond_number}.", $bondRequest);
+        $this->notificationService->certificateGenerated($bondRequest);
 
         return back()->with('success', 'Certificate generated successfully.');
     }

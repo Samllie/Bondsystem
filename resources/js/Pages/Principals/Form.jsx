@@ -1,6 +1,7 @@
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
+import BackLink from '@/Components/UI/BackLink';
 import { TextAreaField, TextField } from '@/Components/UI/FormField';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -23,6 +24,7 @@ export default function Form({ principal }) {
     return (
         <AppLayout title={isEdit ? 'Edit Principal' : 'New Principal'}>
             <Head title={isEdit ? 'Edit Principal' : 'New Principal'} />
+            <BackLink href={route('principals.index')}>Back to Principals</BackLink>
             <Card className="max-w-2xl">
                 <CardBody>
                     <form onSubmit={submit} className="space-y-4">

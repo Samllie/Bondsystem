@@ -1,6 +1,7 @@
 import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
+import BackLink from '@/Components/UI/BackLink';
 import EditableCombobox from '@/Components/UI/EditableCombobox';
 import { SelectField, TextField } from '@/Components/UI/FormField';
 import AppLayout from '@/Layouts/AppLayout';
@@ -60,6 +61,8 @@ export default function Form({ roleOptions, branchOptions }) {
     return (
         <AppLayout title="Add User">
             <Head title="Add User" />
+
+            <BackLink href={route('users.index')}>Back to Users</BackLink>
 
             <Card className="max-w-2xl">
                 <CardBody>

@@ -1,4 +1,5 @@
 import AppLayout from '@/Layouts/AppLayout';
+import BackLink from '@/Components/UI/BackLink';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
@@ -20,6 +21,8 @@ export default function DepositsCreate({ bankAccounts, userBalance }) {
     return (
         <AppLayout title="Submit Deposit Request">
             <Head title="New Deposit" />
+
+            <BackLink href={route('payments.deposits.index')}>Back to Deposits</BackLink>
 
             <div className="mx-auto max-w-2xl">
                 {/* Balance card */}
