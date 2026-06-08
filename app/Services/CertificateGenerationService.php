@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use App\Enums\CertificateType;
+use App\Enums\CertificateTemplateType;
 use App\Models\BondRequest;
+use App\Models\CertificateTemplate;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
@@ -68,11 +69,20 @@ class CertificateGenerationService
 
     private function templatePath(BondRequest $bondRequest): string
     {
-        $filename = $bondRequest->certificate_type === CertificateType::CarCertificate
-            ? 'Sterling_CAR_Template.docx'
-            : 'Sterling_Bond_Template.docx';
+        $type = CertificateTemplateType::fromCertificateType($bondRequest->certificate_type);
+        $activeTemplate = CertificateTemplate::activeForType($type);
 
-        $path = resource_path("templates/{$filename}");
+        if ($activeTemplate !== null) {
+            $absolutePath = $activeTemplate->absolutePath();
+
+            if (file_exists($absolutePath)) {
+                return $absolutePath;
+            }
+        }
+
+        $filename = CertificateTemplate::fallbackFilename($type);
+
+        $path = CertificateTemplate::fallbackPath($type);
 
         if (! file_exists($path)) {
             throw new RuntimeException("Certificate template not found: {$path}");

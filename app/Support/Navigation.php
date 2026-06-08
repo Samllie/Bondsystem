@@ -79,19 +79,33 @@ class Navigation
             ];
         }
 
+        $maintenanceChildren = [];
+
         if ($user->hasPermission('maintenance.view')) {
+            $maintenanceChildren = [
+                self::maintenanceChild('Bond Types', 'maintenance.bond-types'),
+                self::maintenanceChild('Signatories', 'maintenance.signatories'),
+                self::maintenanceChild('Notary', 'maintenance.notaries'),
+                self::maintenanceChild('Certification', 'maintenance.certifications'),
+                self::maintenanceChild('CTC', 'maintenance.ctcs'),
+                self::maintenanceChild('Branches', 'maintenance.branches'),
+            ];
+        }
+
+        if ($user->hasPermission('certificate-templates.view')) {
+            $maintenanceChildren[] = [
+                'name' => 'Certificate Templates',
+                'href' => route('certificate-templates.index'),
+                'routes' => ['certificate-templates.index'],
+            ];
+        }
+
+        if ($maintenanceChildren !== []) {
             $items[] = [
                 'type' => 'group',
                 'name' => 'Maintenance',
                 'icon' => 'cog',
-                'children' => [
-                    self::maintenanceChild('Bond Types', 'maintenance.bond-types'),
-                    self::maintenanceChild('Signatories', 'maintenance.signatories'),
-                    self::maintenanceChild('Notary', 'maintenance.notaries'),
-                    self::maintenanceChild('Certification', 'maintenance.certifications'),
-                    self::maintenanceChild('CTC', 'maintenance.ctcs'),
-                    self::maintenanceChild('Branches', 'maintenance.branches'),
-                ],
+                'children' => $maintenanceChildren,
             ];
         }
 

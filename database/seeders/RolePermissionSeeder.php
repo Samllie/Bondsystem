@@ -46,6 +46,9 @@ class RolePermissionSeeder extends Seeder
             // Users
             ['name' => 'View Users', 'slug' => 'users.view', 'group' => 'users'],
             ['name' => 'Manage Users', 'slug' => 'users.manage', 'group' => 'users'],
+            // Certificate Templates
+            ['name' => 'View Certificate Templates', 'slug' => 'certificate-templates.view', 'group' => 'certificate-templates'],
+            ['name' => 'Manage Certificate Templates', 'slug' => 'certificate-templates.manage', 'group' => 'certificate-templates'],
         ];
 
         foreach ($permissions as $permission) {

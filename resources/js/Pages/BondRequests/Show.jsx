@@ -5,6 +5,7 @@ import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
 import ConfirmModal from '@/Components/UI/ConfirmModal';
 import { SelectField, TextField } from '@/Components/UI/FormField';
 import StatusBadge from '@/Components/UI/StatusBadge';
+import { useToast } from '@/Contexts/ToastContext';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatDateInWords } from '@/lib/formatDateInWords';
 import { formatBookNoDisplay, formatBookNoInput } from '@/lib/romanNumerals';
@@ -24,6 +25,7 @@ export default function Show({
     signatoryOptions,
     notaryOptions,
 }) {
+    const { addToast } = useToast();
     const [deleteOpen, setDeleteOpen] = useState(false);
 
     // ── Approve form ──────────────────────────────────────────────────────────
@@ -145,8 +147,18 @@ export default function Show({
         generateForm.transform((current) => ({ ...current, book_no: formatted }));
         generateForm.post(route('bond-requests.generate-certificate', bondRequest.id), {
             preserveScroll: true,
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                if (firstError) {
+                    addToast(Array.isArray(firstError) ? firstError[0] : firstError, 'error');
+                } else {
+                    addToast('Unable to generate certificate. Please check the form details.', 'error');
+                }
+            },
         });
     };
+
+    const firstGenerateError = Object.values(generateForm.errors)[0];
 
     // ── Derived display values ────────────────────────────────────────────────
     const addresses = [bondRequest.address_1, bondRequest.address_2, bondRequest.address_3].filter(Boolean);
@@ -436,6 +448,11 @@ export default function Show({
                                         <dd className="mt-1 text-slate-900">{bondRequest.series_year}</dd>
                                     </div>
                                 </dl>
+                                {firstGenerateError && (
+                                    <p className="text-sm text-red-600">
+                                        {Array.isArray(firstGenerateError) ? firstGenerateError[0] : firstGenerateError}
+                                    </p>
+                                )}
                                 <form onSubmit={submitGenerate}>
                                     <PrimaryButton disabled={generateForm.processing}>
                                         {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
@@ -501,7 +518,12 @@ export default function Show({
                                     maxLength={4}
                                     required
                                 />
-                                <div className="flex gap-3 sm:col-span-2">
+                                <div className="flex flex-col gap-2 sm:col-span-2">
+                                    {!canGenerate && (
+                                        <p className="text-sm text-slate-500">
+                                            Complete signatory, notary (for bond certificates), and document details to enable generation.
+                                        </p>
+                                    )}
                                     <PrimaryButton disabled={!canGenerate || generateForm.processing}>
                                         {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
                                     </PrimaryButton>

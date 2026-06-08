@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ObligeeController as ApiObligeeController;
 use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\CertificateController;
+use App\Http\Controllers\CertificateTemplateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
@@ -54,6 +55,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Certifications (branch-scoped certificate registry)
     Route::get('/certifications', [CertificateController::class, 'index'])->name('certifications.index');
+
+    // Certificate Templates (admin)
+    Route::get('/certificate-templates', [CertificateTemplateController::class, 'index'])->name('certificate-templates.index');
+    Route::post('/certificate-templates', [CertificateTemplateController::class, 'store'])->name('certificate-templates.store');
+    Route::patch('/certificate-templates/{certificate_template}/activate', [CertificateTemplateController::class, 'activate'])->name('certificate-templates.activate');
+    Route::patch('/certificate-templates/{certificate_template}/archive', [CertificateTemplateController::class, 'archive'])->name('certificate-templates.archive');
+    Route::get('/certificate-templates/{certificate_template}/download', [CertificateTemplateController::class, 'download'])->name('certificate-templates.download');
+    Route::get('/certificate-templates/fallback/{type}/download', [CertificateTemplateController::class, 'downloadFallback'])->name('certificate-templates.download-fallback');
 
     // Obligees & Principals
     Route::resource('obligees', ObligeeController::class);
