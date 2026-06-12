@@ -37,7 +37,13 @@ class UpdateBondRequestRequest extends FormRequest
                 'string',
                 'max:255',
             ],
-            'tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-0000$/'],
+            'has_endorsement' => ['sometimes', 'boolean'],
+            'endorsement_number' => [
+                Rule::requiredIf(fn (): bool => $this->boolean('has_endorsement')),
+                'nullable',
+                'string',
+                'max:100',
+            ],
             'principal_id' => ['nullable', 'integer', 'exists:principals,id'],
             'principal_name' => ['required', 'string', 'max:255'],
             'obligee_id' => ['nullable', 'integer', 'min:1', new ValidKycObligee],
@@ -74,8 +80,7 @@ class UpdateBondRequestRequest extends FormRequest
             'principal_name.required' => 'The principal name is required.',
             'car.required' => 'The CAR field is required for CAR certificate requests.',
             'authorized_representative.required' => 'The authorized representative is required for CAR certificate requests.',
-            'tin.required' => 'The TIN is required.',
-            'tin.regex' => 'Enter a valid TIN in the format 000-000-000-0000.',
+            'endorsement_number.required' => 'The endorsement number is required when endorsement is enabled.',
             'bond_type_id.required' => 'Please select a bond type for bond certificate requests.',
         ];
     }

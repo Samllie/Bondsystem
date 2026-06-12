@@ -63,6 +63,37 @@ class DepositApprovalTest extends TestCase
         $response->assertSessionHas('success');
     }
 
+    public function test_approving_deposits_for_different_users_assigns_unique_transaction_numbers(): void
+    {
+        $firstRequester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);
+        $secondRequester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);
+        $approver = $this->createUser(RoleSlug::Approver);
+        $bankAccount = BankAccount::factory()->create();
+
+        $firstDeposit = Deposit::factory()->create([
+            'user_id' => $firstRequester->id,
+            'bank_account_id' => $bankAccount->id,
+            'amount' => 1000,
+            'status' => DepositStatus::Pending,
+        ]);
+
+        $secondDeposit = Deposit::factory()->create([
+            'user_id' => $secondRequester->id,
+            'bank_account_id' => $bankAccount->id,
+            'amount' => 2000,
+            'status' => DepositStatus::Pending,
+        ]);
+
+        $this->actingAs($approver)->post(route('payments.deposits.approve', $firstDeposit))->assertRedirect();
+        $this->actingAs($approver)->post(route('payments.deposits.approve', $secondDeposit))->assertRedirect();
+
+        $numbers = Transaction::query()->orderBy('id')->pluck('transaction_number');
+
+        $this->assertCount(2, $numbers);
+        $this->assertCount(2, $numbers->unique());
+        $this->assertNotSame($numbers[0], $numbers[1]);
+    }
+
     public function test_pending_deposit_show_page_exposes_approve_action_for_approver(): void
     {
         $requester = $this->createUser(RoleSlug::Requester);

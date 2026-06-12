@@ -50,14 +50,13 @@ export default function Show({
     const isCarCertificate =
         (bondRequest.certificate_type?.value || bondRequest.certificate_type) === 'car_certificate';
 
-    // True when all certificate details were already saved during approval.
-    // CAR certificates have no notary, so it is not part of the requirement.
+    // True when any certificate details were saved during approval.
     const detailsAlreadySaved = Boolean(
-        bondRequest.signatory_id &&
-            (isCarCertificate || bondRequest.notary_id) &&
-            bondRequest.doc_no &&
-            bondRequest.page_no &&
-            bondRequest.book_no &&
+        bondRequest.signatory_id ||
+            bondRequest.notary_id ||
+            bondRequest.doc_no ||
+            bondRequest.page_no ||
+            bondRequest.book_no ||
             bondRequest.series_year,
     );
 
@@ -75,13 +74,7 @@ export default function Show({
         series_year: bondRequest.series_year || String(new Date().getFullYear()),
     });
 
-    const canGenerate =
-        Boolean(generateForm.data.signatory_id) &&
-        (isCarCertificate || Boolean(generateForm.data.notary_id)) &&
-        generateForm.data.doc_no.trim() !== '' &&
-        generateForm.data.page_no.trim() !== '' &&
-        generateForm.data.book_no.trim() !== '' &&
-        generateForm.data.series_year.trim() !== '';
+    const displayTin = bondRequest.signatory?.tin || bondRequest.tin || '—';
 
     // ── Shared option lists ───────────────────────────────────────────────────
     const signatorySelectOptions = useMemo(
@@ -239,7 +232,10 @@ export default function Show({
                                 <Detail label="Bond Type" value={bondRequest.bond_type_label} />
                             </>
                         )}
-                        <Detail label="TIN" value={bondRequest.tin || '—'} capitalize={false} />
+                        <Detail label="TIN" value={displayTin} capitalize={false} />
+                        {bondRequest.endorsement_number && (
+                            <Detail label="Endorsement No." value={bondRequest.endorsement_number} capitalize={false} />
+                        )}
                         <Detail label="Principal" value={bondRequest.principal?.company_name || bondRequest.principal_name} />
                         <Detail label="Obligee" value={bondRequest.obligee?.company_name} />
                         <Detail
@@ -304,16 +300,15 @@ export default function Show({
                     <CardHeader title="Approver review" />
                     <CardBody>
                         <p className="mb-4 text-sm text-slate-600">
-                            Complete the certificate details below, then approve the request.
+                            Certificate details are optional at approval. Complete them now or when generating the certificate.
                         </p>
                         <form onSubmit={submitApprove} className="grid gap-4 sm:grid-cols-2">
                             <SelectField
-                                label="Signatory"
+                                label="Signatory (optional)"
                                 value={approveForm.data.signatory_id}
                                 onChange={(e) => approveForm.setData('signatory_id', e.target.value)}
                                 options={signatorySelectOptions}
                                 error={approveForm.errors.signatory_id}
-                                required
                             />
                             <TextField
                                 label="Position"
@@ -334,34 +329,30 @@ export default function Show({
                                 required={!isCarCertificate}
                             />
                             <TextField
-                                label="Doc No."
+                                label="Doc No. (optional)"
                                 value={approveForm.data.doc_no}
                                 onChange={(e) => approveForm.setData('doc_no', e.target.value)}
                                 error={approveForm.errors.doc_no}
-                                required
                             />
                             <TextField
-                                label="Page No."
+                                label="Page No. (optional)"
                                 value={approveForm.data.page_no}
                                 onChange={(e) => approveForm.setData('page_no', e.target.value)}
                                 error={approveForm.errors.page_no}
-                                required
                             />
                             <TextField
-                                label="Book No."
+                                label="Book No. (optional)"
                                 value={bookNoDraft}
                                 onChange={handleApproveBookNoChange}
                                 placeholder="e.g. V"
                                 error={approveForm.errors.book_no}
-                                required
                             />
                             <TextField
-                                label="Series year"
+                                label="Series year (optional)"
                                 value={approveForm.data.series_year}
                                 onChange={(e) => approveForm.setData('series_year', e.target.value)}
                                 error={approveForm.errors.series_year}
                                 maxLength={4}
-                                required
                             />
                             <div className="flex gap-3 sm:col-span-2">
                                 <PrimaryButton disabled={approveForm.processing}>
@@ -463,12 +454,11 @@ export default function Show({
                             /* ── Full editable form ── */
                             <form onSubmit={submitGenerate} className="grid gap-4 sm:grid-cols-2">
                                 <SelectField
-                                    label="Signatory"
+                                    label="Signatory (optional)"
                                     value={generateForm.data.signatory_id}
                                     onChange={(e) => generateForm.setData('signatory_id', e.target.value)}
                                     options={signatorySelectOptions}
                                     error={generateForm.errors.signatory_id}
-                                    required
                                 />
                                 <TextField
                                     label="Position"
@@ -489,42 +479,33 @@ export default function Show({
                                     required={!isCarCertificate}
                                 />
                                 <TextField
-                                    label="Doc No."
+                                    label="Doc No. (optional)"
                                     value={generateForm.data.doc_no}
                                     onChange={(e) => generateForm.setData('doc_no', e.target.value)}
                                     error={generateForm.errors.doc_no}
-                                    required
                                 />
                                 <TextField
-                                    label="Page No."
+                                    label="Page No. (optional)"
                                     value={generateForm.data.page_no}
                                     onChange={(e) => generateForm.setData('page_no', e.target.value)}
                                     error={generateForm.errors.page_no}
-                                    required
                                 />
                                 <TextField
-                                    label="Book No."
+                                    label="Book No. (optional)"
                                     value={generateBookNoDraft}
                                     onChange={handleGenerateBookNoChange}
                                     placeholder="e.g. V"
                                     error={generateForm.errors.book_no}
-                                    required
                                 />
                                 <TextField
-                                    label="Series year"
+                                    label="Series year (optional)"
                                     value={generateForm.data.series_year}
                                     onChange={(e) => generateForm.setData('series_year', e.target.value)}
                                     error={generateForm.errors.series_year}
                                     maxLength={4}
-                                    required
                                 />
                                 <div className="flex flex-col gap-2 sm:col-span-2">
-                                    {!canGenerate && (
-                                        <p className="text-sm text-slate-500">
-                                            Complete signatory, notary (for bond certificates), and document details to enable generation.
-                                        </p>
-                                    )}
-                                    <PrimaryButton disabled={!canGenerate || generateForm.processing}>
+                                    <PrimaryButton disabled={generateForm.processing}>
                                         {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
                                     </PrimaryButton>
                                 </div>

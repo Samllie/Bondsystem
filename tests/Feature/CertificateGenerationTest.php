@@ -79,15 +79,20 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHas('success');
     }
 
-    public function test_generate_certificate_validation_requires_all_fields(): void
+    public function test_generate_certificate_accepts_empty_optional_fields(): void
     {
         $approver = $this->approverUser();
-        $bondRequest = $this->approvedBondRequest();
+        $bondRequest = $this->approvedCarBondRequest();
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
 
         $response = $this->actingAs($approver)
             ->post(route('bond-requests.generate-certificate', $bondRequest), []);
 
-        $response->assertSessionHasErrors(['signatory_id', 'notary_id', 'doc_no', 'page_no', 'book_no', 'series_year']);
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
     }
 
     public function test_car_certificate_can_generate_without_notary(): void

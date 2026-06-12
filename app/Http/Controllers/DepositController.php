@@ -9,6 +9,7 @@ use App\Models\Transaction;
 use App\Services\ActivityLogger;
 use App\Services\DepositService;
 use App\Services\NotificationService;
+use App\Support\BranchScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -28,12 +29,14 @@ class DepositController extends Controller
 
         $user = $request->user();
         $canViewAll = $user->hasPermission('deposits.view');
+        $branchId = $request->integer('branch_id') ?: null;
 
         // Admins can pass ?mine=1 to see only their own submissions
         $mineOnly = ! $canViewAll || $request->boolean('mine');
 
         $deposits = Deposit::with(['user:id,name', 'bankAccount', 'approver:id,name'])
             ->when($mineOnly, fn ($q) => $q->where('user_id', $user->id))
+            ->when(! $mineOnly, fn ($q) => BranchScope::applyUserRelationScope($q, $user, $branchId))
             ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
             ->when($request->string('search')->trim()->toString(), function ($q, $search) {
                 $q->where(function ($query) use ($search) {
@@ -50,9 +53,11 @@ class DepositController extends Controller
             'deposits' => $deposits,
             'isAdmin' => $canViewAll && ! $mineOnly,
             'canSubmit' => $user->hasPermission('deposits.create'),
-            'filters' => $request->only('status', 'mine', 'search'),
+            'filters' => $request->only('status', 'mine', 'search', 'branch_id'),
             'statusOptions' => DepositStatus::options(),
             'userBalance' => $user->balance,
+            'branchOptions' => BranchScope::branchOptions($user),
+            'showBranchFilter' => BranchScope::showBranchFilter($user) && $canViewAll && ! $mineOnly,
         ]);
     }
 

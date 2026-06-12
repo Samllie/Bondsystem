@@ -43,6 +43,7 @@ class BondRequest extends Model
         'car',
         'authorized_representative',
         'tin',
+        'endorsement_number',
         'description',
         'expiry_date',
         'request_date',

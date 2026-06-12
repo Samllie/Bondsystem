@@ -9,7 +9,9 @@ const colorMap = {
 
 export default function StatusBadge({ label, color = 'gray' }) {
     return (
-        <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${colorMap[color] || colorMap.gray}`}>
+        <span
+            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold print-status ${colorMap[color] || colorMap.gray}`}
+        >
             {label}
         </span>
     );

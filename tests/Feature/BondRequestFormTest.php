@@ -24,7 +24,7 @@ class BondRequestFormTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const VALID_TIN = '123-456-789-0000';
+    private const SIGNATORY_TIN = '123-456-789-0000';
 
     protected function setUp(): void
     {
@@ -72,7 +72,6 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'attention' => 'Ms. Jane Doe',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -86,7 +85,7 @@ class BondRequestFormTest extends TestCase
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
         $this->assertSame('Retention Money Bond NO. G(42)-MKT-0008384', $bondRequest->bond_label);
-        $this->assertSame(self::VALID_TIN, $bondRequest->tin);
+        $this->assertNull($bondRequest->tin);
 
         $this->assertDatabaseHas('bond_requests', [
             'bond_number' => 'G(42)',
@@ -104,7 +103,7 @@ class BondRequestFormTest extends TestCase
             'certificate_type' => CertificateType::BondCertificate->value,
             'signatory_id' => null,
             'notary_id' => null,
-            'tin' => self::VALID_TIN,
+            'tin' => null,
             'status' => 'pending',
             'created_by' => $requester->id,
         ]);
@@ -143,7 +142,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -162,7 +160,6 @@ class BondRequestFormTest extends TestCase
         $bondRequest = BondRequest::factory()->pending()->create([
             'certificate_type' => CertificateType::BondCertificate,
             'created_by' => $requester->id,
-            'tin' => self::VALID_TIN,
         ]);
 
         $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
@@ -189,7 +186,6 @@ class BondRequestFormTest extends TestCase
         $bondRequest = BondRequest::factory()->pending()->create([
             'certificate_type' => CertificateType::BondCertificate,
             'created_by' => $requester->id,
-            'tin' => self::VALID_TIN,
         ]);
 
         $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
@@ -227,7 +223,6 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'car' => 'CAR-CEB-0072056',
             'authorized_representative' => 'Juan Dela Cruz',
-            'tin' => '123-456-789-0000',
             'principal_id' => $principal->id,
             'principal_name' => $principal->company_name,
             'obligee_id' => 42,
@@ -269,7 +264,6 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'car' => 'CAR-MKT-0072056',
             'authorized_representative' => 'Maria Santos',
-            'tin' => '111-222-333-0000',
             'principal_id' => $principal->id,
             'principal_name' => $principal->company_name,
             'obligee_id' => 42,
@@ -290,7 +284,7 @@ class BondRequestFormTest extends TestCase
         $this->assertNull($bondRequest->bond_type_id);
         $this->assertSame('CAR-MKT-0072056', $bondRequest->bond_label);
         $this->assertSame('Maria Santos', $bondRequest->authorized_representative);
-        $this->assertSame('111-222-333-0000', $bondRequest->tin);
+        $this->assertNull($bondRequest->tin);
     }
 
     public function test_car_certificate_does_not_require_inception_date(): void
@@ -311,7 +305,6 @@ class BondRequestFormTest extends TestCase
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'car' => 'CAR-MKT-0072056',
             'authorized_representative' => 'Maria Santos',
-            'tin' => '111-222-333-0000',
             'principal_id' => $principal->id,
             'principal_name' => $principal->company_name,
             'obligee_id' => 42,
@@ -346,7 +339,6 @@ class BondRequestFormTest extends TestCase
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
             'bond_type_id' => $bondType->id,
-            'tin' => '111-222-333-0000',
             'principal_id' => $principal->id,
             'principal_name' => $principal->company_name,
             'obligee_id' => 42,
@@ -360,51 +352,14 @@ class BondRequestFormTest extends TestCase
         $response->assertSessionHasErrors('inception_date');
     }
 
-    public function test_requester_cannot_create_car_certificate_without_valid_tin(): void
+    public function test_requester_must_provide_endorsement_number_when_endorsement_is_enabled(): void
     {
         $this->mock(KycObligeeService::class, function ($mock): void {
-            $mock->shouldReceive('find')
-                ->with(42)
-                ->andReturn([
-                    'id' => 42,
-                    'company_name' => 'Acme Obligee Corp',
-                    'label' => 'Acme Obligee Corp',
-                ]);
-        });
-
-        $requester = $this->requesterUser('MKT');
-        $principal = Principal::factory()->create();
-
-        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
-            'car' => 'CAR-MKT-0072056',
-            'authorized_representative' => 'Maria Santos',
-            'tin' => '111-222-333',
-            'principal_id' => $principal->id,
-            'principal_name' => $principal->company_name,
-            'obligee_id' => 42,
-            'obligee_name' => 'Acme Obligee Corp',
-            'amount' => 1500.75,
-            'request_date' => '2026-05-24',
-            'inception_date' => '2026-05-01',
-            'certificate_type' => CertificateType::CarCertificate->value,
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
-            'expiry_date' => '2027-05-24',
-        ]);
-
-        $response->assertSessionHasErrors('tin');
-        $this->assertDatabaseCount('bond_requests', 0);
-    }
-
-    public function test_requester_cannot_create_bond_certificate_without_valid_tin(): void
-    {
-        $this->mock(KycObligeeService::class, function ($mock): void {
-            $mock->shouldReceive('find')
-                ->with(42)
-                ->andReturn([
-                    'id' => 42,
-                    'company_name' => 'Acme Obligee Corp',
-                    'label' => 'Acme Obligee Corp',
-                ]);
+            $mock->shouldReceive('find')->andReturn([
+                'id' => 42,
+                'company_name' => 'Acme Obligee Corp',
+                'label' => 'Acme Obligee Corp',
+            ]);
         });
 
         $requester = $this->requesterUser('MKT');
@@ -421,13 +376,49 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => '111-222-333',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'has_endorsement' => true,
             'expiry_date' => '2027-05-24',
         ]);
 
-        $response->assertSessionHasErrors('tin');
+        $response->assertSessionHasErrors('endorsement_number');
         $this->assertDatabaseCount('bond_requests', 0);
+    }
+
+    public function test_requester_can_store_endorsement_number_on_bond_request(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')->andReturn([
+                'id' => 42,
+                'company_name' => 'Acme Obligee Corp',
+                'label' => 'Acme Obligee Corp',
+            ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'has_endorsement' => true,
+            'endorsement_number' => 'END-2026-001',
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('bond_requests', [
+            'created_by' => $requester->id,
+            'endorsement_number' => 'END-2026-001',
+        ]);
     }
 
     public function test_requester_cannot_create_bond_request_without_branch_code(): void
@@ -461,7 +452,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -499,7 +489,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -538,7 +527,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => 'May 24, 2027',
         ]);
@@ -576,7 +564,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => $statement,
         ]);
@@ -607,7 +594,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -638,7 +624,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -647,6 +632,30 @@ class BondRequestFormTest extends TestCase
         $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
         $this->assertNotNull($bondRequest);
         $this->assertNull($bondRequest->supporting_document_path);
+    }
+
+    public function test_approver_can_approve_without_certificate_details(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);
+        $approver = $this->approverUser();
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::CarCertificate,
+            'car' => 'CAR-MKT-0072056',
+            'bond_number' => 'CAR-MKT-0072056',
+            'created_by' => $requester->id,
+        ]);
+
+        $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'series_year' => '2026',
+        ]);
+
+        $response->assertRedirect();
+
+        $bondRequest->refresh();
+
+        $this->assertSame(BondRequestStatus::Approved, $bondRequest->status);
+        $this->assertNull($bondRequest->signatory_id);
+        $this->assertNull($bondRequest->doc_no);
     }
 
     public function test_requester_cannot_submit_bond_request_with_zero_obligee_id(): void
@@ -664,7 +673,6 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'tin' => self::VALID_TIN,
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -677,13 +685,16 @@ class BondRequestFormTest extends TestCase
     {
         $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);
         $approver = $this->approverUser();
-        $signatory = Signatory::factory()->create(['name' => 'Jane Signer', 'position' => 'President']);
+        $signatory = Signatory::factory()->create([
+            'name' => 'Jane Signer',
+            'position' => 'President',
+            'tin' => self::SIGNATORY_TIN,
+        ]);
         $notary = Notary::factory()->create(['name' => 'Atty. Juan Notary']);
         $bondRequest = BondRequest::factory()->pending()->create([
             'certificate_type' => CertificateType::BondCertificate,
             'inception_date' => '2026-05-01',
             'created_by' => $requester->id,
-            'tin' => self::VALID_TIN,
         ]);
 
         $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
@@ -705,6 +716,7 @@ class BondRequestFormTest extends TestCase
         $this->assertSame($notary->id, $bondRequest->notary_id);
         $this->assertSame('DOC-1', $bondRequest->doc_no);
         $this->assertSame('V', $bondRequest->book_no);
+        $this->assertSame(self::SIGNATORY_TIN, $bondRequest->tin);
 
         $requester->refresh();
         $this->assertEquals(9500, (float) $requester->balance);

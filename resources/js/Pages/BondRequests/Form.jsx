@@ -2,7 +2,6 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
 import EditableCombobox from '@/Components/UI/EditableCombobox';
-import TinField from '@/Components/UI/TinField';
 import { TextAreaField, TextField } from '@/Components/UI/FormField';
 import InputError from '@/Components/InputError';
 import BackLink from '@/Components/UI/BackLink';
@@ -85,9 +84,10 @@ export default function Form({
         attention: bondRequest?.attention || '',
         supporting_document: null,
         certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
+        has_endorsement: Boolean(bondRequest?.endorsement_number),
+        endorsement_number: bondRequest?.endorsement_number || '',
         car: bondRequest?.car || buildCarValue(requesterBranchCode),
         authorized_representative: bondRequest?.authorized_representative || '',
-        tin: bondRequest?.tin || '',
         expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
     });
 
@@ -281,6 +281,14 @@ export default function Form({
         }));
     };
 
+    const handleEndorsementToggle = (checked) => {
+        setData((current) => ({
+            ...current,
+            has_endorsement: checked,
+            endorsement_number: checked ? current.endorsement_number : '',
+        }));
+    };
+
     return (
         <AppLayout title={isEdit ? 'Edit Bond Request' : 'New Bond Request'}>
             <Head title={isEdit ? 'Edit Bond Request' : 'New Bond Request'} />
@@ -320,6 +328,25 @@ export default function Form({
                             </div>
                             {errors.certificate_type && (
                                 <p className="text-sm text-red-600">{errors.certificate_type}</p>
+                            )}
+                            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
+                                <input
+                                    type="checkbox"
+                                    checked={Boolean(data.has_endorsement)}
+                                    onChange={(e) => handleEndorsementToggle(e.target.checked)}
+                                    className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
+                                />
+                                <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
+                            </label>
+                            {data.has_endorsement && (
+                                <TextField
+                                    label="Endorsement Number"
+                                    value={data.endorsement_number}
+                                    onChange={(e) => setData('endorsement_number', e.target.value)}
+                                    placeholder="For [[Endorsement No.]] in the certificate template"
+                                    error={errors.endorsement_number}
+                                    required
+                                />
                             )}
                         </section>
 
@@ -463,15 +490,6 @@ export default function Form({
                                     </div>
                                 </>
                             )}
-                            <div className="sm:col-span-2">
-                                <TinField
-                                    label="TIN"
-                                    value={data.tin}
-                                    onChange={(value) => setData('tin', value)}
-                                    error={errors.tin}
-                                    required
-                                />
-                            </div>
                             <div className="sm:col-span-2">
                                 <EditableCombobox
                                     label="Principal"

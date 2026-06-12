@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\RoleSlug;
 use App\Models\BondRequest;
+use App\Support\BranchScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +23,7 @@ class CertificateController extends Controller
 
         abort_unless($user->hasPermission('bond-requests.view'), 403);
 
-        $isSuperAdmin = $user->hasRole(RoleSlug::SuperAdmin);
+        $branchId = $request->integer('branch_id') ?: null;
 
         $query = BondRequest::query()
             ->whereNotNull('certificate_path')
@@ -32,9 +33,7 @@ class CertificateController extends Controller
                 'principal:id,company_name',
             ]);
 
-        if (! $isSuperAdmin) {
-            $query->whereHas('creator', fn ($q) => $q->where('branch_id', $user->branch_id));
-        }
+        BranchScope::applyBondCreatorScope($query, $user, $branchId);
 
         if ($search = $request->string('search')->trim()->toString()) {
             $query->where(function ($q) use ($search) {
@@ -65,9 +64,11 @@ class CertificateController extends Controller
 
         return Inertia::render('Certifications/Index', [
             'certificates' => $certificates,
-            'filters' => $request->only('search'),
-            'isSuperAdmin' => $isSuperAdmin,
+            'filters' => $request->only('search', 'branch_id'),
+            'canViewAllBranches' => $user->hasRole(RoleSlug::SuperAdmin) || BranchScope::canFilterByBranch($user),
             'branchName' => $user->branch?->name,
+            'branchOptions' => BranchScope::branchOptions($user),
+            'showBranchFilter' => BranchScope::showBranchFilter($user),
         ]);
     }
 }

@@ -631,3 +631,159 @@
         transform: none;
     }
 }
+
+@media print {
+    @page {
+        margin: 1.2cm;
+        size: auto;
+    }
+
+    body {
+        background: white !important;
+        color: #000 !important;
+    }
+
+    .dashboard-shell-bg {
+        background: white !important;
+    }
+
+    .no-print {
+        display: none !important;
+    }
+
+    .print-only {
+        display: block !important;
+    }
+
+    .print-overview-hidden {
+        display: none !important;
+    }
+
+    .report-print-content,
+    .dashboard-print-content {
+        color: #000 !important;
+    }
+
+    .report-print-content .rounded-xl,
+    .report-print-content .shadow-sm,
+    .dashboard-print-content .rounded-xl,
+    .dashboard-print-content .shadow-sm {
+        box-shadow: none !important;
+    }
+
+    .report-print-content .dashboard-report-card,
+    .dashboard-print-content .dashboard-report-card {
+        margin-top: 1rem;
+        break-inside: auto;
+        overflow: visible !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 0 !important;
+        background: #fff !important;
+    }
+
+    .report-print-content .dashboard-report-card .overflow-x-auto,
+    .dashboard-print-content .dashboard-report-card .overflow-x-auto {
+        overflow: visible !important;
+    }
+
+    .report-print-content .dashboard-report-card h2,
+    .report-print-content .dashboard-report-card h3,
+    .dashboard-print-content .dashboard-report-card h2,
+    .dashboard-print-content .dashboard-report-card h3 {
+        color: #000 !important;
+        font-size: 11pt !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .report-print-content .dashboard-report-table,
+    .dashboard-print-content .dashboard-report-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+        line-height: 1.35;
+        page-break-inside: auto;
+    }
+
+    .report-print-content .dashboard-report-table thead,
+    .dashboard-print-content .dashboard-report-table thead {
+        display: table-header-group;
+    }
+
+    .report-print-content .dashboard-report-table tfoot,
+    .dashboard-print-content .dashboard-report-table tfoot {
+        display: table-footer-group;
+    }
+
+    .report-print-content .dashboard-report-table tr,
+    .dashboard-print-content .dashboard-report-table tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+
+    .report-print-content .dashboard-report-table th,
+    .report-print-content .dashboard-report-table td,
+    .dashboard-print-content .dashboard-report-table th,
+    .dashboard-print-content .dashboard-report-table td {
+        border: 1px solid #94a3b8;
+        padding: 5px 7px;
+        text-align: left;
+        vertical-align: top;
+        color: #000 !important;
+        background: #fff !important;
+    }
+
+    .report-print-content .dashboard-report-table th,
+    .dashboard-print-content .dashboard-report-table th {
+        background: #e2e8f0 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+        font-size: 8.5pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+    }
+
+    .report-print-content .dashboard-report-table tbody tr:nth-child(even) td,
+    .dashboard-print-content .dashboard-report-table tbody tr:nth-child(even) td {
+        background: #f8fafc !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .report-print-content .dashboard-report-table .print-amount,
+    .dashboard-print-content .dashboard-report-table .print-amount {
+        white-space: nowrap;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .report-print-content .dashboard-report-table .print-status,
+    .report-print-content .dashboard-report-table .print-type,
+    .dashboard-print-content .dashboard-report-table .print-status {
+        display: inline !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+        font-size: inherit !important;
+        font-weight: 600 !important;
+        color: #000 !important;
+    }
+
+    .report-print-content .print-hide-certificate-col,
+    .report-print-content .print-hide-actions-col,
+    .dashboard-print-content .print-hide-certificate-col,
+    .dashboard-print-content .print-hide-actions-col {
+        display: none !important;
+    }
+
+    .dashboard-print-summary {
+        margin-top: 1.25rem;
+    }
+
+    .dashboard-print-summary > div + div {
+        margin-top: 1rem;
+    }
+}

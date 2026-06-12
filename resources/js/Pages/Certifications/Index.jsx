@@ -1,21 +1,46 @@
+import BranchFilter from '@/Components/Report/BranchFilter';
 import Card, { CardBody } from '@/Components/UI/Card';
 import Pagination from '@/Components/UI/Pagination';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
 import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
+import { visitTable } from '@/lib/visitTable';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link } from '@inertiajs/react';
 
 const TABLE_PROPS = ['certificates', 'filters'];
 
-export default function Index({ certificates, filters, isSuperAdmin, branchName }) {
+export default function Index({
+    certificates,
+    filters,
+    canViewAllBranches,
+    branchName,
+    branchOptions,
+    showBranchFilter,
+}) {
     const url = route('certifications.index');
 
-    const { inputRef, isSearching, onInput, defaultSearch } = useDebouncedInertiaSearch({
+    const { inputRef, isSearching, onInput, getValue, defaultSearch } = useDebouncedInertiaSearch({
         initialSearch: filters.search,
         url,
-        buildParams: (searchValue) => ({ search: searchValue.trim() || undefined }),
+        buildParams: (searchValue) => ({
+            search: searchValue.trim() || undefined,
+            branch_id: filters.branch_id || undefined,
+        }),
         only: TABLE_PROPS,
     });
+
+    const handleBranchFilter = (e) => {
+        visitTable(url, {
+            search: getValue().trim() || undefined,
+            branch_id: e.target.value || undefined,
+        }, TABLE_PROPS, { inputRef });
+    };
+
+    const scopeMessage = canViewAllBranches
+        ? showBranchFilter
+            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
+            : 'Showing generated certificates across all branches.'
+        : `Showing generated certificates for your branch${branchName ? ` (${branchName})` : ''}.`;
 
     return (
         <AppLayout title="Certifications">
@@ -23,20 +48,26 @@ export default function Index({ certificates, filters, isSuperAdmin, branchName 
 
             <Card className="mb-4">
                 <CardBody>
-                    <p className="mb-3 text-sm text-slate-600">
-                        {isSuperAdmin
-                            ? 'Showing generated certificates across all branches.'
-                            : `Showing generated certificates for your branch${branchName ? ` (${branchName})` : ''}.`}
-                    </p>
-                    <TableSearchInput
-                        inputRef={inputRef}
-                        defaultSearch={defaultSearch}
-                        onInput={onInput}
-                        isSearching={isSearching}
-                        placeholder="Search bond #, CAR #, obligee, principal..."
-                        wrapperClassName="relative w-full"
-                        className="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-sterling-gold focus:ring-sterling-gold"
-                    />
+                    <p className="mb-3 text-sm text-slate-600">{scopeMessage}</p>
+                    <div className="flex flex-wrap gap-3">
+                        <TableSearchInput
+                            inputRef={inputRef}
+                            defaultSearch={defaultSearch}
+                            onInput={onInput}
+                            isSearching={isSearching}
+                            placeholder="Search bond #, CAR #, obligee, principal..."
+                            wrapperClassName="relative flex-1 min-w-[200px]"
+                            className="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-sterling-gold focus:ring-sterling-gold"
+                        />
+                        {showBranchFilter && (
+                            <BranchFilter
+                                value={filters.branch_id ?? ''}
+                                onChange={handleBranchFilter}
+                                branchOptions={branchOptions}
+                                className="rounded-md border-slate-300 text-sm shadow-sm focus:border-sterling-gold focus:ring-sterling-gold"
+                            />
+                        )}
+                    </div>
                 </CardBody>
             </Card>
 

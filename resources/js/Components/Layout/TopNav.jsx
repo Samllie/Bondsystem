@@ -9,7 +9,7 @@ export default function TopNav({ onMenuClick, sidebarOpen }) {
     const userName = auth?.user?.name ?? '';
 
     return (
-        <header className="sticky top-0 z-30 border-b border-sterling-green/10 bg-white/95 shadow-sm backdrop-blur-sm">
+        <header className="no-print sticky top-0 z-30 border-b border-sterling-green/10 bg-white/95 shadow-sm backdrop-blur-sm">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
                 <button
                     type="button"

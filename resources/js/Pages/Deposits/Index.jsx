@@ -1,3 +1,4 @@
+import BranchFilter from '@/Components/Report/BranchFilter';
 import Pagination from '@/Components/UI/Pagination';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
@@ -13,7 +14,16 @@ const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', curren
 const statusColors = { pending: 'amber', approved: 'green', rejected: 'red' };
 const statusLabels = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
 
-export default function DepositsIndex({ deposits, isAdmin, canSubmit, filters, statusOptions, userBalance }) {
+export default function DepositsIndex({
+    deposits,
+    isAdmin,
+    canSubmit,
+    filters,
+    statusOptions,
+    userBalance,
+    branchOptions,
+    showBranchFilter,
+}) {
     const url = route('payments.deposits.index');
 
     const { inputRef, isSearching, onInput, getValue, defaultSearch } = useDebouncedInertiaSearch({
@@ -23,6 +33,7 @@ export default function DepositsIndex({ deposits, isAdmin, canSubmit, filters, s
             search: searchValue.trim() || undefined,
             status: filters.status || undefined,
             mine: filters.mine || undefined,
+            branch_id: filters.branch_id || undefined,
         }),
         only: TABLE_PROPS,
     });
@@ -32,6 +43,7 @@ export default function DepositsIndex({ deposits, isAdmin, canSubmit, filters, s
             search: getValue().trim() || undefined,
             status: extra.status ?? filters.status ?? undefined,
             mine: extra.mine ?? filters.mine ?? undefined,
+            branch_id: extra.branch_id ?? filters.branch_id ?? undefined,
         }, TABLE_PROPS, { inputRef });
     };
 
@@ -110,6 +122,14 @@ export default function DepositsIndex({ deposits, isAdmin, canSubmit, filters, s
                         <option key={s.value} value={s.value}>{s.label}</option>
                     ))}
                 </select>
+                {showBranchFilter && (
+                    <BranchFilter
+                        value={filters.branch_id ?? ''}
+                        onChange={(e) => applyFilter({ branch_id: e.target.value || undefined })}
+                        branchOptions={branchOptions}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sterling-gold focus:outline-none"
+                    />
+                )}
             </div>
 
             <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">

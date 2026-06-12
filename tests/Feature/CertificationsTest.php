@@ -40,7 +40,8 @@ class CertificationsTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Certifications/Index')
-            ->where('isSuperAdmin', false)
+            ->where('canViewAllBranches', false)
+            ->where('showBranchFilter', false)
             ->has('certificates.data', 1)
             ->where('certificates.data.0.id', $certA->id)
         );
@@ -61,12 +62,32 @@ class CertificationsTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Certifications/Index')
-            ->where('isSuperAdmin', true)
+            ->where('canViewAllBranches', true)
+            ->where('showBranchFilter', false)
             ->has('certificates.data', 2)
         );
     }
 
-    public function test_approver_is_branch_scoped(): void
+    public function test_approver_sees_certificates_across_all_branches_by_default(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $certA = $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchA));
+        $certB = $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchB));
+
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
+
+        $response = $this->actingAs($approver)->get(route('certifications.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('showBranchFilter', true)
+            ->has('certificates.data', 2)
+        );
+    }
+
+    public function test_approver_can_filter_certifications_by_branch(): void
     {
         $branchA = $this->makeBranch('AAA');
         $branchB = $this->makeBranch('BBB');
@@ -76,7 +97,9 @@ class CertificationsTest extends TestCase
 
         $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
 
-        $response = $this->actingAs($approver)->get(route('certifications.index'));
+        $response = $this->actingAs($approver)->get(route('certifications.index', [
+            'branch_id' => $branchA->id,
+        ]));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page

@@ -60,7 +60,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.',
             'Bond', 'BOND', 'PRINCIPAL', 'Date in words', 'Date issued in words', 'Series year',
         ];
 
@@ -143,6 +143,28 @@ class TemplateDataBuilderTest extends TestCase
         $data = $this->builder->build($bondRequest);
 
         $this->assertSame('PHP 1,500,000.00', $data['text']['Amount']);
+    }
+
+    public function test_tin_comes_from_signatory(): void
+    {
+        $signatory = Signatory::factory()->create(['tin' => '555-666-777-0000']);
+        $bondRequest = $this->bondRequest([
+            'signatory_id' => $signatory->id,
+            'tin' => '111-222-333-0000',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('555-666-777-0000', $data['text']['Tin']);
+    }
+
+    public function test_endorsement_number_is_mapped_to_template_placeholder(): void
+    {
+        $bondRequest = $this->bondRequest(['endorsement_number' => 'END-2026-001']);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('END-2026-001', $data['text']['Endorsement No.']);
     }
 
     public function test_bond_principal_is_uppercased(): void
@@ -305,7 +327,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.',
             'CAR', 'Branch', 'Year', 'Attention', 'Authorized Representative', 'Principal',
         ];
 

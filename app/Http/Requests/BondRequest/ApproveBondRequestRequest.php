@@ -18,12 +18,12 @@ class ApproveBondRequestRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signatory_id' => ['required', 'integer', 'exists:signatories,id'],
+            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
             'notary_id' => [Rule::requiredIf($this->notaryRequired()), 'nullable', 'integer', 'exists:notaries,id'],
-            'doc_no' => ['required', 'string', 'max:100'],
-            'page_no' => ['required', 'string', 'max:100'],
-            'book_no' => ['required', 'string', 'max:100'],
-            'series_year' => ['required', 'string', 'max:4'],
+            'doc_no' => ['nullable', 'string', 'max:100'],
+            'page_no' => ['nullable', 'string', 'max:100'],
+            'book_no' => ['nullable', 'string', 'max:100'],
+            'series_year' => ['nullable', 'string', 'max:4'],
         ];
     }
 

@@ -20,6 +20,7 @@ use App\Services\NotaryFeeService;
 use App\Services\NotificationService;
 use App\Support\AmountInWords;
 use App\Support\BondNumberGenerator;
+use App\Support\BranchScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,11 +45,16 @@ class BondRequestController extends Controller
     {
         $this->authorize('viewAny', BondRequest::class);
 
-        $query = BondRequest::query()
-            ->with(['principal:id,company_name', 'creator:id,name']);
+        $user = $request->user();
+        $branchId = $request->integer('branch_id') ?: null;
 
-        if ($request->user()->hasRole(RoleSlug::Requester)) {
-            $query->where('created_by', $request->user()->id);
+        $query = BondRequest::query()
+            ->with(['principal:id,company_name', 'creator:id,name', 'approver:id,name']);
+
+        if ($user->hasRole(RoleSlug::Requester)) {
+            $query->where('created_by', $user->id);
+        } else {
+            BranchScope::applyBondCreatorScope($query, $user, $branchId);
         }
 
         if ($search = $request->string('search')->trim()->toString()) {
@@ -79,9 +85,11 @@ class BondRequestController extends Controller
 
         return Inertia::render('BondRequests/Index', [
             'bondRequests' => $bondRequests,
-            'filters' => $request->only(['search', 'status', 'bond_type_id']),
+            'filters' => $request->only(['search', 'status', 'bond_type_id', 'branch_id']),
             'statusOptions' => BondRequestStatus::options(),
             'bondTypeOptions' => $this->bondTypeOptions(),
+            'branchOptions' => BranchScope::branchOptions($user),
+            'showBranchFilter' => BranchScope::showBranchFilter($user),
         ]);
     }
 
@@ -208,19 +216,22 @@ class BondRequestController extends Controller
         abort_unless($bondRequest->status === BondRequestStatus::Pending, 422);
 
         DB::transaction(function () use ($request, $bondRequest): void {
-            $signatory = Signatory::query()->findOrFail($request->integer('signatory_id'));
+            $signatory = $request->filled('signatory_id')
+                ? Signatory::query()->findOrFail($request->integer('signatory_id'))
+                : null;
 
             $bondRequest->update([
                 'status' => BondRequestStatus::Approved,
                 'approved_by' => $request->user()->id,
                 'approved_at' => now(),
-                'signatory_id' => $signatory->id,
-                'signatory_position' => $signatory->position,
+                'signatory_id' => $signatory?->id,
+                'signatory_position' => $signatory?->position,
                 'notary_id' => $request->filled('notary_id') ? $request->integer('notary_id') : null,
                 'doc_no' => $request->input('doc_no'),
                 'page_no' => $request->input('page_no'),
                 'book_no' => $request->input('book_no'),
                 'series_year' => $request->input('series_year'),
+                'tin' => $signatory?->tin,
             ]);
 
             $bondRequest->loadMissing('creator');
@@ -274,24 +285,27 @@ class BondRequestController extends Controller
         $notaryRequired = $bondRequest->certificate_type === CertificateType::BondCertificate;
 
         $validated = $request->validate([
-            'signatory_id' => ['required', 'integer', 'exists:signatories,id'],
+            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
             'notary_id' => [Rule::requiredIf($notaryRequired), 'nullable', 'integer', 'exists:notaries,id'],
-            'doc_no' => ['required', 'string', 'max:50'],
-            'page_no' => ['required', 'string', 'max:50'],
-            'book_no' => ['required', 'string', 'max:50'],
-            'series_year' => ['required', 'string', 'size:4'],
+            'doc_no' => ['nullable', 'string', 'max:50'],
+            'page_no' => ['nullable', 'string', 'max:50'],
+            'book_no' => ['nullable', 'string', 'max:50'],
+            'series_year' => ['nullable', 'string', 'size:4'],
         ]);
 
-        $signatory = Signatory::findOrFail($validated['signatory_id']);
+        $signatory = isset($validated['signatory_id'])
+            ? Signatory::findOrFail($validated['signatory_id'])
+            : null;
 
         $bondRequest->update([
-            'signatory_id' => $signatory->id,
-            'signatory_position' => $signatory->position,
+            'signatory_id' => $signatory?->id,
+            'signatory_position' => $signatory?->position,
             'notary_id' => $validated['notary_id'] ?? null,
-            'doc_no' => $validated['doc_no'],
-            'page_no' => $validated['page_no'],
-            'book_no' => $validated['book_no'],
-            'series_year' => $validated['series_year'],
+            'doc_no' => $validated['doc_no'] ?? null,
+            'page_no' => $validated['page_no'] ?? null,
+            'book_no' => $validated['book_no'] ?? null,
+            'series_year' => $validated['series_year'] ?? null,
+            'tin' => $signatory?->tin,
         ]);
 
         try {
@@ -461,9 +475,11 @@ class BondRequestController extends Controller
             $attributes['authorized_representative'] = null;
         }
 
-        $attributes['tin'] = $request->string('tin')->trim()->toString();
+        $attributes['endorsement_number'] = $request->boolean('has_endorsement')
+            ? $request->string('endorsement_number')->trim()->toString()
+            : null;
 
-        unset($attributes['supporting_document']);
+        unset($attributes['supporting_document'], $attributes['has_endorsement']);
 
         if ($request->hasFile('supporting_document')) {
             if ($bondRequest?->supporting_document_path) {

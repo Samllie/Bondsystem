@@ -53,14 +53,14 @@ export default function AppLayout({ title, children, actions }) {
                 onClose={() => setSidebarOpen(false)}
             />
 
-            <div className={`transition-[padding] duration-300 ease-in-out ${mainOffsetClass}`}>
+            <div className={`transition-[padding] duration-300 ease-in-out print:pl-0 ${mainOffsetClass}`}>
                 <TopNav
                     sidebarOpen={sidebarOpen}
                     onMenuClick={() => setSidebarOpen((open) => !open)}
                 />
-                <main className="p-4 sm:p-6 lg:p-8">
+                <main className="p-4 sm:p-6 lg:p-8 print:p-0">
                     {(title || actions) && (
-                        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="no-print mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                             {title && (
                                 <div>
                                     <h1 className="font-serif text-2xl font-bold text-sterling-green">{title}</h1>
