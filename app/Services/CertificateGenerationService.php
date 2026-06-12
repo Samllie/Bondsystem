@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Enums\CertificateTemplateType;
 use App\Models\BondRequest;
 use App\Models\CertificateTemplate;
+use App\Models\CertificateVersion;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\TemplateProcessor;
 use RuntimeException;
@@ -23,7 +26,8 @@ use RuntimeException;
  *   5. The filled DOCX is saved to storage/app/private/generated-docx/.
  *   6. LibreOffice headless converts the DOCX to PDF stored in
  *      storage/app/private/certificates/.
- *   7. certificate_path and docx_path are persisted on the BondRequest.
+ *   7. A certificate_versions record is created and marked current; certificate_path
+ *      and docx_path on the BondRequest point to the current version.
  */
 class CertificateGenerationService
 {
@@ -37,11 +41,14 @@ class CertificateGenerationService
     /**
      * @throws RuntimeException when generation fails.
      */
-    public function generate(BondRequest $bondRequest): void
+    public function generate(BondRequest $bondRequest, User $generatedBy): void
     {
         $this->assertEndorsementIsValid($bondRequest);
 
         $bondRequest->load(['principal', 'signatory', 'notary', 'creator.branch', 'bondTypeMaster']);
+
+        $versionNumber = $this->nextVersionNumber($bondRequest);
+        $templateId = $this->resolveTemplateId($bondRequest);
 
         $templatePath = $this->templatePath($bondRequest);
         $normalizedPath = $this->normalizer->normalize($templatePath);
@@ -54,18 +61,55 @@ class CertificateGenerationService
             $this->applyTextValues($processor, $renderedText);
             $this->applyImageValues($processor, $data['images'], $bondRequest);
 
-            $docxPath = $this->saveDocx($processor, $bondRequest);
+            $docxPath = $this->saveDocx($processor, $bondRequest, $versionNumber);
 
             if (! $bondRequest->include_endorsement_number) {
                 $this->endorsementSpacingNormalizer->normalize(storage_path("app/{$docxPath}"));
             }
 
-            $pdfPath = $this->convertToPdf($docxPath, $bondRequest);
+            $pdfPath = $this->convertToPdf($docxPath, $bondRequest, $versionNumber);
+            $currentPath = $pdfPath ?? $docxPath;
 
-            $bondRequest->update([
-                'docx_path' => $docxPath,
-                'certificate_path' => $pdfPath ?? $docxPath,
-            ]);
+            DB::transaction(function () use (
+                $bondRequest,
+                $generatedBy,
+                $versionNumber,
+                $templateId,
+                $docxPath,
+                $pdfPath,
+                $currentPath,
+            ): void {
+                CertificateVersion::query()
+                    ->where('bond_request_id', $bondRequest->id)
+                    ->update(['is_current' => false]);
+
+                $version = CertificateVersion::create([
+                    'bond_request_id' => $bondRequest->id,
+                    'version_number' => $versionNumber,
+                    'certificate_type' => $bondRequest->certificate_type,
+                    'template_id' => $templateId,
+                    'docx_path' => $docxPath,
+                    'pdf_path' => $pdfPath,
+                    'generated_by' => $generatedBy->id,
+                    'generated_at' => now(),
+                    'is_current' => true,
+                ]);
+
+                $bondRequest->update([
+                    'docx_path' => $docxPath,
+                    'certificate_path' => $currentPath,
+                ]);
+
+                ActivityLogger::log(
+                    'certificate_version_created',
+                    "Certificate version {$versionNumber} created for bond request #{$bondRequest->id}.",
+                    $version,
+                    [
+                        'bond_request_id' => $bondRequest->id,
+                        'version_number' => $versionNumber,
+                    ],
+                );
+            });
         } finally {
             if (file_exists($normalizedPath)) {
                 @unlink($normalizedPath);
@@ -152,32 +196,32 @@ class CertificateGenerationService
     // File storage
     // -------------------------------------------------------------------------
 
-    private function saveDocx(TemplateProcessor $processor, BondRequest $bondRequest): string
+    private function saveDocx(TemplateProcessor $processor, BondRequest $bondRequest, int $versionNumber): string
     {
-        $directory = storage_path('app/private/generated-docx');
+        $relativePath = $this->versionedRelativePath($bondRequest, $versionNumber, 'docx');
+        $fullPath = storage_path("app/{$relativePath}");
+        $directory = dirname($fullPath);
 
         if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
-        $filename = $this->buildFilename($bondRequest, 'docx');
-        $fullPath = "{$directory}/{$filename}";
-
         $processor->saveAs($fullPath);
 
-        return "private/generated-docx/{$filename}";
+        return $relativePath;
     }
 
-    private function convertToPdf(string $docxRelativePath, BondRequest $bondRequest): ?string
+    private function convertToPdf(string $docxRelativePath, BondRequest $bondRequest, int $versionNumber): ?string
     {
-        $directory = storage_path('app/private/certificates');
+        $pdfRelativePath = $this->versionedRelativePath($bondRequest, $versionNumber, 'pdf');
+        $directory = dirname(storage_path("app/{$pdfRelativePath}"));
 
         if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
 
         $docxAbsolutePath = storage_path("app/{$docxRelativePath}");
-        $pdfFilename = $this->buildFilename($bondRequest, 'pdf');
+        $pdfAbsolutePath = storage_path("app/{$pdfRelativePath}");
 
         $libreOffice = $this->findLibreOffice();
 
@@ -199,24 +243,42 @@ class CertificateGenerationService
         $libreOfficeOutput = $directory.'/'.pathinfo($docxAbsolutePath, PATHINFO_FILENAME).'.pdf';
 
         if (file_exists($libreOfficeOutput)) {
-            $targetPath = "{$directory}/{$pdfFilename}";
-            rename($libreOfficeOutput, $targetPath);
+            rename($libreOfficeOutput, $pdfAbsolutePath);
 
-            return "private/certificates/{$pdfFilename}";
+            return $pdfRelativePath;
         }
 
         return null;
     }
 
-    private function buildFilename(BondRequest $bondRequest, string $extension): string
+    private function versionedRelativePath(BondRequest $bondRequest, int $versionNumber, string $extension): string
     {
-        $obligee = $bondRequest->obligee_name ?? 'obligee';
-        $bond = $bondRequest->bond_number ?? 'bond';
-        $base = preg_replace('/[^A-Za-z0-9\-_]+/', '_', "{$obligee}_{$bond}");
-        $base = trim((string) $base, '_');
+        $now = now();
+        $year = $now->format('Y');
+        $month = $now->format('m');
+        $filename = "request_{$bondRequest->id}_v{$versionNumber}.{$extension}";
 
-        // The id keeps the stored file unique (bond numbers can repeat across requests).
-        return "{$base}_{$bondRequest->id}.{$extension}";
+        if ($extension === 'docx') {
+            return "private/generated-docx/{$year}/{$month}/{$filename}";
+        }
+
+        return "private/certificates/{$year}/{$month}/{$filename}";
+    }
+
+    private function nextVersionNumber(BondRequest $bondRequest): int
+    {
+        $max = CertificateVersion::query()
+            ->where('bond_request_id', $bondRequest->id)
+            ->max('version_number');
+
+        return ((int) $max) + 1;
+    }
+
+    private function resolveTemplateId(BondRequest $bondRequest): ?int
+    {
+        $type = CertificateTemplateType::fromCertificateType($bondRequest->certificate_type);
+
+        return CertificateTemplate::activeForType($type)?->id;
     }
 
     private function findLibreOffice(): ?string

@@ -64,7 +64,8 @@ class CertificateGenerationTest extends TestCase
             new PlaceholderRenderer,
             new DocxEndorsementSpacingNormalizer,
         );
-        $service->generate($bondRequest);
+        $user = User::factory()->create();
+        $service->generate($bondRequest, $user);
     }
 
     // -------------------------------------------------------------------------
@@ -393,6 +394,50 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHasErrors('notary_id');
         $this->assertEquals(100, (float) $branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_regenerate_certificate_preserves_signatory_when_compact_form_omits_signatory_id(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true, 'position' => 'Vice President']);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'car' => 'CAR-MKT-0072056',
+            'signatory_id' => $signatory->id,
+            'signatory_position' => 'Vice President',
+            'doc_no' => '12',
+            'page_no' => '34',
+            'book_no' => 'V',
+            'series_year' => '2026',
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+                'series_year' => '2026',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $bondRequest->refresh();
+        $this->assertSame($signatory->id, $bondRequest->signatory_id);
+        $this->assertSame('Vice President', $bondRequest->signatory_position);
+        $this->assertSame('12', $bondRequest->doc_no);
+        $this->assertSame('34', $bondRequest->page_no);
+        $this->assertSame('V', $bondRequest->book_no);
     }
 
     // -------------------------------------------------------------------------

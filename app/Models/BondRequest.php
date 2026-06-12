@@ -13,6 +13,7 @@ use App\Support\BondNumberGenerator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -129,6 +130,16 @@ class BondRequest extends Model
     public function paymentHistory(): HasOne
     {
         return $this->hasOne(PaymentHistory::class);
+    }
+
+    public function certificateVersions(): HasMany
+    {
+        return $this->hasMany(CertificateVersion::class)->orderByDesc('version_number');
+    }
+
+    public function currentCertificateVersion(): HasOne
+    {
+        return $this->hasOne(CertificateVersion::class)->where('is_current', true);
     }
 
     public function getStatusLabelAttribute(): string

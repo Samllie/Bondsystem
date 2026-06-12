@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CertificateTemplateController;
+use App\Http\Controllers\CertificateVersionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
@@ -51,6 +52,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('bond-requests/{bond_request}/view-certificate', [BondRequestController::class, 'viewCertificate'])->name('bond-requests.view-certificate');
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
     Route::get('bond-requests/{bond_request}/download-docx', [BondRequestController::class, 'downloadDocx'])->name('bond-requests.download-docx');
+    Route::get('bond-requests/{bond_request}/certificate-versions', [CertificateVersionController::class, 'index'])->name('bond-requests.certificate-versions.index');
+
+    Route::get('certificate-versions/{certificateVersion}/view', [CertificateVersionController::class, 'view'])->name('certificate-versions.view');
+    Route::get('certificate-versions/{certificateVersion}/download', [CertificateVersionController::class, 'download'])->name('certificate-versions.download');
+    Route::get('certificate-versions/{certificateVersion}/download-docx', [CertificateVersionController::class, 'downloadDocx'])->name('certificate-versions.download-docx');
+    Route::patch('certificate-versions/{certificateVersion}/make-current', [CertificateVersionController::class, 'makeCurrent'])->name('certificate-versions.make-current');
 
     // Branch-scoped certificates for requesters and approvers
     Route::get('/certifications', [CertificateController::class, 'index'])->name('certifications.index');

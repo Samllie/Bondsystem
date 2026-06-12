@@ -4,11 +4,13 @@ namespace App\Providers;
 
 use App\Models\BondRequest;
 use App\Models\CertificateTemplate;
+use App\Models\CertificateVersion;
 use App\Models\Obligee;
 use App\Models\Principal;
 use App\Models\User;
 use App\Policies\BondRequestPolicy;
 use App\Policies\CertificateTemplatePolicy;
+use App\Policies\CertificateVersionPolicy;
 use App\Policies\ObligeePolicy;
 use App\Policies\PrincipalPolicy;
 use App\Policies\UserPolicy;
@@ -19,6 +21,7 @@ class AuthServiceProvider extends ServiceProvider
     protected $policies = [
         BondRequest::class => BondRequestPolicy::class,
         CertificateTemplate::class => CertificateTemplatePolicy::class,
+        CertificateVersion::class => CertificateVersionPolicy::class,
         Obligee::class => ObligeePolicy::class,
         Principal::class => PrincipalPolicy::class,
         User::class => UserPolicy::class,

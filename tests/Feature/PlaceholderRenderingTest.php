@@ -115,10 +115,12 @@ class PlaceholderRenderingTest extends TestCase
 
         $service = app(CertificateGenerationService::class);
 
+        $user = User::factory()->create();
+
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Endorsement number is required');
 
-        $service->generate($bondRequest);
+        $service->generate($bondRequest, $user);
     }
 
     /**

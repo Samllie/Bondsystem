@@ -61,7 +61,8 @@ class TemplateDataBuilderTest extends TestCase
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
             'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
-            'Bond', 'BOND', 'PRINCIPAL', 'Date in words', 'Date issued in words', 'Series year',
+            'Date in words', 'Date issued in words',
+            'Bond', 'BOND', 'PRINCIPAL', 'Series year',
         ];
 
         foreach ($expectedTextKeys as $key) {
@@ -355,6 +356,7 @@ class TemplateDataBuilderTest extends TestCase
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
             'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
+            'Date in words', 'Date issued in words',
             'CAR', 'Branch', 'Year', 'Attention', 'Authorized Representative', 'Principal',
         ];
 
@@ -398,6 +400,33 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('2026', $data['text']['Year']);
     }
 
+    public function test_car_certificate_includes_date_in_words_from_request_date(): void
+    {
+        $bondRequest = $this->carBondRequest(['request_date' => '2026-06-12']);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('12th day of June, 2026', $data['text']['Date in words']);
+    }
+
+    public function test_car_position_falls_back_to_signatory_position_on_bond_request(): void
+    {
+        $signatory = Signatory::factory()->create([
+            'name' => 'Jane Doe',
+            'position' => '',
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->carBondRequest([
+            'signatory_id' => $signatory->id,
+            'signatory_position' => 'Branch Manager',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('Jane Doe', $data['text']['Signatory']);
+        $this->assertSame('Branch Manager', $data['text']['Position']);
+    }
+
     public function test_car_has_no_bond_specific_placeholders(): void
     {
         $bondRequest = $this->carBondRequest();
@@ -408,8 +437,7 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertArrayNotHasKey('BOND', $data['text']);
         $this->assertArrayNotHasKey('PRINCIPAL', $data['text']);
         $this->assertArrayNotHasKey('Notary', $data['text']);
-        $this->assertArrayNotHasKey('Date in words', $data['text']);
-        $this->assertArrayNotHasKey('Date issued in words', $data['text']);
+        $this->assertArrayNotHasKey('Series year', $data['text']);
         $this->assertArrayNotHasKey('Signature', $data['images']);
     }
 

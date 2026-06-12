@@ -10,6 +10,7 @@ use App\Http\Requests\BondRequest\ApproveBondRequestRequest;
 use App\Http\Requests\BondRequest\StoreBondRequestRequest;
 use App\Http\Requests\BondRequest\UpdateBondRequestRequest;
 use App\Models\BondRequest;
+use App\Models\CertificateVersion;
 use App\Models\Maintenance\BondTypeMaster;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
@@ -146,6 +147,10 @@ class BondRequestController extends Controller
 
         $needsOptions = $canApprove || $canGenerateCertificate;
 
+        $user = request()->user();
+        $canMakeVersionCurrent = $user->hasRole(RoleSlug::SuperAdmin)
+            || $user->hasPermission('users.view');
+
         return Inertia::render('BondRequests/Show', [
             'bondRequest' => $bondRequest,
             'supportingDocumentUrl' => $bondRequest->supporting_document_path
@@ -159,6 +164,21 @@ class BondRequestController extends Controller
             'canGenerateCertificate' => $canGenerateCertificate,
             'hasCertificate' => $bondRequest->certificate_path !== null,
             'hasDocx' => $bondRequest->docx_path !== null,
+            'canMakeVersionCurrent' => $canMakeVersionCurrent,
+            'certificateVersions' => $bondRequest->certificateVersions()
+                ->with('generatedBy:id,name')
+                ->get()
+                ->map(fn (CertificateVersion $version) => [
+                    'id' => $version->id,
+                    'version_number' => $version->version_number,
+                    'certificate_type' => $version->certificate_type?->value,
+                    'certificate_type_label' => $version->certificate_type_label,
+                    'generated_by' => $version->generatedBy?->only(['id', 'name']),
+                    'generated_at' => $version->generated_at?->toIso8601String(),
+                    'is_current' => $version->is_current,
+                    'has_pdf' => $version->pdf_path !== null,
+                    'has_docx' => filled($version->docx_path),
+                ]),
             'signatoryOptions' => $needsOptions ? $this->signatoryOptions() : [],
             'notaryOptions' => $needsOptions ? $this->notaryOptions() : [],
         ]);
@@ -300,31 +320,33 @@ class BondRequestController extends Controller
             'series_year' => ['nullable', 'string', 'size:4'],
         ]);
 
-        $signatory = isset($validated['signatory_id'])
+        $signatory = isset($validated['signatory_id']) && filled($validated['signatory_id'])
             ? Signatory::findOrFail($validated['signatory_id'])
-            : null;
+            : ($bondRequest->signatory_id ? $bondRequest->signatory : null);
 
         try {
             DB::transaction(function () use ($request, $bondRequest, $validated, $signatory): void {
                 $bondRequest->update([
                     'signatory_id' => $signatory?->id,
-                    'signatory_position' => $signatory?->position,
+                    'signatory_position' => $signatory?->position ?? $bondRequest->signatory_position,
                     'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
-                    'notary_id' => $validated['notary_id'] ?? null,
-                    'doc_no' => $validated['doc_no'] ?? null,
-                    'page_no' => $validated['page_no'] ?? null,
-                    'book_no' => $validated['book_no'] ?? null,
-                    'series_year' => $validated['series_year'] ?? null,
-                    'tin' => $signatory?->tin,
+                    'notary_id' => filled($validated['notary_id'] ?? null)
+                        ? $validated['notary_id']
+                        : $bondRequest->notary_id,
+                    'doc_no' => filled($validated['doc_no'] ?? null) ? $validated['doc_no'] : $bondRequest->doc_no,
+                    'page_no' => filled($validated['page_no'] ?? null) ? $validated['page_no'] : $bondRequest->page_no,
+                    'book_no' => filled($validated['book_no'] ?? null) ? $validated['book_no'] : $bondRequest->book_no,
+                    'series_year' => filled($validated['series_year'] ?? null) ? $validated['series_year'] : $bondRequest->series_year,
+                    'tin' => $signatory?->tin ?? $bondRequest->tin,
                 ]);
 
-                $bondRequest->refresh()->loadMissing('creator');
+                $bondRequest->refresh()->loadMissing(['creator', 'signatory', 'notary', 'principal']);
 
                 if ($bondRequest->notary_id !== null) {
                     $this->notaryFeeService->chargeWhenNotarySelected($bondRequest->creator, $bondRequest);
                 }
 
-                $this->certificateGenerationService->generate($bondRequest);
+                $this->certificateGenerationService->generate($bondRequest, $request->user());
             });
         } catch (\InvalidArgumentException $e) {
             return back()->withErrors(['notary_id' => $e->getMessage()]);

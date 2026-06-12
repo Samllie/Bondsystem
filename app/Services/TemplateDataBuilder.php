@@ -96,11 +96,15 @@ class TemplateDataBuilder
                 'Tin' => (string) ($signatory?->tin ?? $bondRequest->tin ?? ''),
                 'Branch city' => $this->resolveBranchCity($bondRequest),
                 'Signatory' => (string) ($signatory?->name ?? ''),
-                'Position' => (string) ($signatory?->position ?? ''),
+                'Position' => (string) (filled($signatory?->position)
+                    ? $signatory->position
+                    : ($bondRequest->signatory_position ?? '')),
                 'Doc. No.' => (string) ($bondRequest->doc_no ?? ''),
                 'Page No.' => (string) ($bondRequest->page_no ?? ''),
                 'Book No.' => (string) ($bondRequest->book_no ?? ''),
                 'Endorsement No.' => $this->resolveEndorsementNumber($bondRequest),
+                'Date in words' => DateFormatter::inWords($bondRequest->request_date),
+                'Date issued in words' => DateFormatter::inWords($bondRequest->date_issued),
                 'Jurat' => $this->resolveJuratTemplate($bondRequest),
                 'Endorsement' => $this->resolveEndorsementTemplate($bondRequest),
             ],
@@ -136,8 +140,6 @@ class TemplateDataBuilder
             'Bond' => $bondLabel,
             'BOND' => strtoupper($bondLabel),
             'PRINCIPAL' => strtoupper($principalName),
-            'Date in words' => DateFormatter::inWords($bondRequest->request_date),
-            'Date issued in words' => DateFormatter::inWords($bondRequest->date_issued),
             'Series year' => (string) ($bondRequest->series_year ?? ''),
         ];
 
