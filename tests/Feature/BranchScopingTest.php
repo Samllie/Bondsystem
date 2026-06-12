@@ -225,6 +225,7 @@ class BranchScopingTest extends TestCase
     {
         return Transaction::create([
             'user_id' => $user->id,
+            'branch_id' => $user->branch_id,
             'type' => TransactionType::Credit->value,
             'amount' => 1000,
             'balance_before' => 0,

@@ -4,7 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 
 const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
 
-export default function DepositsCreate({ bankAccounts, userBalance }) {
+export default function DepositsCreate({ bankAccounts, userBalance, branchName }) {
     const { data, setData, post, processing, errors } = useForm({
         bank_account_id: '',
         amount: '',
@@ -27,7 +27,9 @@ export default function DepositsCreate({ bankAccounts, userBalance }) {
             <div className="mx-auto max-w-2xl">
                 {/* Balance card */}
                 <div className="mb-6 rounded-xl border-2 border-sterling-gold/40 bg-sterling-gold-50 px-6 py-4">
-                    <p className="text-sm font-medium text-sterling-green">Current Balance</p>
+                    <p className="text-sm font-medium text-sterling-green">
+                        {branchName ? `${branchName} Fund` : 'Branch Fund'}
+                    </p>
                     <p className="mt-1 text-3xl font-bold text-sterling-green-darker">{php(userBalance)}</p>
                 </div>
 

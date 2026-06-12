@@ -60,7 +60,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
             'Bond', 'BOND', 'PRINCIPAL', 'Date in words', 'Date issued in words', 'Series year',
         ];
 
@@ -160,7 +160,10 @@ class TemplateDataBuilderTest extends TestCase
 
     public function test_endorsement_number_is_mapped_to_template_placeholder(): void
     {
-        $bondRequest = $this->bondRequest(['endorsement_number' => 'END-2026-001']);
+        $bondRequest = $this->bondRequest([
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+        ]);
 
         $data = $this->builder->build($bondRequest);
 
@@ -243,7 +246,10 @@ class TemplateDataBuilderTest extends TestCase
             'signature_path' => $signaturePath,
             'is_active' => true,
         ]);
-        $bondRequest = $this->bondRequest(['signatory_id' => $signatory->id]);
+        $bondRequest = $this->bondRequest([
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => true,
+        ]);
 
         $data = $this->builder->build($bondRequest);
 
@@ -252,6 +258,27 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame(120, $data['images']['Signature']['width']);
         $this->assertSame(60, $data['images']['Signature']['height']);
         $this->assertTrue($data['images']['Signature']['ratio']);
+    }
+
+    public function test_bond_signature_is_excluded_when_include_signatory_signature_is_false(): void
+    {
+        $signaturePath = 'signatures/test_sig_excluded.png';
+        Storage::disk('public')->put($signaturePath, 'fake-png-content');
+
+        $signatory = Signatory::factory()->create([
+            'signature_path' => $signaturePath,
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->bondRequest([
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => false,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayNotHasKey('Signature', $data['images']);
+        $this->assertArrayHasKey('Signature', $data['text']);
+        $this->assertSame('', $data['text']['Signature']);
     }
 
     public function test_bond_signature_becomes_empty_text_when_no_signature_file(): void
@@ -327,7 +354,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
             'CAR', 'Branch', 'Year', 'Attention', 'Authorized Representative', 'Principal',
         ];
 

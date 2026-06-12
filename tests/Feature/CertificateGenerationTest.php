@@ -10,9 +10,12 @@ use App\Models\Maintenance\Branch;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
 use App\Models\Role;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AmountToWordsService;
 use App\Services\CertificateGenerationService;
+use App\Services\DocxEndorsementSpacingNormalizer;
+use App\Services\PlaceholderRenderer;
 use App\Services\TemplateDataBuilder;
 use App\Services\TemplateNormalizerService;
 use Database\Seeders\RolePermissionSeeder;
@@ -55,7 +58,12 @@ class CertificateGenerationTest extends TestCase
             ->method('normalize')
             ->willThrowException(new \RuntimeException('Template not found: /path/to/template.docx'));
 
-        $service = new CertificateGenerationService($normalizer, new TemplateDataBuilder(new AmountToWordsService));
+        $service = new CertificateGenerationService(
+            $normalizer,
+            new TemplateDataBuilder(new AmountToWordsService),
+            new PlaceholderRenderer,
+            new DocxEndorsementSpacingNormalizer,
+        );
         $service->generate($bondRequest);
     }
 
@@ -230,6 +238,163 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHas('error');
     }
 
+    public function test_generate_certificate_charges_notary_fee_when_notary_is_selected(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true]);
+        $notary = Notary::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), $this->validGeneratePayload($bondRequest))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertEquals(9500, (float) $branch->fresh()->balance);
+        $this->assertDatabaseHas('transactions', [
+            'branch_id' => $branch->id,
+            'type' => 'debit',
+            'amount' => 500,
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
+    }
+
+    public function test_generate_certificate_without_notary_does_not_charge_fee(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'signatory_id' => $signatory->id,
+            'notary_id' => null,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+                'signatory_id' => $signatory->id,
+                'doc_no' => '1',
+                'page_no' => '1',
+                'book_no' => 'I',
+                'series_year' => '2026',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertEquals(10000, (float) $branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_regenerating_certificate_does_not_charge_notary_fee_twice(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $bondRequest = $this->approvedBondRequestWithBranch($branch, $requester);
+
+        Transaction::create([
+            'user_id' => $requester->id,
+            'branch_id' => $branch->id,
+            'type' => 'debit',
+            'amount' => 500,
+            'balance_before' => 10000,
+            'balance_after' => 9500,
+            'reference' => $bondRequest->bond_number,
+            'description' => 'Existing notary fee',
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
+        $branch->update(['balance' => 9500]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), $this->validGeneratePayload($bondRequest))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertEquals(9500, (float) $branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 1);
+    }
+
+    public function test_generate_certificate_fails_when_branch_fund_is_insufficient_for_notary_fee(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 100,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $notary = Notary::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'notary_id' => $notary->id,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->never();
+        });
+
+        $response = $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+                'notary_id' => $notary->id,
+                'doc_no' => '1',
+                'page_no' => '1',
+                'book_no' => 'I',
+                'series_year' => '2026',
+            ]);
+
+        $response->assertSessionHasErrors('notary_id');
+        $this->assertEquals(100, (float) $branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
     // -------------------------------------------------------------------------
     // Helper: valid payload for generate-certificate
     // -------------------------------------------------------------------------
@@ -288,10 +453,23 @@ class CertificateGenerationTest extends TestCase
 
     private function approvedBondRequest(): BondRequest
     {
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $creator = User::factory()->create(['branch_id' => $branch->id]);
+
+        return $this->approvedBondRequestWithBranch($branch, $creator);
+    }
+
+    private function approvedBondRequestWithBranch(Branch $branch, User $creator): BondRequest
+    {
         $signatory = Signatory::factory()->create(['is_active' => true]);
         $notary = Notary::factory()->create(['is_active' => true]);
-        $branch = Branch::query()->create(['name' => 'MKT Branch', 'branch_code' => 'MKT', 'branch_city' => 'Makati', 'is_active' => true]);
-        $creator = User::factory()->create(['branch_id' => $branch->id]);
 
         return BondRequest::factory()
             ->approved()

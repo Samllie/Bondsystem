@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\TransactionType;
 use App\Models\BondRequest;
+use App\Models\Maintenance\Branch;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -12,10 +13,34 @@ use InvalidArgumentException;
 class NotaryFeeService
 {
     /**
+     * Deduct the notary fee when a notary is selected and no fee has been charged yet.
+     *
+     * @throws InvalidArgumentException when the branch has no notary price configured.
+     * @throws InvalidArgumentException when the branch fund has insufficient balance.
+     */
+    public function chargeWhenNotarySelected(User $user, BondRequest $bondRequest): ?Transaction
+    {
+        if ($bondRequest->notary_id === null || $this->hasBeenCharged($bondRequest)) {
+            return null;
+        }
+
+        return $this->charge($user, $bondRequest);
+    }
+
+    public function hasBeenCharged(BondRequest $bondRequest): bool
+    {
+        return Transaction::query()
+            ->where('subject_type', BondRequest::class)
+            ->where('subject_id', $bondRequest->id)
+            ->where('type', TransactionType::Debit->value)
+            ->exists();
+    }
+
+    /**
      * Deduct the requester's branch notary fee and record a debit transaction.
      *
      * @throws InvalidArgumentException when the branch has no notary price configured.
-     * @throws InvalidArgumentException when the user has insufficient balance.
+     * @throws InvalidArgumentException when the branch fund has insufficient balance.
      */
     public function charge(User $user, BondRequest $bondRequest): Transaction
     {
@@ -27,24 +52,33 @@ class NotaryFeeService
 
             $lockedUser->loadMissing('branch');
 
-            $fee = $lockedUser->branch?->notary_price;
+            if ($lockedUser->branch_id === null) {
+                throw new InvalidArgumentException('Requester must belong to a branch.');
+            }
+
+            $branch = Branch::query()
+                ->whereKey($lockedUser->branch_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $fee = $branch->notary_price;
 
             if ($fee === null || (float) $fee <= 0) {
                 throw new InvalidArgumentException('Notary price is not configured for your branch.');
             }
 
             $fee = (float) $fee;
-            $balanceBefore = (float) $lockedUser->balance;
+            $balanceBefore = (float) $branch->balance;
 
             if ($balanceBefore < $fee) {
                 throw new InvalidArgumentException(
-                    'Insufficient balance to cover the notary fee of PHP '.number_format($fee, 2).'.',
+                    'Insufficient branch fund to cover the notary fee of PHP '.number_format($fee, 2).'.',
                 );
             }
 
             $balanceAfter = $balanceBefore - $fee;
 
-            $lockedUser->update([
+            $branch->update([
                 'balance' => number_format($balanceAfter, 2, '.', ''),
             ]);
 
@@ -52,16 +86,15 @@ class NotaryFeeService
                 ?? $bondRequest->car
                 ?? "BR-{$bondRequest->id}";
 
-            $branchName = $lockedUser->branch?->name ?? 'branch';
-
             return Transaction::create([
                 'user_id' => $lockedUser->id,
+                'branch_id' => $branch->id,
                 'type' => TransactionType::Debit->value,
                 'amount' => $fee,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference' => $reference,
-                'description' => "Notary fee — {$branchName} — Bond request {$reference}",
+                'description' => "Notary fee — {$branch->name} — Bond request {$reference}",
                 'subject_type' => BondRequest::class,
                 'subject_id' => $bondRequest->id,
             ]);

@@ -107,4 +107,11 @@ class User extends Authenticatable
 
         return false;
     }
+
+    public function branchBalance(): float
+    {
+        $this->loadMissing('branch');
+
+        return (float) ($this->branch?->balance ?? 0);
+    }
 }

@@ -6,11 +6,13 @@ use App\Enums\DepositStatus;
 use App\Enums\RoleSlug;
 use App\Models\BankAccount;
 use App\Models\Deposit;
+use App\Models\Maintenance\Branch;
 use App\Models\Role;
 use App\Models\Transaction;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class DepositApprovalTest extends TestCase
@@ -24,9 +26,9 @@ class DepositApprovalTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
-    public function test_approving_a_deposit_credits_the_requester_balance(): void
+    public function test_approving_a_deposit_credits_the_branch_fund(): void
     {
-        $requester = $this->createUser(RoleSlug::Requester, ['balance' => 1000]);
+        $requester = $this->createUser(RoleSlug::Requester, branchBalance: 1000);
         $approver = $this->createUser(RoleSlug::Approver);
         $bankAccount = BankAccount::factory()->create();
 
@@ -45,10 +47,11 @@ class DepositApprovalTest extends TestCase
         $deposit->refresh();
 
         $this->assertSame(DepositStatus::Approved, $deposit->status);
-        $this->assertEquals(6000, (float) $requester->balance);
+        $this->assertEquals(6000, (float) $requester->branch->fresh()->balance);
 
         $this->assertDatabaseHas('transactions', [
             'user_id' => $requester->id,
+            'branch_id' => $requester->branch_id,
             'type' => 'credit',
             'amount' => 5000,
             'balance_before' => 1000,
@@ -63,10 +66,40 @@ class DepositApprovalTest extends TestCase
         $response->assertSessionHas('success');
     }
 
+    public function test_deposit_by_one_user_increases_shared_branch_fund_for_all_users(): void
+    {
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'address' => 'Branch City',
+            'notary_price' => 500,
+            'balance' => 1000,
+            'is_active' => true,
+        ]);
+
+        $firstRequester = $this->createUser(RoleSlug::Requester, branch: $branch);
+        $secondRequester = $this->createUser(RoleSlug::Requester, branch: $branch);
+        $approver = $this->createUser(RoleSlug::Approver);
+        $bankAccount = BankAccount::factory()->create();
+
+        $deposit = Deposit::factory()->create([
+            'user_id' => $firstRequester->id,
+            'bank_account_id' => $bankAccount->id,
+            'amount' => 2500,
+            'status' => DepositStatus::Pending,
+        ]);
+
+        $this->actingAs($approver)->post(route('payments.deposits.approve', $deposit))->assertRedirect();
+
+        $this->assertEquals(3500, (float) $branch->fresh()->balance);
+        $this->assertEquals(3500, (float) $firstRequester->branchBalance());
+        $this->assertEquals(3500, (float) $secondRequester->branchBalance());
+    }
+
     public function test_approving_deposits_for_different_users_assigns_unique_transaction_numbers(): void
     {
-        $firstRequester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);
-        $secondRequester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);
+        $firstRequester = $this->createUser(RoleSlug::Requester, branchBalance: 0);
+        $secondRequester = $this->createUser(RoleSlug::Requester, branchBalance: 0);
         $approver = $this->createUser(RoleSlug::Approver);
         $bankAccount = BankAccount::factory()->create();
 
@@ -117,7 +150,7 @@ class DepositApprovalTest extends TestCase
 
     public function test_approving_a_deposit_cannot_be_done_twice(): void
     {
-        $requester = $this->createUser(RoleSlug::Requester, ['balance' => 0]);
+        $requester = $this->createUser(RoleSlug::Requester, branchBalance: 0);
         $approver = $this->createUser(RoleSlug::Approver);
         $bankAccount = BankAccount::factory()->create();
 
@@ -132,20 +165,32 @@ class DepositApprovalTest extends TestCase
             ->post(route('payments.deposits.approve', $deposit))
             ->assertStatus(422);
 
-        $requester->refresh();
-        $this->assertEquals(0, (float) $requester->balance);
+        $this->assertEquals(0, (float) $requester->branch->fresh()->balance);
         $this->assertSame(0, Transaction::count());
     }
 
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createUser(RoleSlug $roleSlug, array $attributes = []): User
+    private function createUser(RoleSlug $roleSlug, array $attributes = [], ?Branch $branch = null, float $branchBalance = 0): User
     {
         $role = Role::where('slug', $roleSlug->value)->firstOrFail();
 
+        $branch ??= Branch::query()->create([
+            'name' => 'Test Branch',
+            'branch_code' => strtoupper(Str::random(3)),
+            'address' => 'Branch City',
+            'notary_price' => 500,
+            'balance' => $branchBalance,
+            'is_active' => true,
+        ]);
+
         return User::factory()->create([
             'role_id' => $role->id,
+            'branch_id' => $branch->id,
+            'branch_code' => $branch->branch_code,
+            'branch_city' => 'Branch City',
+            'balance' => 0,
             'is_active' => true,
             'email_verified_at' => now(),
             ...$attributes,

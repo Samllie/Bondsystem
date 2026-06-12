@@ -19,9 +19,9 @@ class TransactionController extends Controller
         $isAdmin = ! $user->hasRole(RoleSlug::Requester);
         $branchId = $request->integer('branch_id') ?: null;
 
-        $transactions = Transaction::with('user:id,name')
-            ->when(! $isAdmin, fn ($q) => $q->where('user_id', $user->id))
-            ->when($isAdmin, fn ($q) => BranchScope::applyUserRelationScope($q, $user, $branchId))
+        $transactions = Transaction::with(['user:id,name', 'branch:id,name'])
+            ->when(! $isAdmin, fn ($q) => BranchScope::applyTransactionScope($q, $user, null))
+            ->when($isAdmin, fn ($q) => BranchScope::applyTransactionScope($q, $user, $branchId))
             ->when($request->input('type'), fn ($q, $t) => $q->where('type', $t))
             ->when($request->string('search')->trim()->toString(), function ($q, $search) {
                 $q->where('transaction_number', 'like', '%'.$search.'%');
@@ -34,7 +34,8 @@ class TransactionController extends Controller
             'transactions' => $transactions,
             'isAdmin' => $isAdmin,
             'filters' => $request->only('type', 'search', 'branch_id'),
-            'userBalance' => ! $isAdmin ? $user->balance : null,
+            'userBalance' => ! $isAdmin ? $user->branchBalance() : null,
+            'branchName' => ! $isAdmin ? $user->branch?->name : null,
             'branchOptions' => BranchScope::branchOptions($user),
             'showBranchFilter' => BranchScope::showBranchFilter($user),
         ]);

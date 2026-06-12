@@ -23,7 +23,7 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
 
         if ($user) {
-            $user->load('role');
+            $user->load('role', 'branch');
         }
 
         return [
@@ -33,7 +33,8 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
-                    'balance' => (float) $user->balance,
+                    'balance' => $user->branchBalance(),
+                    'branch_name' => $user->branch?->name,
                     'branch_id' => $user->branch_id,
                     'branch_code' => $user->branch_code,
                     'branch_city' => $user->branch_city,

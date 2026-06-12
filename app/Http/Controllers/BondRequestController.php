@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\BondRequestStatus;
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Enums\RoleSlug;
 use App\Http\Requests\BondRequest\ApproveBondRequestRequest;
 use App\Http\Requests\BondRequest\StoreBondRequestRequest;
@@ -27,7 +28,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Fluent;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -103,6 +103,7 @@ class BondRequestController extends Controller
             'selectedObligee' => null,
             'bondTypeOptions' => $this->bondTypeOptions(),
             'certificateTypeOptions' => CertificateType::options(),
+            'partyTypeOptions' => PartyType::options(),
             'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
         ]);
     }
@@ -179,6 +180,7 @@ class BondRequestController extends Controller
             ],
             'bondTypeOptions' => $this->bondTypeOptions(),
             'certificateTypeOptions' => CertificateType::options(),
+            'partyTypeOptions' => PartyType::options(),
             'supportingDocumentUrl' => $bondRequest->supporting_document_path
                 ? Storage::disk('public')->url($bondRequest->supporting_document_path)
                 : null,
@@ -226,6 +228,7 @@ class BondRequestController extends Controller
                 'approved_at' => now(),
                 'signatory_id' => $signatory?->id,
                 'signatory_position' => $signatory?->position,
+                'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
                 'notary_id' => $request->filled('notary_id') ? $request->integer('notary_id') : null,
                 'doc_no' => $request->input('doc_no'),
                 'page_no' => $request->input('page_no'),
@@ -235,7 +238,6 @@ class BondRequestController extends Controller
             ]);
 
             $bondRequest->loadMissing('creator');
-            $this->notaryFeeService->charge($bondRequest->creator, $bondRequest);
         });
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
@@ -282,11 +284,16 @@ class BondRequestController extends Controller
             'Certificate can only be generated for approved or notarized bond requests.',
         );
 
-        $notaryRequired = $bondRequest->certificate_type === CertificateType::BondCertificate;
+        if ($bondRequest->include_endorsement_number && blank($bondRequest->endorsement_number)) {
+            return back()->withErrors([
+                'endorsement_number' => 'Endorsement number is required when include endorsement number is enabled.',
+            ]);
+        }
 
         $validated = $request->validate([
             'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
-            'notary_id' => [Rule::requiredIf($notaryRequired), 'nullable', 'integer', 'exists:notaries,id'],
+            'include_signatory_signature' => ['sometimes', 'boolean'],
+            'notary_id' => ['nullable', 'integer', 'exists:notaries,id'],
             'doc_no' => ['nullable', 'string', 'max:50'],
             'page_no' => ['nullable', 'string', 'max:50'],
             'book_no' => ['nullable', 'string', 'max:50'],
@@ -297,19 +304,30 @@ class BondRequestController extends Controller
             ? Signatory::findOrFail($validated['signatory_id'])
             : null;
 
-        $bondRequest->update([
-            'signatory_id' => $signatory?->id,
-            'signatory_position' => $signatory?->position,
-            'notary_id' => $validated['notary_id'] ?? null,
-            'doc_no' => $validated['doc_no'] ?? null,
-            'page_no' => $validated['page_no'] ?? null,
-            'book_no' => $validated['book_no'] ?? null,
-            'series_year' => $validated['series_year'] ?? null,
-            'tin' => $signatory?->tin,
-        ]);
-
         try {
-            $this->certificateGenerationService->generate($bondRequest->fresh());
+            DB::transaction(function () use ($request, $bondRequest, $validated, $signatory): void {
+                $bondRequest->update([
+                    'signatory_id' => $signatory?->id,
+                    'signatory_position' => $signatory?->position,
+                    'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
+                    'notary_id' => $validated['notary_id'] ?? null,
+                    'doc_no' => $validated['doc_no'] ?? null,
+                    'page_no' => $validated['page_no'] ?? null,
+                    'book_no' => $validated['book_no'] ?? null,
+                    'series_year' => $validated['series_year'] ?? null,
+                    'tin' => $signatory?->tin,
+                ]);
+
+                $bondRequest->refresh()->loadMissing('creator');
+
+                if ($bondRequest->notary_id !== null) {
+                    $this->notaryFeeService->chargeWhenNotarySelected($bondRequest->creator, $bondRequest);
+                }
+
+                $this->certificateGenerationService->generate($bondRequest);
+            });
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['notary_id' => $e->getMessage()]);
         } catch (\Throwable $e) {
             Log::error("Certificate generation failed for bond request #{$bondRequest->id}: {$e->getMessage()}", [
                 'exception' => $e,
@@ -414,11 +432,12 @@ class BondRequestController extends Controller
         return Signatory::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'position'])
+            ->get(['id', 'name', 'position', 'signature_path'])
             ->map(fn (Signatory $signatory) => [
                 'value' => $signatory->id,
                 'label' => $signatory->name,
                 'position' => $signatory->position,
+                'signature_url' => $signatory->signature_url,
             ])
             ->all();
     }
@@ -475,11 +494,13 @@ class BondRequestController extends Controller
             $attributes['authorized_representative'] = null;
         }
 
-        $attributes['endorsement_number'] = $request->boolean('has_endorsement')
+        $attributes['include_endorsement_number'] = $request->boolean('include_endorsement_number');
+        $attributes['endorsement_number'] = $request->boolean('include_endorsement_number')
             ? $request->string('endorsement_number')->trim()->toString()
             : null;
+        $attributes['party_type'] = $request->enum('party_type', PartyType::class) ?? PartyType::Private;
 
-        unset($attributes['supporting_document'], $attributes['has_endorsement']);
+        unset($attributes['supporting_document']);
 
         if ($request->hasFile('supporting_document')) {
             if ($bondRequest?->supporting_document_path) {

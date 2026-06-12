@@ -11,6 +11,8 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\AmountToWordsService;
 use App\Services\CertificateGenerationService;
+use App\Services\DocxEndorsementSpacingNormalizer;
+use App\Services\PlaceholderRenderer;
 use App\Services\TemplateDataBuilder;
 use App\Services\TemplateNormalizerService;
 use Database\Seeders\RolePermissionSeeder;
@@ -228,6 +230,8 @@ class CertificateTemplateManagementTest extends TestCase
         $service = new CertificateGenerationService(
             new TemplateNormalizerService,
             new TemplateDataBuilder(new AmountToWordsService),
+            new PlaceholderRenderer,
+            new DocxEndorsementSpacingNormalizer,
         );
 
         $method = new \ReflectionMethod($service, 'templatePath');
@@ -247,6 +251,8 @@ class CertificateTemplateManagementTest extends TestCase
         $service = new CertificateGenerationService(
             new TemplateNormalizerService,
             new TemplateDataBuilder(new AmountToWordsService),
+            new PlaceholderRenderer,
+            new DocxEndorsementSpacingNormalizer,
         );
 
         $method = new \ReflectionMethod($service, 'templatePath');

@@ -26,6 +26,7 @@ class DashboardController extends Controller
     public function __invoke(Request $request): Response
     {
         $user = $request->user();
+        $user->loadMissing('branch');
         $filters = $this->resolveFilters($request, $user);
         $shared = [
             'filters' => $filters,
@@ -209,7 +210,8 @@ class DashboardController extends Controller
             'pending' => (clone $bondQuery)->where('status', BondRequestStatus::Pending)->count(),
             'approved' => (clone $bondQuery)->where('status', BondRequestStatus::Approved)->count(),
             'notarized' => (clone $bondQuery)->where('status', BondRequestStatus::Notarized)->count(),
-            'balance' => $user->balance,
+            'balance' => $user->branchBalance(),
+            'branch_name' => $user->branch?->name,
             'pending_deposits' => Deposit::where('user_id', $user->id)->where('status', DepositStatus::Pending)->count(),
         ];
 
@@ -220,7 +222,8 @@ class DashboardController extends Controller
             ->get()
             ->map(fn (BondRequest $bondRequest) => $this->mapBondRow($bondRequest));
 
-        $transactionQuery = Transaction::where('user_id', $user->id);
+        $transactionQuery = Transaction::query();
+        BranchScope::applyTransactionScope($transactionQuery, $user, null);
 
         if ($filters['date_from']) {
             $transactionQuery->whereDate('created_at', '>=', $filters['date_from']);

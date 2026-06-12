@@ -61,6 +61,7 @@ export default function Form({
     selectedObligee,
     bondTypeOptions,
     certificateTypeOptions,
+    partyTypeOptions,
     supportingDocumentUrl,
     requesterBranchCode = '',
 }) {
@@ -84,7 +85,10 @@ export default function Form({
         attention: bondRequest?.attention || '',
         supporting_document: null,
         certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
-        has_endorsement: Boolean(bondRequest?.endorsement_number),
+        party_type: bondRequest?.party_type?.value || bondRequest?.party_type || 'private',
+        include_endorsement_number: Boolean(
+            bondRequest?.include_endorsement_number ?? bondRequest?.endorsement_number,
+        ),
         endorsement_number: bondRequest?.endorsement_number || '',
         car: bondRequest?.car || buildCarValue(requesterBranchCode),
         authorized_representative: bondRequest?.authorized_representative || '',
@@ -284,7 +288,7 @@ export default function Form({
     const handleEndorsementToggle = (checked) => {
         setData((current) => ({
             ...current,
-            has_endorsement: checked,
+            include_endorsement_number: checked,
             endorsement_number: checked ? current.endorsement_number : '',
         }));
     };
@@ -329,16 +333,44 @@ export default function Form({
                             {errors.certificate_type && (
                                 <p className="text-sm text-red-600">{errors.certificate_type}</p>
                             )}
+                            <div>
+                                <p className="mb-2 text-sm font-medium text-slate-700">Party type</p>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    {partyTypeOptions.map((option) => (
+                                        <label
+                                            key={option.value}
+                                            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
+                                                data.party_type === option.value
+                                                    ? 'border-sterling-gold bg-sterling-gold-50 ring-1 ring-sterling-gold'
+                                                    : 'border-slate-200 hover:border-slate-300'
+                                            }`}
+                                        >
+                                            <input
+                                                type="radio"
+                                                name="party_type"
+                                                value={option.value}
+                                                checked={data.party_type === option.value}
+                                                onChange={() => setData('party_type', option.value)}
+                                                className="text-sterling-green focus:ring-sterling-gold"
+                                            />
+                                            <span className="text-sm font-medium text-slate-800">{option.label}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                                {errors.party_type && (
+                                    <p className="mt-2 text-sm text-red-600">{errors.party_type}</p>
+                                )}
+                            </div>
                             <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
                                 <input
                                     type="checkbox"
-                                    checked={Boolean(data.has_endorsement)}
+                                    checked={Boolean(data.include_endorsement_number)}
                                     onChange={(e) => handleEndorsementToggle(e.target.checked)}
                                     className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
                                 />
                                 <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
                             </label>
-                            {data.has_endorsement && (
+                            {data.include_endorsement_number && (
                                 <TextField
                                     label="Endorsement Number"
                                     value={data.endorsement_number}

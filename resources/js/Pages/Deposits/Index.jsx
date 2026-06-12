@@ -21,6 +21,7 @@ export default function DepositsIndex({
     filters,
     statusOptions,
     userBalance,
+    branchName,
     branchOptions,
     showBranchFilter,
 }) {
@@ -67,7 +68,9 @@ export default function DepositsIndex({
 
             <div className="mb-6 flex items-center justify-between rounded-xl border-2 border-sterling-gold/40 bg-sterling-gold-50 px-6 py-4">
                 <div>
-                    <p className="text-sm font-medium text-sterling-green">My Balance</p>
+                    <p className="text-sm font-medium text-sterling-green">
+                        {branchName ? `${branchName} Fund` : 'Branch Fund'}
+                    </p>
                     <p className="mt-1 text-3xl font-bold text-sterling-green-darker">{php(userBalance)}</p>
                 </div>
                 {canSubmit && (

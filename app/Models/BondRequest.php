@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\BondRequestStatus;
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Models\Maintenance\BondTypeMaster;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
@@ -40,15 +41,18 @@ class BondRequest extends Model
         'docx_path',
         'certificate_path',
         'certificate_type',
+        'party_type',
         'car',
         'authorized_representative',
         'tin',
         'endorsement_number',
+        'include_endorsement_number',
         'description',
         'expiry_date',
         'request_date',
         'signatory_id',
         'signatory_position',
+        'include_signatory_signature',
         'notary_id',
         'doc_no',
         'page_no',
@@ -71,6 +75,9 @@ class BondRequest extends Model
             'approved_at' => 'datetime',
             'status' => BondRequestStatus::class,
             'certificate_type' => CertificateType::class,
+            'party_type' => PartyType::class,
+            'include_endorsement_number' => 'boolean',
+            'include_signatory_signature' => 'boolean',
         ];
     }
 

@@ -86,7 +86,11 @@ class Navigation
                 self::maintenanceChild('Bond Types', 'maintenance.bond-types'),
                 self::maintenanceChild('Signatories', 'maintenance.signatories'),
                 self::maintenanceChild('Notary', 'maintenance.notaries'),
-                self::maintenanceChild('Certification', 'maintenance.certifications'),
+                [
+                    'name' => 'Certification',
+                    'href' => route('maintenance.certifications.index'),
+                    'routes' => ['maintenance.certifications.index'],
+                ],
                 self::maintenanceChild('CTC', 'maintenance.ctcs'),
                 self::maintenanceChild('Branches', 'maintenance.branches'),
             ];

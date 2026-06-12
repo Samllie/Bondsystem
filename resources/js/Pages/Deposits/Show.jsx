@@ -9,7 +9,7 @@ const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', curren
 const statusColors = { pending: 'amber', approved: 'green', rejected: 'red' };
 const statusLabels = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
 
-export default function DepositsShow({ deposit, receiptUrl, canApprove, submitterBalance, transactionNumber }) {
+export default function DepositsShow({ deposit, receiptUrl, canApprove, submitterBalance, branchName, transactionNumber }) {
     const { addToast } = useToast();
     const [approveModal, setApproveModal] = useState(false);
     const [rejectModal, setRejectModal] = useState(false);
@@ -74,7 +74,7 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                             <dd className="mt-1 text-slate-900">{deposit.deposit_date}</dd>
                         </div>
                         <div>
-                            <dt className="font-medium text-slate-500">Requester Balance</dt>
+                            <dt className="font-medium text-slate-500">{branchName ? `${branchName} Fund` : 'Branch Fund'}</dt>
                             <dd className="mt-1 text-lg font-bold text-sterling-green">{php(submitterBalance)}</dd>
                         </div>
                         {transactionNumber && (
@@ -139,7 +139,7 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                 onClose={() => setApproveModal(false)}
                 onConfirm={approve}
                 title="Approve Deposit"
-                message={`Confirm approval of ${php(deposit.amount)}? The requester's balance will be credited immediately.`}
+                message={`Confirm approval of ${php(deposit.amount)}? The branch fund will be credited immediately.`}
                 confirmLabel="Yes, Approve"
                 processing={approveForm.processing}
             />

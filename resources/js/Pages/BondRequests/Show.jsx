@@ -34,6 +34,7 @@ export default function Show({
 
     const approveForm = useForm({
         signatory_id: '',
+        include_signatory_signature: false,
         notary_id: '',
         doc_no: '',
         page_no: '',
@@ -46,9 +47,6 @@ export default function Show({
         formatBookNoDisplay(bondRequest.book_no) || '',
     );
     const generateBookNoRef = useRef(null);
-
-    const isCarCertificate =
-        (bondRequest.certificate_type?.value || bondRequest.certificate_type) === 'car_certificate';
 
     // True when any certificate details were saved during approval.
     const detailsAlreadySaved = Boolean(
@@ -67,6 +65,7 @@ export default function Show({
 
     const generateForm = useForm({
         signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
+        include_signatory_signature: Boolean(bondRequest.include_signatory_signature),
         notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
         doc_no: bondRequest.doc_no || '',
         page_no: bondRequest.page_no || '',
@@ -81,6 +80,32 @@ export default function Show({
         () => [{ value: '', label: 'Select signatory…' }, ...signatoryOptions],
         [signatoryOptions],
     );
+
+    const selectedApproveSignatory = signatoryOptions.find(
+        (o) => String(o.value) === String(approveForm.data.signatory_id),
+    );
+
+    const selectedGenerateSignatory = signatoryOptions.find(
+        (o) => String(o.value) === String(generateForm.data.signatory_id),
+    );
+
+    const handleApproveSignatoryChange = (event) => {
+        const signatoryId = event.target.value;
+        approveForm.setData((current) => ({
+            ...current,
+            signatory_id: signatoryId,
+            include_signatory_signature: signatoryId ? current.include_signatory_signature : false,
+        }));
+    };
+
+    const handleGenerateSignatoryChange = (event) => {
+        const signatoryId = event.target.value;
+        generateForm.setData((current) => ({
+            ...current,
+            signatory_id: signatoryId,
+            include_signatory_signature: signatoryId ? current.include_signatory_signature : false,
+        }));
+    };
 
     const notarySelectOptions = useMemo(
         () => [{ value: '', label: 'Select notary…' }, ...notaryOptions],
@@ -236,6 +261,11 @@ export default function Show({
                         {bondRequest.endorsement_number && (
                             <Detail label="Endorsement No." value={bondRequest.endorsement_number} capitalize={false} />
                         )}
+                        <Detail
+                            label="Party Type"
+                            value={bondRequest.party_type?.label || bondRequest.party_type || '—'}
+                            capitalize={false}
+                        />
                         <Detail label="Principal" value={bondRequest.principal?.company_name || bondRequest.principal_name} />
                         <Detail label="Obligee" value={bondRequest.obligee?.company_name} />
                         <Detail
@@ -283,6 +313,10 @@ export default function Show({
                             <>
                                 <Detail label="Signatory" value={bondRequest.signatory?.name || '—'} />
                                 <Detail label="Position" value={bondRequest.signatory_position || bondRequest.signatory?.position || '—'} />
+                                <Detail
+                                    label="Include signature"
+                                    value={bondRequest.include_signatory_signature ? 'Yes' : 'No'}
+                                />
                                 <Detail label="Notary" value={bondRequest.notary?.name || '—'} />
                                 <Detail label="Doc No." value={bondRequest.doc_no || '—'} />
                                 <Detail label="Page No." value={bondRequest.page_no || '—'} />
@@ -306,27 +340,45 @@ export default function Show({
                             <SelectField
                                 label="Signatory (optional)"
                                 value={approveForm.data.signatory_id}
-                                onChange={(e) => approveForm.setData('signatory_id', e.target.value)}
+                                onChange={handleApproveSignatoryChange}
                                 options={signatorySelectOptions}
                                 error={approveForm.errors.signatory_id}
                             />
                             <TextField
                                 label="Position"
-                                value={
-                                    signatoryOptions.find(
-                                        (o) => String(o.value) === String(approveForm.data.signatory_id),
-                                    )?.position || '—'
-                                }
+                                value={selectedApproveSignatory?.position || '—'}
                                 readOnly
                                 className="bg-slate-50"
                             />
+                            {approveForm.data.signatory_id && (
+                                <div className="sm:col-span-2 space-y-3">
+                                    <label className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(approveForm.data.include_signatory_signature)}
+                                            onChange={(e) =>
+                                                approveForm.setData('include_signatory_signature', e.target.checked)
+                                            }
+                                            className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
+                                        />
+                                        <span className="text-sm font-medium text-slate-800">Include signature</span>
+                                    </label>
+                                    {selectedApproveSignatory?.signature_url && (
+                                        <img
+                                            src={selectedApproveSignatory.signature_url}
+                                            alt="Signatory signature preview"
+                                            className="h-16 w-auto rounded border border-slate-200 bg-white object-contain p-1"
+                                        />
+                                    )}
+                                    <InputError message={approveForm.errors.include_signatory_signature} />
+                                </div>
+                            )}
                             <SelectField
-                                label={isCarCertificate ? 'Notary (optional)' : 'Notary'}
+                                label="Notary (optional)"
                                 value={approveForm.data.notary_id}
                                 onChange={(e) => approveForm.setData('notary_id', e.target.value)}
                                 options={notarySelectOptions}
                                 error={approveForm.errors.notary_id}
-                                required={!isCarCertificate}
                             />
                             <TextField
                                 label="Doc No. (optional)"
@@ -419,6 +471,12 @@ export default function Show({
                                         <dd className="mt-1 text-slate-900">{bondRequest.signatory_position || bondRequest.signatory?.position || '—'}</dd>
                                     </div>
                                     <div>
+                                        <dt className="text-xs font-medium uppercase text-slate-500">Include signature</dt>
+                                        <dd className="mt-1 text-slate-900">
+                                            {bondRequest.include_signatory_signature ? 'Yes' : 'No'}
+                                        </dd>
+                                    </div>
+                                    <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Notary</dt>
                                         <dd className="mt-1 text-slate-900">{bondRequest.notary?.name || '—'}</dd>
                                     </div>
@@ -456,27 +514,45 @@ export default function Show({
                                 <SelectField
                                     label="Signatory (optional)"
                                     value={generateForm.data.signatory_id}
-                                    onChange={(e) => generateForm.setData('signatory_id', e.target.value)}
+                                    onChange={handleGenerateSignatoryChange}
                                     options={signatorySelectOptions}
                                     error={generateForm.errors.signatory_id}
                                 />
                                 <TextField
                                     label="Position"
-                                    value={
-                                        signatoryOptions.find(
-                                            (o) => String(o.value) === String(generateForm.data.signatory_id),
-                                        )?.position || '—'
-                                    }
+                                    value={selectedGenerateSignatory?.position || '—'}
                                     readOnly
                                     className="bg-slate-50"
                                 />
+                                {generateForm.data.signatory_id && (
+                                    <div className="sm:col-span-2 space-y-3">
+                                        <label className="flex items-center gap-2">
+                                            <input
+                                                type="checkbox"
+                                                checked={Boolean(generateForm.data.include_signatory_signature)}
+                                                onChange={(e) =>
+                                                    generateForm.setData('include_signatory_signature', e.target.checked)
+                                                }
+                                                className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
+                                            />
+                                            <span className="text-sm font-medium text-slate-800">Include signature</span>
+                                        </label>
+                                        {selectedGenerateSignatory?.signature_url && (
+                                            <img
+                                                src={selectedGenerateSignatory.signature_url}
+                                                alt="Signatory signature preview"
+                                                className="h-16 w-auto rounded border border-slate-200 bg-white object-contain p-1"
+                                            />
+                                        )}
+                                        <InputError message={generateForm.errors.include_signatory_signature} />
+                                    </div>
+                                )}
                                 <SelectField
-                                    label={isCarCertificate ? 'Notary (optional)' : 'Notary'}
+                                    label="Notary (optional)"
                                     value={generateForm.data.notary_id}
                                     onChange={(e) => generateForm.setData('notary_id', e.target.value)}
                                     options={notarySelectOptions}
                                     error={generateForm.errors.notary_id}
-                                    required={!isCarCertificate}
                                 />
                                 <TextField
                                     label="Doc No. (optional)"

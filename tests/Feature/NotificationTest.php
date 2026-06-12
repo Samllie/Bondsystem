@@ -17,6 +17,7 @@ use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class NotificationTest extends TestCase
@@ -255,8 +256,26 @@ class NotificationTest extends TestCase
     {
         $role = Role::where('slug', $roleSlug->value)->firstOrFail();
 
+        if (! array_key_exists('branch_id', $attributes)) {
+            $branch = Branch::query()->create([
+                'name' => 'Test Branch',
+                'branch_code' => strtoupper(Str::random(3)),
+                'address' => 'Branch City',
+                'notary_price' => 500,
+                'balance' => 0,
+                'is_active' => true,
+            ]);
+
+            $attributes['branch_id'] = $branch->id;
+            $attributes['branch_code'] = $branch->branch_code;
+            $attributes['branch_city'] = 'Branch City';
+        }
+
+        unset($attributes['balance']);
+
         return User::factory()->create([
             'role_id' => $role->id,
+            'balance' => 0,
             'is_active' => true,
             'email_verified_at' => now(),
             ...$attributes,

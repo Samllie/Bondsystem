@@ -77,6 +77,28 @@ class BranchScope
         $query->whereHas($relation, fn (Builder $userQuery) => $userQuery->where('branch_id', $branchId));
     }
 
+    /**
+     * @param  Builder<Model>  $query
+     */
+    public static function applyTransactionScope(Builder $query, User $user, ?int $requestedBranchId): void
+    {
+        if ($user->hasRole(RoleSlug::Requester)) {
+            if ($user->branch_id !== null) {
+                $query->where('branch_id', $user->branch_id);
+            }
+
+            return;
+        }
+
+        $branchId = self::effectiveBranchId($user, $requestedBranchId);
+
+        if ($branchId === null) {
+            return;
+        }
+
+        $query->where('branch_id', $branchId);
+    }
+
     public static function branchFilterSummary(?int $branchId): ?string
     {
         if ($branchId === null) {

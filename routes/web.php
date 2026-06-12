@@ -9,7 +9,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
 use App\Http\Controllers\Maintenance\BranchController;
-use App\Http\Controllers\Maintenance\CertificationController;
 use App\Http\Controllers\Maintenance\CtcController;
 use App\Http\Controllers\Maintenance\NotaryController;
 use App\Http\Controllers\Maintenance\SignatoryController;
@@ -53,7 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
     Route::get('bond-requests/{bond_request}/download-docx', [BondRequestController::class, 'downloadDocx'])->name('bond-requests.download-docx');
 
-    // Certifications (branch-scoped certificate registry)
+    // Branch-scoped certificates for requesters and approvers
     Route::get('/certifications', [CertificateController::class, 'index'])->name('certifications.index');
 
     // Certificate Templates (admin)
@@ -88,7 +87,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('bond-types', BondTypeMasterController::class)->except('show');
         Route::resource('signatories', SignatoryController::class)->except('show');
         Route::resource('notaries', NotaryController::class)->except('show');
-        Route::resource('certifications', CertificationController::class)->except('show');
+        Route::get('certifications', [CertificateController::class, 'maintenanceIndex'])->name('certifications.index');
         Route::resource('ctcs', CtcController::class)->except('show');
         Route::resource('branches', BranchController::class)->except('show');
     });

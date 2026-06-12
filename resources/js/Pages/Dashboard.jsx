@@ -27,6 +27,7 @@ export default function Dashboard({
     filterSummary,
     generatedAt,
 }) {
+    const branchFundLabel = stats.branch_name ? `${stats.branch_name} Fund` : 'Branch Fund';
     const isTableView = filters.view === 'table';
 
     const statRows = [
@@ -35,7 +36,7 @@ export default function Dashboard({
         { label: 'Approved', value: stats.approved },
         { label: 'Notarized', value: stats.notarized },
         { label: 'Pending Deposits', value: stats.pending_deposits },
-        { label: 'My Balance', value: php(stats.balance) },
+        { label: branchFundLabel, value: php(stats.balance) },
     ];
 
     return (
@@ -76,7 +77,7 @@ export default function Dashboard({
                     <StatCard label="Notarized" value={stats.notarized} color="green" />
                     <StatCard label="Pending Deposits" value={stats.pending_deposits} color="amber" />
                     <div className="rounded-xl border-2 border-sterling-gold/40 bg-sterling-gold-50 p-5 shadow-sm">
-                        <p className="text-sm font-medium text-sterling-green">My Balance</p>
+                        <p className="text-sm font-medium text-sterling-green">{branchFundLabel}</p>
                         <p className="mt-2 text-3xl font-bold text-sterling-green-darker">{php(stats.balance)}</p>
                     </div>
                 </div>

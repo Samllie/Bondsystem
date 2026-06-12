@@ -6,7 +6,6 @@ import { Head, Link, useForm } from '@inertiajs/react';
 const backLabels = {
     'maintenance.bond-types': 'Bond Types',
     'maintenance.branches': 'Branches',
-    'maintenance.certifications': 'Certifications',
     'maintenance.ctcs': 'CTCs',
 };
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\DepositStatus;
 use App\Enums\TransactionType;
 use App\Models\Deposit;
+use App\Models\Maintenance\Branch;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -26,16 +27,28 @@ class DepositService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $balanceBefore = (float) $user->balance;
+            $user->loadMissing('branch');
+
+            if ($user->branch_id === null) {
+                throw new InvalidArgumentException('Deposit submitter must belong to a branch.');
+            }
+
+            $branch = Branch::query()
+                ->whereKey($user->branch_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $balanceBefore = (float) $branch->balance;
             $amount = (float) $lockedDeposit->amount;
             $balanceAfter = $balanceBefore + $amount;
 
-            $user->update([
+            $branch->update([
                 'balance' => number_format($balanceAfter, 2, '.', ''),
             ]);
 
             $transaction = Transaction::create([
                 'user_id' => $user->id,
+                'branch_id' => $branch->id,
                 'type' => TransactionType::Credit->value,
                 'amount' => $amount,
                 'balance_before' => $balanceBefore,

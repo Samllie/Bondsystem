@@ -12,7 +12,7 @@ import { Head } from '@inertiajs/react';
 const TABLE_PROPS = ['transactions', 'filters'];
 const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
 
-export default function TransactionsIndex({ transactions, isAdmin, filters, userBalance, branchOptions, showBranchFilter }) {
+export default function TransactionsIndex({ transactions, isAdmin, filters, userBalance, branchName, branchOptions, showBranchFilter }) {
     const url = route('payments.transactions.index');
     const filterSummary = transactionFilterSummary(filters, branchOptions);
     const pageTitle = isAdmin ? 'Transactions' : 'My Transactions';
@@ -56,7 +56,9 @@ export default function TransactionsIndex({ transactions, isAdmin, filters, user
             <div className="report-print-content">
                 {!isAdmin && (
                     <div className="no-print mb-6 rounded-xl border-2 border-sterling-gold/40 bg-sterling-gold-50 px-6 py-4">
-                        <p className="text-sm font-medium text-sterling-green">Current Balance</p>
+                        <p className="text-sm font-medium text-sterling-green">
+                            {branchName ? `${branchName} Fund` : 'Branch Fund'}
+                        </p>
                         <p className="mt-1 text-3xl font-bold text-sterling-green-darker">{php(userBalance)}</p>
                     </div>
                 )}

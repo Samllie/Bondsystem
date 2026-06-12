@@ -67,6 +67,21 @@ export function paymentHistoryFilterSummary(filters, branchOptions) {
     return summary;
 }
 
+export function certificationFilterSummary(filters, branchOptions) {
+    const summary = [];
+
+    if (filters.search) {
+        summary.push(`Search: ${filters.search}`);
+    }
+
+    const branch = branchFilterSummary(filters, branchOptions);
+    if (branch) {
+        summary.push(branch);
+    }
+
+    return summary;
+}
+
 export function depositFilterSummary(filters, statusOptions, branchOptions) {
     const summary = [];
 

@@ -31,8 +31,9 @@ class CertificationsTest extends TestCase
 
         $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
         $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
 
-        $certA = $this->certificateFor($requesterA);
+        $certA = $this->certificateFor($requesterA, $approver);
         $this->certificateFor($requesterB);
 
         $response = $this->actingAs($requesterA)->get(route('certifications.index'));
@@ -40,14 +41,17 @@ class CertificationsTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Certifications/Index')
+            ->where('context', 'user')
             ->where('canViewAllBranches', false)
             ->where('showBranchFilter', false)
             ->has('certificates.data', 1)
             ->where('certificates.data.0.id', $certA->id)
+            ->where('certificates.data.0.requester_name', $requesterA->name)
+            ->where('certificates.data.0.approver_name', $approver->name)
         );
     }
 
-    public function test_super_admin_sees_certificates_across_all_branches(): void
+    public function test_super_admin_sees_certificates_across_all_branches_on_user_route(): void
     {
         $branchA = $this->makeBranch('AAA');
         $branchB = $this->makeBranch('BBB');
@@ -62,6 +66,7 @@ class CertificationsTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Certifications/Index')
+            ->where('context', 'user')
             ->where('canViewAllBranches', true)
             ->where('showBranchFilter', false)
             ->has('certificates.data', 2)
@@ -82,6 +87,7 @@ class CertificationsTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
+            ->where('context', 'user')
             ->where('showBranchFilter', true)
             ->has('certificates.data', 2)
         );
@@ -113,7 +119,6 @@ class CertificationsTest extends TestCase
         $branch = $this->makeBranch('AAA');
         $requester = $this->userWithRole(RoleSlug::Requester, $branch);
 
-        // Approved but no certificate generated yet.
         $this->approvedBondRequest($requester);
 
         $response = $this->actingAs($requester)->get(route('certifications.index'));
@@ -122,9 +127,56 @@ class CertificationsTest extends TestCase
         $response->assertInertia(fn ($page) => $page->has('certificates.data', 0));
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
+    public function test_requester_cannot_access_maintenance_certification_registry(): void
+    {
+        $requester = $this->userWithRole(RoleSlug::Requester, $this->makeBranch('AAA'));
+
+        $this->actingAs($requester)
+            ->get(route('maintenance.certifications.index'))
+            ->assertForbidden();
+    }
+
+    public function test_maintenance_registry_shows_all_branch_certificates(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchA));
+        $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchB));
+
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+
+        $response = $this->actingAs($encoder)->get(route('maintenance.certifications.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('context', 'maintenance')
+            ->where('canViewAllBranches', true)
+            ->where('showBranchFilter', true)
+            ->has('certificates.data', 2)
+        );
+    }
+
+    public function test_maintenance_registry_can_filter_by_branch(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $certA = $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchA));
+        $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchB));
+
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+
+        $response = $this->actingAs($encoder)->get(route('maintenance.certifications.index', [
+            'branch_id' => $branchA->id,
+        ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('certificates.data', 1)
+            ->where('certificates.data.0.id', $certA->id)
+        );
+    }
 
     private function makeBranch(string $code): Branch
     {
@@ -149,10 +201,19 @@ class CertificationsTest extends TestCase
         ]);
     }
 
-    private function approvedBondRequest(User $creator): BondRequest
+    private function certificateFor(User $creator, ?User $approver = null): BondRequest
+    {
+        $bondRequest = $this->approvedBondRequest($creator, $approver);
+        $bondRequest->update(['certificate_path' => 'private/certificates/fake.pdf']);
+
+        return $bondRequest->fresh();
+    }
+
+    private function approvedBondRequest(User $creator, ?User $approver = null): BondRequest
     {
         $signatory = Signatory::factory()->create(['is_active' => true]);
         $notary = Notary::factory()->create(['is_active' => true]);
+        $approver ??= $this->userWithRole(RoleSlug::Approver, Branch::query()->findOrFail($creator->branch_id));
 
         return BondRequest::factory()
             ->approved()
@@ -161,15 +222,8 @@ class CertificationsTest extends TestCase
                 'signatory_id' => $signatory->id,
                 'notary_id' => $notary->id,
                 'created_by' => $creator->id,
+                'approved_by' => $approver->id,
                 'tin' => '123-456-789-0000',
             ]);
-    }
-
-    private function certificateFor(User $creator): BondRequest
-    {
-        $bondRequest = $this->approvedBondRequest($creator);
-        $bondRequest->update(['certificate_path' => 'private/certificates/fake.pdf']);
-
-        return $bondRequest->fresh();
     }
 }

@@ -72,6 +72,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'attention' => 'Ms. Jane Doe',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -101,6 +102,7 @@ class BondRequestFormTest extends TestCase
             'project_name' => 'Highway Project',
             'attention' => 'Ms. Jane Doe',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'signatory_id' => null,
             'notary_id' => null,
             'tin' => null,
@@ -114,7 +116,7 @@ class BondRequestFormTest extends TestCase
         ]);
 
         $requester->refresh();
-        $this->assertEquals(10000, (float) $requester->balance);
+        $this->assertEquals(10000, (float) $requester->branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
     }
 
@@ -142,16 +144,17 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'expiry_date' => '2027-05-24',
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseCount('bond_requests', 1);
-        $this->assertEquals(100, (float) $requester->fresh()->balance);
+        $this->assertEquals(100, (float) $requester->branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
     }
 
-    public function test_approval_fails_when_requester_balance_is_insufficient_for_notary_fee(): void
+    public function test_approval_with_notary_does_not_charge_notary_fee_until_generation(): void
     {
         $requester = $this->requesterUser('MKT', balance: 100, notaryPrice: 500);
         $approver = $this->approverUser();
@@ -171,13 +174,13 @@ class BondRequestFormTest extends TestCase
             'series_year' => '2026',
         ]);
 
-        $response->assertSessionHasErrors('signatory_id');
-        $this->assertSame(BondRequestStatus::Pending, $bondRequest->fresh()->status);
+        $response->assertRedirect();
+        $this->assertSame(BondRequestStatus::Approved, $bondRequest->fresh()->status);
+        $this->assertEquals(100, (float) $requester->branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
-        $this->assertEquals(100, (float) $requester->fresh()->balance);
     }
 
-    public function test_approval_fails_when_requester_branch_has_no_notary_price(): void
+    public function test_approval_succeeds_when_branch_has_no_notary_price_configured(): void
     {
         $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 0);
         $approver = $this->approverUser();
@@ -197,8 +200,8 @@ class BondRequestFormTest extends TestCase
             'series_year' => '2026',
         ]);
 
-        $response->assertSessionHasErrors('signatory_id');
-        $this->assertSame(BondRequestStatus::Pending, $bondRequest->fresh()->status);
+        $response->assertRedirect();
+        $this->assertSame(BondRequestStatus::Approved, $bondRequest->fresh()->status);
         $this->assertDatabaseCount('transactions', 0);
     }
 
@@ -231,6 +234,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -243,6 +247,7 @@ class BondRequestFormTest extends TestCase
             'bond_type' => 'CAR',
             'attention' => null,
             'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'private',
         ]);
     }
 
@@ -272,6 +277,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -312,6 +318,7 @@ class BondRequestFormTest extends TestCase
             'amount' => 1500.75,
             'request_date' => '2026-05-24',
             'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'private',
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -346,6 +353,7 @@ class BondRequestFormTest extends TestCase
             'amount' => 1500.75,
             'request_date' => '2026-05-24',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -376,7 +384,8 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'has_endorsement' => true,
+            'party_type' => 'private',
+            'include_endorsement_number' => true,
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -408,7 +417,8 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
-            'has_endorsement' => true,
+            'party_type' => 'private',
+            'include_endorsement_number' => true,
             'endorsement_number' => 'END-2026-001',
             'expiry_date' => '2027-05-24',
         ]);
@@ -417,6 +427,7 @@ class BondRequestFormTest extends TestCase
 
         $this->assertDatabaseHas('bond_requests', [
             'created_by' => $requester->id,
+            'include_endorsement_number' => true,
             'endorsement_number' => 'END-2026-001',
         ]);
     }
@@ -452,6 +463,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -489,6 +501,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -527,6 +540,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => 'May 24, 2027',
         ]);
@@ -564,6 +578,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => $statement,
         ]);
@@ -594,6 +609,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -624,6 +640,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -673,6 +690,7 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
             'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
             'expiry_date' => '2027-05-24',
         ]);
@@ -719,17 +737,54 @@ class BondRequestFormTest extends TestCase
         $this->assertSame(self::SIGNATORY_TIN, $bondRequest->tin);
 
         $requester->refresh();
-        $this->assertEquals(9500, (float) $requester->balance);
+        $this->assertEquals(10000, (float) $requester->branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
 
-        $this->assertDatabaseHas('transactions', [
-            'user_id' => $requester->id,
-            'type' => 'debit',
-            'amount' => 500,
-            'balance_before' => 10000,
-            'balance_after' => 9500,
-            'subject_type' => BondRequest::class,
-            'subject_id' => $bondRequest->id,
+    public function test_approver_can_approve_without_notary_and_no_fee_is_charged(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 100, notaryPrice: 500);
+        $approver = $this->approverUser();
+        $signatory = Signatory::factory()->create(['tin' => self::SIGNATORY_TIN]);
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::BondCertificate,
+            'created_by' => $requester->id,
         ]);
+
+        $response = $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => true,
+            'doc_no' => 'DOC-1',
+            'series_year' => '2026',
+        ]);
+
+        $response->assertRedirect();
+
+        $bondRequest->refresh();
+
+        $this->assertSame(BondRequestStatus::Approved, $bondRequest->status);
+        $this->assertNull($bondRequest->notary_id);
+        $this->assertTrue($bondRequest->include_signatory_signature);
+        $this->assertEquals(100, (float) $requester->branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_approval_persists_include_signatory_signature_only_when_checked(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);
+        $approver = $this->approverUser();
+        $signatory = Signatory::factory()->create(['tin' => self::SIGNATORY_TIN]);
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::BondCertificate,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => false,
+        ])->assertRedirect();
+
+        $this->assertFalse($bondRequest->fresh()->include_signatory_signature);
     }
 
     private function requesterUser(string $branchCode = 'CEB', float $balance = 10000, float $notaryPrice = 500): User
@@ -740,6 +795,7 @@ class BondRequestFormTest extends TestCase
             'branch_code' => $branchCode,
             'address' => 'Branch City',
             'notary_price' => $notaryPrice,
+            'balance' => $balance,
             'is_active' => true,
         ]);
 
@@ -748,7 +804,7 @@ class BondRequestFormTest extends TestCase
             'branch_id' => $branch->id,
             'branch_code' => $branchCode,
             'branch_city' => 'Branch City',
-            'balance' => $balance,
+            'balance' => 0,
             'is_active' => true,
             'email_verified_at' => now(),
         ]);

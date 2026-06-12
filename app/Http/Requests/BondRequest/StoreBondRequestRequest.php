@@ -3,6 +3,7 @@
 namespace App\Http\Requests\BondRequest;
 
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Models\BondRequest;
 use App\Rules\ValidKycObligee;
 use App\Support\BondNumberGenerator;
@@ -38,13 +39,14 @@ class StoreBondRequestRequest extends FormRequest
                 'string',
                 'max:255',
             ],
-            'has_endorsement' => ['sometimes', 'boolean'],
+            'include_endorsement_number' => ['sometimes', 'boolean'],
             'endorsement_number' => [
-                Rule::requiredIf(fn (): bool => $this->boolean('has_endorsement')),
+                Rule::requiredIf(fn (): bool => $this->boolean('include_endorsement_number')),
                 'nullable',
                 'string',
                 'max:100',
             ],
+            'party_type' => ['required', Rule::enum(PartyType::class)],
             'principal_id' => ['nullable', 'integer', 'exists:principals,id'],
             'principal_name' => ['required', 'string', 'max:255'],
             'obligee_id' => ['nullable', 'integer', 'min:1', new ValidKycObligee],
@@ -99,7 +101,8 @@ class StoreBondRequestRequest extends FormRequest
             'principal_name.required' => 'The principal name is required.',
             'car.required' => 'The CAR field is required for CAR certificate requests.',
             'authorized_representative.required' => 'The authorized representative is required for CAR certificate requests.',
-            'endorsement_number.required' => 'The endorsement number is required when endorsement is enabled.',
+            'endorsement_number.required' => 'The endorsement number is required when include endorsement number is enabled.',
+            'party_type.required' => 'Please select Government or Private.',
             'bond_type_id.required' => 'Please select a bond type for bond certificate requests.',
         ];
     }

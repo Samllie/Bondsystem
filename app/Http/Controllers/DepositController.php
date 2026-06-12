@@ -28,6 +28,7 @@ class DepositController extends Controller
         abort_unless($request->user()->hasAnyPermission(['deposits.view', 'deposits.create']), 403);
 
         $user = $request->user();
+        $user->loadMissing('branch');
         $canViewAll = $user->hasPermission('deposits.view');
         $branchId = $request->integer('branch_id') ?: null;
 
@@ -55,7 +56,8 @@ class DepositController extends Controller
             'canSubmit' => $user->hasPermission('deposits.create'),
             'filters' => $request->only('status', 'mine', 'search', 'branch_id'),
             'statusOptions' => DepositStatus::options(),
-            'userBalance' => $user->balance,
+            'userBalance' => $user->branchBalance(),
+            'branchName' => $user->branch?->name,
             'branchOptions' => BranchScope::branchOptions($user),
             'showBranchFilter' => BranchScope::showBranchFilter($user) && $canViewAll && ! $mineOnly,
         ]);
@@ -65,9 +67,13 @@ class DepositController extends Controller
     {
         abort_unless($request->user()->hasPermission('deposits.create'), 403);
 
+        $user = $request->user();
+        $user->loadMissing('branch');
+
         return Inertia::render('Deposits/Create', [
             'bankAccounts' => BankAccount::where('is_active', true)->get(['id', 'bank_name', 'account_number', 'account_name', 'branch']),
-            'userBalance' => $request->user()->balance,
+            'userBalance' => $user->branchBalance(),
+            'branchName' => $user->branch?->name,
         ]);
     }
 
@@ -106,7 +112,7 @@ class DepositController extends Controller
             403,
         );
 
-        $deposit->load(['user:id,name,email,balance', 'bankAccount', 'approver:id,name']);
+        $deposit->load(['user:id,name,email,branch_id', 'user.branch:id,name,balance', 'bankAccount', 'approver:id,name']);
 
         $transaction = Transaction::where('subject_type', Deposit::class)
             ->where('subject_id', $deposit->id)
@@ -116,7 +122,8 @@ class DepositController extends Controller
             'deposit' => $deposit,
             'receiptUrl' => Storage::disk('public')->url($deposit->receipt_path),
             'canApprove' => $request->user()->hasPermission('deposits.approve') && $deposit->status === DepositStatus::Pending,
-            'submitterBalance' => (float) $deposit->user->balance,
+            'submitterBalance' => (float) ($deposit->user->branch?->balance ?? 0),
+            'branchName' => $deposit->user->branch?->name,
             'transactionNumber' => $transaction?->transaction_number,
         ]);
     }
@@ -126,15 +133,16 @@ class DepositController extends Controller
         abort_unless($request->user()->hasPermission('deposits.approve'), 403);
         abort_unless($deposit->status === DepositStatus::Pending, 422, 'Only pending deposits can be approved.');
 
-        $transaction = $this->depositService->approve($deposit, $request->user());
+        $transaction = $this->depositService->approve($deposit, $request->user())->load('branch');
         $creditedUser = $transaction->user;
+        $branchName = $transaction->branch?->name ?? 'Branch';
 
         ActivityLogger::log('deposit.approved', "Deposit #{$deposit->id} approved for {$creditedUser->name}.", $deposit);
         $this->notificationService->depositApproved($deposit);
 
         return back()->with(
             'success',
-            "Deposit approved. {$creditedUser->name}'s balance is now ₱".number_format((float) $creditedUser->balance, 2)
+            "Deposit approved. {$branchName} fund is now ₱".number_format((float) $transaction->balance_after, 2)
             .". Transaction number: {$transaction->transaction_number}",
         );
     }

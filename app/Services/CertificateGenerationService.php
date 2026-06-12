@@ -30,6 +30,8 @@ class CertificateGenerationService
     public function __construct(
         private readonly TemplateNormalizerService $normalizer,
         private readonly TemplateDataBuilder $dataBuilder,
+        private readonly PlaceholderRenderer $placeholderRenderer,
+        private readonly DocxEndorsementSpacingNormalizer $endorsementSpacingNormalizer,
     ) {}
 
     /**
@@ -37,19 +39,27 @@ class CertificateGenerationService
      */
     public function generate(BondRequest $bondRequest): void
     {
-        $bondRequest->load(['principal', 'signatory', 'notary', 'creator.branch']);
+        $this->assertEndorsementIsValid($bondRequest);
+
+        $bondRequest->load(['principal', 'signatory', 'notary', 'creator.branch', 'bondTypeMaster']);
 
         $templatePath = $this->templatePath($bondRequest);
         $normalizedPath = $this->normalizer->normalize($templatePath);
 
         try {
             $data = $this->dataBuilder->build($bondRequest);
+            $renderedText = $this->placeholderRenderer->render($data['text']);
             $processor = new TemplateProcessor($normalizedPath);
 
-            $this->applyTextValues($processor, $data['text']);
+            $this->applyTextValues($processor, $renderedText);
             $this->applyImageValues($processor, $data['images'], $bondRequest);
 
             $docxPath = $this->saveDocx($processor, $bondRequest);
+
+            if (! $bondRequest->include_endorsement_number) {
+                $this->endorsementSpacingNormalizer->normalize(storage_path("app/{$docxPath}"));
+            }
+
             $pdfPath = $this->convertToPdf($docxPath, $bondRequest);
 
             $bondRequest->update([
@@ -60,6 +70,17 @@ class CertificateGenerationService
             if (file_exists($normalizedPath)) {
                 @unlink($normalizedPath);
             }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation
+    // -------------------------------------------------------------------------
+
+    private function assertEndorsementIsValid(BondRequest $bondRequest): void
+    {
+        if ($bondRequest->include_endorsement_number && blank($bondRequest->endorsement_number)) {
+            throw new RuntimeException('Endorsement number is required when include endorsement number is enabled.');
         }
     }
 

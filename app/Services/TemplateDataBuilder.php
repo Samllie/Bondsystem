@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Models\BondRequest;
 use App\Support\DateFormatter;
 use Illuminate\Support\Facades\Log;
@@ -99,7 +100,9 @@ class TemplateDataBuilder
                 'Doc. No.' => (string) ($bondRequest->doc_no ?? ''),
                 'Page No.' => (string) ($bondRequest->page_no ?? ''),
                 'Book No.' => (string) ($bondRequest->book_no ?? ''),
-                'Endorsement No.' => (string) ($bondRequest->endorsement_number ?? ''),
+                'Endorsement No.' => $this->resolveEndorsementNumber($bondRequest),
+                'Jurat' => $this->resolveJuratTemplate($bondRequest),
+                'Endorsement' => $this->resolveEndorsementTemplate($bondRequest),
             ],
             'images' => [],
         ];
@@ -140,7 +143,9 @@ class TemplateDataBuilder
 
         $images = [];
 
-        $signatureImage = $this->resolveSignatureImage($bondRequest, $signatory);
+        $signatureImage = $bondRequest->include_signatory_signature
+            ? $this->resolveSignatureImage($bondRequest, $signatory)
+            : null;
 
         if ($signatureImage !== null) {
             $images['Signature'] = $signatureImage;
@@ -228,6 +233,33 @@ class TemplateDataBuilder
         return (string) ($bondRequest->creator?->branch?->name
             ?? $bondRequest->branch
             ?? '');
+    }
+
+    private function resolveJuratTemplate(BondRequest $bondRequest): string
+    {
+        if ($bondRequest->party_type !== PartyType::Government) {
+            return '';
+        }
+
+        return (string) config('certificates.jurat_templates.government', '');
+    }
+
+    private function resolveEndorsementTemplate(BondRequest $bondRequest): string
+    {
+        if (! $bondRequest->include_endorsement_number) {
+            return '';
+        }
+
+        return (string) config('certificates.endorsement_template', '');
+    }
+
+    private function resolveEndorsementNumber(BondRequest $bondRequest): string
+    {
+        if (! $bondRequest->include_endorsement_number) {
+            return '';
+        }
+
+        return (string) ($bondRequest->endorsement_number ?? '');
     }
 
     /**

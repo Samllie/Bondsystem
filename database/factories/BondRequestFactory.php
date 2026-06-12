@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\BondRequestStatus;
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\BondTypeMaster;
 use App\Models\Principal;
@@ -41,8 +42,12 @@ class BondRequestFactory extends Factory
                 ? fake()->dateTimeBetween('+3 months', '+2 years')->format('Y-m-d')
                 : 'until fully recouped and liquidated is valid',
             'request_date' => fake()->dateTimeBetween('-6 months', 'now'),
+            'party_type' => PartyType::Private->value,
+            'include_endorsement_number' => false,
+            'endorsement_number' => null,
             'signatory_id' => null,
             'signatory_position' => null,
+            'include_signatory_signature' => false,
             'notary_id' => null,
             'doc_no' => null,
             'page_no' => null,

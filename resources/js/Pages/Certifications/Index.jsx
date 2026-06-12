@@ -1,11 +1,13 @@
 import BranchFilter from '@/Components/Report/BranchFilter';
-import Card, { CardBody } from '@/Components/UI/Card';
+import PrintReportButton from '@/Components/Report/PrintReportButton';
+import ReportPrintHeader from '@/Components/Report/ReportPrintHeader';
 import Pagination from '@/Components/UI/Pagination';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
 import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
 import { visitTable } from '@/lib/visitTable';
+import { certificationFilterSummary } from '@/lib/reportPrint';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 
 const TABLE_PROPS = ['certificates', 'filters'];
 
@@ -16,8 +18,23 @@ export default function Index({
     branchName,
     branchOptions,
     showBranchFilter,
+    generatedAt,
+    context = 'user',
+    listUrl,
+    pageTitle = 'Certifications',
+    scopeMessage,
 }) {
-    const url = route('certifications.index');
+    const url = listUrl ?? (context === 'maintenance'
+        ? route('maintenance.certifications.index')
+        : route('certifications.index'));
+    const filterSummary = certificationFilterSummary(filters, branchOptions);
+    const reportTitle = context === 'maintenance' ? 'Certification Report' : 'Certifications Report';
+
+    const defaultScopeMessage = canViewAllBranches
+        ? showBranchFilter
+            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
+            : 'Showing generated certificates across all branches.'
+        : `Showing generated certificates for your branch${branchName ? ` (${branchName})` : ''}.`;
 
     const { inputRef, isSearching, onInput, getValue, defaultSearch } = useDebouncedInertiaSearch({
         initialSearch: filters.search,
@@ -36,19 +53,19 @@ export default function Index({
         }, TABLE_PROPS, { inputRef });
     };
 
-    const scopeMessage = canViewAllBranches
-        ? showBranchFilter
-            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
-            : 'Showing generated certificates across all branches.'
-        : `Showing generated certificates for your branch${branchName ? ` (${branchName})` : ''}.`;
-
     return (
-        <AppLayout title="Certifications">
-            <Head title="Certifications" />
+        <AppLayout title={pageTitle} actions={<PrintReportButton />}>
+            <Head title={pageTitle} />
 
-            <Card className="mb-4">
-                <CardBody>
-                    <p className="mb-3 text-sm text-slate-600">{scopeMessage}</p>
+            <ReportPrintHeader
+                title={reportTitle}
+                filterSummary={filterSummary}
+                generatedAt={generatedAt}
+            />
+
+            <div className="report-print-content">
+                <div className="no-print mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="mb-3 text-sm text-slate-600">{scopeMessage ?? defaultScopeMessage}</p>
                     <div className="flex flex-wrap gap-3">
                         <TableSearchInput
                             inputRef={inputRef}
@@ -68,40 +85,44 @@ export default function Index({
                             />
                         )}
                     </div>
-                </CardBody>
-            </Card>
+                </div>
 
-            <Card>
-                <CardBody className="overflow-x-auto p-0">
-                    <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <div className="dashboard-report-card overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <table className="dashboard-report-table min-w-full text-sm">
                         <thead className="bg-slate-50">
                             <tr>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Bond / CAR #</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Type</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Obligee</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Principal</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Branch</th>
-                                <th className="px-4 py-3 text-left font-medium text-slate-600">Date</th>
-                                <th className="px-4 py-3 text-right font-medium text-slate-600">Actions</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Bond / CAR #</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Type</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Obligee</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Principal</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Branch</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Requester</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Approver</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Date</th>
+                                <th className="print-hide-actions-col px-4 py-3 text-right text-xs font-medium text-slate-500">
+                                    Actions
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {certificates.data.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
+                                    <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
                                         No certificates found.
                                     </td>
                                 </tr>
                             )}
                             {certificates.data.map((cert) => (
                                 <tr key={cert.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 font-medium">{cert.bond_label || cert.bond_number}</td>
-                                    <td className="px-4 py-3">{cert.certificate_type_label}</td>
-                                    <td className="px-4 py-3">{cert.obligee_name || '—'}</td>
-                                    <td className="px-4 py-3">{cert.principal_name || '—'}</td>
-                                    <td className="px-4 py-3">{cert.branch_name}</td>
-                                    <td className="px-4 py-3">{cert.request_date || '—'}</td>
-                                    <td className="px-4 py-3 text-right">
+                                    <td className="px-4 py-3 font-medium text-slate-900">{cert.bond_label || cert.bond_number}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.certificate_type_label}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.obligee_name || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.principal_name || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.branch_name}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.requester_name || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-700">{cert.approver_name || '—'}</td>
+                                    <td className="px-4 py-3 text-slate-500">{cert.request_date || '—'}</td>
+                                    <td className="print-hide-actions-col px-4 py-3 text-right">
                                         <div className="flex justify-end gap-3">
                                             <a
                                                 href={route('bond-requests.view-certificate', cert.id)}
@@ -131,11 +152,12 @@ export default function Index({
                             ))}
                         </tbody>
                     </table>
-                </CardBody>
-                <div className="border-t border-slate-100 px-4 py-3">
-                    <Pagination links={certificates.links} />
                 </div>
-            </Card>
+
+                <div className="no-print border-t border-slate-100 px-4 py-3">
+                    <Pagination links={certificates.links} meta={certificates.meta} />
+                </div>
+            </div>
         </AppLayout>
     );
 }
