@@ -7,6 +7,7 @@ use App\Models\BankAccount;
 use App\Models\Deposit;
 use App\Models\Transaction;
 use App\Services\ActivityLogger;
+use App\Services\AuditLogService;
 use App\Services\DepositService;
 use App\Services\NotificationService;
 use App\Support\BranchScope;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DepositController extends Controller
 {
@@ -99,6 +101,17 @@ class DepositController extends Controller
         ]);
 
         ActivityLogger::log('deposit.submitted', 'Deposit request submitted for ₱'.number_format($validated['amount'], 2));
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_uploaded',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            newValues: [
+                'amount' => (string) $deposit->amount,
+                'status' => $deposit->status->value,
+            ],
+            description: "Receipt uploaded for deposit #{$deposit->id}.",
+        );
         $this->notificationService->depositSubmitted($deposit);
 
         return redirect()->route('payments.deposits.index')
@@ -114,6 +127,14 @@ class DepositController extends Controller
 
         $deposit->load(['user:id,name,email,branch_id', 'user.branch:id,name,balance', 'bankAccount', 'approver:id,name']);
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_viewed',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            description: "Receipt viewed for deposit #{$deposit->id}.",
+        );
+
         $transaction = Transaction::where('subject_type', Deposit::class)
             ->where('subject_id', $deposit->id)
             ->first();
@@ -121,11 +142,41 @@ class DepositController extends Controller
         return Inertia::render('Deposits/Show', [
             'deposit' => $deposit,
             'receiptUrl' => Storage::disk('public')->url($deposit->receipt_path),
+            'receiptDownloadUrl' => route('payments.deposits.download-receipt', $deposit),
             'canApprove' => $request->user()->hasPermission('deposits.approve') && $deposit->status === DepositStatus::Pending,
             'submitterBalance' => (float) ($deposit->user->branch?->balance ?? 0),
             'branchName' => $deposit->user->branch?->name,
             'transactionNumber' => $transaction?->transaction_number,
         ]);
+    }
+
+    public function downloadReceipt(Request $request, Deposit $deposit): BinaryFileResponse
+    {
+        abort_unless(
+            $request->user()->hasPermission('deposits.view') || $deposit->user_id === $request->user()->id,
+            403,
+        );
+
+        abort_unless(
+            Storage::disk('public')->exists($deposit->receipt_path),
+            404,
+            'Receipt file not found.',
+        );
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_downloaded',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            description: "Receipt downloaded for deposit #{$deposit->id}.",
+        );
+
+        $extension = pathinfo($deposit->receipt_path, PATHINFO_EXTENSION) ?: 'bin';
+
+        return response()->download(
+            Storage::disk('public')->path($deposit->receipt_path),
+            sprintf('deposit-%d-receipt.%s', $deposit->id, $extension),
+        );
     }
 
     public function approve(Request $request, Deposit $deposit): RedirectResponse
@@ -138,6 +189,15 @@ class DepositController extends Controller
         $branchName = $transaction->branch?->name ?? 'Branch';
 
         ActivityLogger::log('deposit.approved', "Deposit #{$deposit->id} approved for {$creditedUser->name}.", $deposit);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_approved',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            oldValues: ['status' => DepositStatus::Pending->value],
+            newValues: ['status' => DepositStatus::Approved->value],
+            description: "Receipt approved for deposit #{$deposit->id}.",
+        );
         $this->notificationService->depositApproved($deposit);
 
         return back()->with(
@@ -157,6 +217,15 @@ class DepositController extends Controller
         $this->depositService->reject($deposit, $request->user(), $request->input('remarks'));
 
         ActivityLogger::log('deposit.rejected', "Deposit #{$deposit->id} rejected.", $deposit);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_rejected',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            oldValues: ['status' => DepositStatus::Pending->value],
+            newValues: ['status' => DepositStatus::Rejected->value],
+            description: "Receipt rejected for deposit #{$deposit->id}.",
+        );
         $this->notificationService->depositRejected($deposit);
 
         return back()->with('success', 'Deposit rejected.');

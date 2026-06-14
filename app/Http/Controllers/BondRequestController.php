@@ -16,6 +16,7 @@ use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
 use App\Models\PaymentHistory;
 use App\Services\ActivityLogger;
+use App\Services\AuditLogService;
 use App\Services\BondRequestSupportingDocumentService;
 use App\Services\CertificateGenerationService;
 use App\Services\KycObligeeService;
@@ -130,6 +131,28 @@ class BondRequestController extends Controller
         ]);
 
         ActivityLogger::log('created', "Bond request {$bondRequest->bond_number} created.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_created',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            newValues: [
+                'bond_number' => $bondRequest->bond_number,
+                'status' => $bondRequest->status->value,
+            ],
+            description: "Bond request {$bondRequest->bond_number} created.",
+        );
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_submitted',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            newValues: [
+                'bond_number' => $bondRequest->bond_number,
+                'status' => $bondRequest->status->value,
+            ],
+            description: "Bond request {$bondRequest->bond_number} submitted.",
+        );
         $this->notificationService->bondRequestSubmitted($bondRequest);
 
         return redirect()->route('bond-requests.show', $bondRequest)
@@ -215,6 +238,12 @@ class BondRequestController extends Controller
 
     public function update(UpdateBondRequestRequest $request, BondRequest $bondRequest): RedirectResponse
     {
+        $oldValues = [
+            'status' => $bondRequest->status->value,
+            'amount' => (string) $bondRequest->amount,
+            'bond_number' => $bondRequest->bond_number,
+        ];
+
         $bondRequest->update(
             $this->bondRequestAttributes($request, $bondRequest)
         );
@@ -225,6 +254,19 @@ class BondRequestController extends Controller
         ]);
 
         ActivityLogger::log('updated', "Bond request {$bondRequest->bond_number} updated.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_updated',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: $oldValues,
+            newValues: [
+                'status' => $bondRequest->status->value,
+                'amount' => (string) $bondRequest->amount,
+                'bond_number' => $bondRequest->bond_number,
+            ],
+            description: "Bond request {$bondRequest->bond_number} updated.",
+        );
 
         return redirect()->route('bond-requests.show', $bondRequest)
             ->with('success', 'Bond request updated successfully.');
@@ -272,6 +314,15 @@ class BondRequestController extends Controller
         });
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_approved',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: ['status' => BondRequestStatus::Pending->value],
+            newValues: ['status' => BondRequestStatus::Approved->value],
+            description: "Bond request {$bondRequest->bond_number} approved.",
+        );
         $this->notificationService->bondRequestApproved($bondRequest);
 
         return back()->with('success', 'Bond request approved.');
@@ -288,6 +339,15 @@ class BondRequestController extends Controller
         ]);
 
         ActivityLogger::log('rejected', "Bond request {$bondRequest->bond_number} rejected.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_rejected',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: ['status' => BondRequestStatus::Pending->value],
+            newValues: ['status' => BondRequestStatus::Rejected->value],
+            description: "Bond request {$bondRequest->bond_number} rejected.",
+        );
         $this->notificationService->bondRequestRejected($bondRequest);
 
         return back()->with('success', 'Bond request rejected.');
@@ -372,6 +432,24 @@ class BondRequestController extends Controller
         }
 
         ActivityLogger::log('generated', "Certificate generated for bond request {$bondRequest->bond_number}.", $bondRequest);
+
+        $bondRequest->refresh();
+        $version = $bondRequest->certificateVersions()->latest('version_number')->first();
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_generated',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: ['certificate_path' => null],
+            newValues: [
+                'certificate_path' => $bondRequest->certificate_path,
+                'version_number' => $version?->version_number,
+            ],
+            description: $version
+                ? "Generated bond certificate version {$version->version_number} for {$bondRequest->bond_number}."
+                : "Generated bond certificate for {$bondRequest->bond_number}.",
+        );
+
         $this->notificationService->certificateGenerated($bondRequest);
 
         return back()->with('success', 'Certificate generated successfully.');
@@ -388,6 +466,14 @@ class BondRequestController extends Controller
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
         $filename = $this->certificateFilename($bondRequest, $extension);
         $mimeType = $extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_viewed',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            description: "Certificate viewed for bond request {$bondRequest->bond_number}.",
+        );
 
         return response()->file(
             $absolutePath,
@@ -408,6 +494,14 @@ class BondRequestController extends Controller
 
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
         $filename = $this->certificateFilename($bondRequest, $extension);
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_downloaded',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            description: "Certificate downloaded for bond request {$bondRequest->bond_number}.",
+        );
 
         return response()->download($absolutePath, $filename);
     }

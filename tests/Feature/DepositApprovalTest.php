@@ -12,6 +12,7 @@ use App\Models\Transaction;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -24,6 +25,65 @@ class DepositApprovalTest extends TestCase
         parent::setUp();
 
         $this->seed(RolePermissionSeeder::class);
+        Storage::fake('public');
+    }
+
+    public function test_approver_can_download_deposit_receipt(): void
+    {
+        $requester = $this->createUser(RoleSlug::Requester);
+        $approver = $this->createUser(RoleSlug::Approver);
+        $bankAccount = BankAccount::factory()->create();
+        $receiptPath = 'receipts/deposit-receipt.pdf';
+        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+
+        $deposit = Deposit::factory()->create([
+            'user_id' => $requester->id,
+            'bank_account_id' => $bankAccount->id,
+            'receipt_path' => $receiptPath,
+        ]);
+
+        $this->actingAs($approver)
+            ->get(route('payments.deposits.download-receipt', $deposit))
+            ->assertOk()
+            ->assertDownload('deposit-'.$deposit->id.'-receipt.pdf');
+    }
+
+    public function test_requester_can_download_own_deposit_receipt(): void
+    {
+        $requester = $this->createUser(RoleSlug::Requester);
+        $bankAccount = BankAccount::factory()->create();
+        $receiptPath = 'receipts/my-receipt.png';
+        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+
+        $deposit = Deposit::factory()->create([
+            'user_id' => $requester->id,
+            'bank_account_id' => $bankAccount->id,
+            'receipt_path' => $receiptPath,
+        ]);
+
+        $this->actingAs($requester)
+            ->get(route('payments.deposits.download-receipt', $deposit))
+            ->assertOk()
+            ->assertDownload('deposit-'.$deposit->id.'-receipt.png');
+    }
+
+    public function test_requester_cannot_download_another_users_receipt(): void
+    {
+        $requester = $this->createUser(RoleSlug::Requester);
+        $otherRequester = $this->createUser(RoleSlug::Requester);
+        $bankAccount = BankAccount::factory()->create();
+        $receiptPath = 'receipts/other-receipt.pdf';
+        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+
+        $deposit = Deposit::factory()->create([
+            'user_id' => $otherRequester->id,
+            'bank_account_id' => $bankAccount->id,
+            'receipt_path' => $receiptPath,
+        ]);
+
+        $this->actingAs($requester)
+            ->get(route('payments.deposits.download-receipt', $deposit))
+            ->assertForbidden();
     }
 
     public function test_approving_a_deposit_credits_the_branch_fund(): void

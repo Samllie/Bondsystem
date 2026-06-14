@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Maintenance;
 
 use App\Models\Maintenance\Notary;
+use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -95,13 +96,25 @@ class NotaryController extends MaintenanceController
 
         $validated = $request->validate($this->rules(), $this->messages());
 
-        Notary::create([
+        $notary = Notary::create([
             'name' => $validated['name'],
             'commission_number' => $validated['commission_number'],
             'tin' => $validated['tin'],
             'signature_path' => $request->file('signature')->store('notary-seals', 'public'),
             'is_active' => true,
         ]);
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'notary_created',
+            entityType: AuditLogService::ENTITY_NOTARY,
+            entityId: $notary->id,
+            newValues: [
+                'name' => $notary->name,
+                'commission_number' => $notary->commission_number,
+            ],
+            description: "Notary {$notary->name} created.",
+        );
 
         return redirect()->route("{$this->routePrefix()}.index")
             ->with('success', "{$this->label()} created successfully.");
@@ -123,6 +136,8 @@ class NotaryController extends MaintenanceController
         $notary = Notary::findOrFail($id);
         $validated = $request->validate($this->rules(true, $notary), $this->messages());
 
+        $oldValues = $notary->only(['name', 'commission_number', 'tin']);
+
         $data = [
             'name' => $validated['name'],
             'commission_number' => $validated['commission_number'],
@@ -139,6 +154,16 @@ class NotaryController extends MaintenanceController
 
         $notary->update($data);
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'notary_updated',
+            entityType: AuditLogService::ENTITY_NOTARY,
+            entityId: $notary->id,
+            oldValues: $oldValues,
+            newValues: $notary->only(['name', 'commission_number', 'tin']),
+            description: "Notary {$notary->name} updated.",
+        );
+
         return redirect()->route("{$this->routePrefix()}.index")
             ->with('success', "{$this->label()} updated successfully.");
     }
@@ -148,12 +173,22 @@ class NotaryController extends MaintenanceController
         abort_unless($request->user()->hasPermission('maintenance.manage'), 403);
 
         $notary = Notary::findOrFail($id);
+        $oldValues = $notary->only(['name', 'commission_number', 'tin']);
 
         if ($notary->signature_path) {
             Storage::disk('public')->delete($notary->signature_path);
         }
 
         $notary->delete();
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'notary_deleted',
+            entityType: AuditLogService::ENTITY_NOTARY,
+            entityId: $notary->id,
+            oldValues: $oldValues,
+            description: "Notary {$oldValues['name']} deleted.",
+        );
 
         return redirect()->route("{$this->routePrefix()}.index")
             ->with('success', "{$this->label()} deleted.");

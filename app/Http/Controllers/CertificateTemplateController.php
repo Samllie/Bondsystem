@@ -6,6 +6,7 @@ use App\Enums\CertificateTemplateType;
 use App\Http\Requests\CertificateTemplate\StoreCertificateTemplateRequest;
 use App\Models\CertificateTemplate;
 use App\Services\ActivityLogger;
+use App\Services\AuditLogService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -81,6 +82,19 @@ class CertificateTemplateController extends Controller
             ],
         );
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'template_uploaded',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
+            entityId: $template->id,
+            newValues: [
+                'template_name' => $template->template_name,
+                'template_type' => $type->value,
+                'version' => $version,
+            ],
+            description: "Certificate template {$template->template_name} ({$type->label()} v{$version}) uploaded.",
+        );
+
         return redirect()
             ->route('certificate-templates.index')
             ->with('success', 'Certificate template uploaded successfully.');
@@ -107,6 +121,16 @@ class CertificateTemplateController extends Controller
             $certificateTemplate,
         );
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'template_activated',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
+            entityId: $certificateTemplate->id,
+            oldValues: ['is_active' => false],
+            newValues: ['is_active' => true],
+            description: "Certificate template {$certificateTemplate->template_name} activated.",
+        );
+
         return back()->with('success', 'Certificate template activated.');
     }
 
@@ -127,6 +151,16 @@ class CertificateTemplateController extends Controller
             $certificateTemplate,
         );
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'template_archived',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
+            entityId: $certificateTemplate->id,
+            oldValues: ['archived_at' => null],
+            newValues: ['archived_at' => $certificateTemplate->archived_at?->toIso8601String()],
+            description: "Certificate template {$certificateTemplate->template_name} archived.",
+        );
+
         return back()->with('success', 'Certificate template archived.');
     }
 
@@ -141,6 +175,14 @@ class CertificateTemplateController extends Controller
             'template_downloaded',
             "Certificate template {$certificateTemplate->template_name} (v{$certificateTemplate->version}) downloaded.",
             $certificateTemplate,
+        );
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'template_downloaded',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
+            entityId: $certificateTemplate->id,
+            description: "Certificate template {$certificateTemplate->template_name} downloaded.",
         );
 
         return response()->download($absolutePath, $certificateTemplate->original_filename);

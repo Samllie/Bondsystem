@@ -156,9 +156,17 @@ export default function DepositsIndex({
                                     <StatusBadge label={statusLabels[d.status] ?? d.status} color={statusColors[d.status] ?? 'slate'} />
                                 </td>
                                 <td className="px-4 py-3">
-                                    <Link href={route('payments.deposits.show', d.id)} className="text-sterling-green hover:underline">
-                                        {isAdmin && d.status === 'pending' ? 'Review' : 'View'}
-                                    </Link>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <Link href={route('payments.deposits.show', d.id)} className="text-sterling-green hover:underline">
+                                            {isAdmin && d.status === 'pending' ? 'Review' : 'View'}
+                                        </Link>
+                                        <a
+                                            href={route('payments.deposits.download-receipt', d.id)}
+                                            className="text-slate-600 hover:text-sterling-green hover:underline"
+                                        >
+                                            Download
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         ))}

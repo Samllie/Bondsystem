@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BondRequest;
 use App\Models\CertificateVersion;
 use App\Services\ActivityLogger;
+use App\Services\AuditLogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -44,6 +45,14 @@ class CertificateVersionController extends Controller
             $certificateVersion,
         );
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_viewed',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+            entityId: $certificateVersion->id,
+            description: "Certificate version {$certificateVersion->version_number} viewed for bond request #{$certificateVersion->bond_request_id}.",
+        );
+
         $extension = pathinfo($relativePath, PATHINFO_EXTENSION);
         $filename = $this->downloadFilename($certificateVersion, $extension);
         $mimeType = $extension === 'pdf'
@@ -73,6 +82,14 @@ class CertificateVersionController extends Controller
             $certificateVersion,
         );
 
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_downloaded',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+            entityId: $certificateVersion->id,
+            description: "Certificate version {$certificateVersion->version_number} downloaded for bond request #{$certificateVersion->bond_request_id}.",
+        );
+
         $extension = pathinfo($relativePath, PATHINFO_EXTENSION);
         $filename = $this->downloadFilename($certificateVersion, $extension);
 
@@ -94,6 +111,14 @@ class CertificateVersionController extends Controller
             "Certificate version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
             $certificateVersion,
             ['format' => 'docx'],
+        );
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_downloaded',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+            entityId: $certificateVersion->id,
+            description: "Certificate version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
         );
 
         $filename = $this->downloadFilename($certificateVersion, 'docx');
@@ -129,6 +154,16 @@ class CertificateVersionController extends Controller
             'certificate_version_made_current',
             "Certificate version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
             $certificateVersion,
+        );
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'certificate_version_made_current',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+            entityId: $certificateVersion->id,
+            oldValues: ['is_current' => false],
+            newValues: ['is_current' => true, 'bond_request_id' => $bondRequest->id],
+            description: "Certificate version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
         );
 
         return back()->with('success', 'Certificate version marked as current.');

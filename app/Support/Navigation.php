@@ -79,6 +79,16 @@ class Navigation
             ];
         }
 
+        if ($user->hasPermission('audit-logs.view')) {
+            $items[] = [
+                'type' => 'link',
+                'name' => 'Audit Logs',
+                'href' => route('audit-logs.index'),
+                'icon' => 'history',
+                'routes' => ['audit-logs.index'],
+            ];
+        }
+
         $maintenanceChildren = [];
 
         if ($user->hasPermission('maintenance.view')) {

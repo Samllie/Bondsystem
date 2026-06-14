@@ -109,6 +109,18 @@ class CertificateGenerationService
                         'version_number' => $versionNumber,
                     ],
                 );
+
+                AuditLogService::log(
+                    user: $generatedBy,
+                    action: 'certificate_version_created',
+                    entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+                    entityId: $version->id,
+                    newValues: [
+                        'bond_request_id' => $bondRequest->id,
+                        'version_number' => $versionNumber,
+                    ],
+                    description: "Certificate version {$versionNumber} created for bond request #{$bondRequest->id}.",
+                );
             });
         } finally {
             if (file_exists($normalizedPath)) {

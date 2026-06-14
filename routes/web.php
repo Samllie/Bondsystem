@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ObligeeController as ApiObligeeController;
 use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CertificateTemplateController;
@@ -81,6 +82,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/deposits/create', [DepositController::class, 'create'])->name('deposits.create');
         Route::post('/deposits', [DepositController::class, 'store'])->name('deposits.store');
         Route::get('/deposits/{deposit}', [DepositController::class, 'show'])->name('deposits.show');
+        Route::get('/deposits/{deposit}/download-receipt', [DepositController::class, 'downloadReceipt'])->name('deposits.download-receipt');
         Route::post('/deposits/{deposit}/approve', [DepositController::class, 'approve'])->name('deposits.approve');
         Route::post('/deposits/{deposit}/reject', [DepositController::class, 'reject'])->name('deposits.reject');
         Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
@@ -89,6 +91,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Users (admin)
     Route::resource('users', UserController::class)->only(['index', 'create', 'store']);
+
+    // Audit Logs (admin)
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])
+        ->middleware('permission:audit-logs.view')
+        ->name('audit-logs.index');
 
     // Maintenance
     Route::prefix('maintenance')->name('maintenance.')->group(function () {

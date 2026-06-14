@@ -9,7 +9,7 @@ const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', curren
 const statusColors = { pending: 'amber', approved: 'green', rejected: 'red' };
 const statusLabels = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' };
 
-export default function DepositsShow({ deposit, receiptUrl, canApprove, submitterBalance, branchName, transactionNumber }) {
+export default function DepositsShow({ deposit, receiptUrl, receiptDownloadUrl, canApprove, submitterBalance, branchName, transactionNumber }) {
     const { addToast } = useToast();
     const [approveModal, setApproveModal] = useState(false);
     const [rejectModal, setRejectModal] = useState(false);
@@ -99,7 +99,15 @@ export default function DepositsShow({ deposit, receiptUrl, canApprove, submitte
                 </div>
 
                 <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="mb-3 text-sm font-semibold text-slate-700">Proof of Transfer</h3>
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-slate-700">Proof of Transfer</h3>
+                        <a
+                            href={receiptDownloadUrl}
+                            className="inline-flex items-center gap-2 rounded-lg border border-sterling-gold/40 px-4 py-2 text-sm font-medium text-sterling-green hover:bg-sterling-gold-50"
+                        >
+                            Download Receipt
+                        </a>
+                    </div>
                     {isImageReceipt ? (
                         <img src={receiptUrl} alt="Receipt" className="max-h-96 rounded-lg border border-slate-200" />
                     ) : (

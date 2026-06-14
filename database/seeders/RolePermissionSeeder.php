@@ -33,6 +33,7 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Delete Principals', 'slug' => 'principals.delete', 'group' => 'principals'],
             // Activity Logs
             ['name' => 'View Activity Logs', 'slug' => 'activity-logs.view', 'group' => 'activity-logs'],
+            ['name' => 'View Audit Logs', 'slug' => 'audit-logs.view', 'group' => 'audit-logs'],
             // Maintenance
             ['name' => 'View Maintenance', 'slug' => 'maintenance.view', 'group' => 'maintenance'],
             ['name' => 'Manage Maintenance', 'slug' => 'maintenance.manage', 'group' => 'maintenance'],
