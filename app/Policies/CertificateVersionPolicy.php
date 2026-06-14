@@ -29,4 +29,23 @@ class CertificateVersionPolicy
 
         return $user->hasPermission('users.view');
     }
+
+    public function delete(User $user, CertificateVersion $certificateVersion): bool
+    {
+        if ($certificateVersion->is_current) {
+            return false;
+        }
+
+        $certificateVersion->loadMissing('bondRequest');
+
+        if (! $user->can('view', $certificateVersion->bondRequest)) {
+            return false;
+        }
+
+        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+            return true;
+        }
+
+        return $user->hasPermission('bond-requests.approve');
+    }
 }

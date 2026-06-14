@@ -62,10 +62,16 @@ export default function Form({
     bondTypeOptions,
     certificateTypeOptions,
     partyTypeOptions,
-    supportingDocumentUrl,
+    supportingDocuments = [],
     requesterBranchCode = '',
 }) {
     const isEdit = Boolean(bondRequest?.id);
+    const [removedSupportingDocuments, setRemovedSupportingDocuments] = useState([]);
+
+    const remainingSupportingDocumentSlots = Math.max(
+        0,
+        5 - (supportingDocuments?.length ?? 0) + removedSupportingDocuments.length,
+    );
 
     const { data, setData, post, transform, processing, errors } = useForm({
         obligee_id: bondRequest?.obligee_id || '',
@@ -83,7 +89,8 @@ export default function Form({
         date_issued: formatDate(bondRequest?.date_issued) || todayIso(),
         inception_date: formatDate(bondRequest?.inception_date),
         attention: bondRequest?.attention || '',
-        supporting_document: null,
+        supporting_documents: [],
+        removed_supporting_documents: [],
         certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
         party_type: bondRequest?.party_type?.value || bondRequest?.party_type || 'private',
         include_endorsement_number: Boolean(
@@ -112,6 +119,20 @@ export default function Form({
     const requestDateInWords = useMemo(() => formatDateInWords(data.request_date), [data.request_date]);
     const dateIssuedInWords = useMemo(() => formatDateInWords(data.date_issued), [data.date_issued]);
     const inceptionDateInWords = useMemo(() => formatDateInWords(data.inception_date), [data.inception_date]);
+
+    useEffect(() => {
+        if (data.certificate_type !== 'car_certificate') {
+            return;
+        }
+
+        if (data.include_endorsement_number || data.endorsement_number) {
+            setData((current) => ({
+                ...current,
+                include_endorsement_number: false,
+                endorsement_number: '',
+            }));
+        }
+    }, [data.certificate_type, data.include_endorsement_number, data.endorsement_number, setData]);
 
     useEffect(() => {
         const joinedAddress = addressLines
@@ -201,17 +222,37 @@ export default function Form({
         e.preventDefault();
 
         const options = { forceFormData: true };
+        const appendRemovedDocuments = (current) => ({
+            ...current,
+            removed_supporting_documents: removedSupportingDocuments,
+        });
 
         if (isEdit) {
             // PHP can't parse multipart/form-data on PUT requests, so spoof the
             // method by POSTing with a _method field.
-            transform((current) => ({ ...current, _method: 'put' }));
+            transform((current) => ({ ...appendRemovedDocuments(current), _method: 'put' }));
             post(route('bond-requests.update', bondRequest.id), options);
         } else {
-            transform((current) => current);
+            transform((current) => appendRemovedDocuments(current));
             post(route('bond-requests.store'), options);
         }
     };
+
+    const handleSupportingDocumentsChange = (event) => {
+        const files = Array.from(event.target.files ?? []).slice(0, remainingSupportingDocumentSlots);
+        setData('supporting_documents', files);
+        event.target.value = '';
+    };
+
+    const toggleRemoveSupportingDocument = (path) => {
+        setRemovedSupportingDocuments((current) =>
+            current.includes(path) ? current.filter((item) => item !== path) : [...current, path],
+        );
+    };
+
+    const visibleSupportingDocuments = (supportingDocuments ?? []).filter(
+        (document) => !removedSupportingDocuments.includes(document.path),
+    );
 
     const principalInitial = selectedPrincipal
         ? { id: selectedPrincipal.id, company_name: selectedPrincipal.company_name, label: selectedPrincipal.company_name }
@@ -282,6 +323,8 @@ export default function Form({
                     ? buildCarValue(requesterBranchCode)
                     : current.car,
             authorized_representative: value === 'car_certificate' ? current.authorized_representative : '',
+            include_endorsement_number: value === 'car_certificate' ? false : current.include_endorsement_number,
+            endorsement_number: value === 'car_certificate' ? '' : current.endorsement_number,
         }));
     };
 
@@ -361,16 +404,26 @@ export default function Form({
                                     <p className="mt-2 text-sm text-red-600">{errors.party_type}</p>
                                 )}
                             </div>
-                            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-4 py-3">
-                                <input
-                                    type="checkbox"
-                                    checked={Boolean(data.include_endorsement_number)}
-                                    onChange={(e) => handleEndorsementToggle(e.target.checked)}
-                                    className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
-                                />
-                                <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
-                            </label>
-                            {data.include_endorsement_number && (
+                            <div className={isCarCertificate ? 'opacity-60' : undefined}>
+                                <label
+                                    className={`flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 ${
+                                        isCarCertificate ? 'cursor-not-allowed bg-slate-50' : 'cursor-pointer'
+                                    }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={Boolean(data.include_endorsement_number)}
+                                        onChange={(e) => handleEndorsementToggle(e.target.checked)}
+                                        disabled={isCarCertificate}
+                                        className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold disabled:cursor-not-allowed"
+                                    />
+                                    <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
+                                </label>
+                                {isCarCertificate && (
+                                    <p className="mt-2 text-xs text-slate-500">Not used for CAR certificates.</p>
+                                )}
+                            </div>
+                            {data.include_endorsement_number && !isCarCertificate && (
                                 <TextField
                                     label="Endorsement Number"
                                     value={data.endorsement_number}
@@ -635,7 +688,7 @@ export default function Form({
                                     label="Expiry date or validity statement"
                                     value={data.expiry_date}
                                     onChange={(e) => setData('expiry_date', e.target.value)}
-                                    placeholder="e.g. 2027-05-24 or until fully recouped and liquidated is valid"
+                                    placeholder="e.g. June 14, 2026 or until fully recouped and liquidated is valid"
                                     rows={2}
                                     className="min-h-[44px] resize-y"
                                     error={errors.expiry_date}
@@ -645,30 +698,64 @@ export default function Form({
                         </section>
 
                         <section className="space-y-4">
-                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Supporting document</h2>
-                            {supportingDocumentUrl && (
-                                <a
-                                    href={supportingDocumentUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex text-sm text-sterling-green hover:underline"
-                                >
-                                    View current document →
-                                </a>
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Supporting documents</h2>
+                            <p className="text-sm text-slate-500">
+                                Upload up to 5 files (PDF, JPG, JPEG, or PNG). Each file may be up to 15 MB.
+                            </p>
+                            {visibleSupportingDocuments.length > 0 && (
+                                <ul className="space-y-2 rounded-lg border border-slate-200 p-3">
+                                    {visibleSupportingDocuments.map((document) => (
+                                        <li key={document.path} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                            <a
+                                                href={document.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sterling-green hover:underline"
+                                            >
+                                                {document.name}
+                                            </a>
+                                            {isEdit && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleRemoveSupportingDocument(document.path)}
+                                                    className="text-red-600 hover:underline"
+                                                >
+                                                    Remove
+                                                </button>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
                             )}
-                            <div>
-                                <label htmlFor="supporting_document" className="block text-sm font-medium text-slate-700">
-                                    {isEdit ? 'Replace supporting document (optional)' : 'Supporting document (optional)'}
-                                </label>
-                                <input
-                                    id="supporting_document"
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png"
-                                    onChange={(e) => setData('supporting_document', e.target.files[0] ?? null)}
-                                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded file:border-0 file:bg-sterling-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-sterling-green-darker"
-                                />
-                                <InputError message={errors.supporting_document} className="mt-2" />
-                            </div>
+                            {remainingSupportingDocumentSlots > 0 && (
+                                <div>
+                                    <label htmlFor="supporting_documents" className="block text-sm font-medium text-slate-700">
+                                        {isEdit ? 'Add supporting documents (optional)' : 'Supporting documents (optional)'}
+                                    </label>
+                                    <input
+                                        id="supporting_documents"
+                                        name="supporting_documents[]"
+                                        type="file"
+                                        multiple
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={handleSupportingDocumentsChange}
+                                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm file:mr-3 file:rounded file:border-0 file:bg-sterling-gold file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-sterling-green-darker"
+                                    />
+                                    <p className="mt-1 text-xs text-slate-500">
+                                        {remainingSupportingDocumentSlots} file slot
+                                        {remainingSupportingDocumentSlots === 1 ? '' : 's'} remaining.
+                                    </p>
+                                </div>
+                            )}
+                            {data.supporting_documents?.length > 0 && (
+                                <ul className="space-y-1 text-sm text-slate-700">
+                                    {data.supporting_documents.map((file) => (
+                                        <li key={`${file.name}-${file.lastModified}`}>{file.name}</li>
+                                    ))}
+                                </ul>
+                            )}
+                            <InputError message={errors.supporting_documents} className="mt-2" />
+                            <InputError message={errors['supporting_documents.0']} className="mt-2" />
                         </section>
 
                         <div className="flex gap-3">

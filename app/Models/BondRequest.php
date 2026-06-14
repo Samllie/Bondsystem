@@ -38,7 +38,7 @@ class BondRequest extends Model
         'date_issued',
         'inception_date',
         'attention',
-        'supporting_document_path',
+        'supporting_document_paths',
         'docx_path',
         'certificate_path',
         'certificate_type',
@@ -79,6 +79,7 @@ class BondRequest extends Model
             'party_type' => PartyType::class,
             'include_endorsement_number' => 'boolean',
             'include_signatory_signature' => 'boolean',
+            'supporting_document_paths' => 'array',
         ];
     }
 

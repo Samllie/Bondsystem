@@ -134,6 +134,36 @@ class CertificateVersionController extends Controller
         return back()->with('success', 'Certificate version marked as current.');
     }
 
+    public function destroy(Request $request, CertificateVersion $certificateVersion): RedirectResponse
+    {
+        $this->authorize('delete', $certificateVersion);
+
+        $versionNumber = $certificateVersion->version_number;
+        $bondRequestId = $certificateVersion->bond_request_id;
+
+        foreach ([$certificateVersion->docx_path, $certificateVersion->pdf_path] as $relativePath) {
+            if (! filled($relativePath)) {
+                continue;
+            }
+
+            $absolutePath = storage_path('app/'.$relativePath);
+
+            if (file_exists($absolutePath)) {
+                @unlink($absolutePath);
+            }
+        }
+
+        ActivityLogger::log(
+            'certificate_version_deleted',
+            "Certificate version {$versionNumber} deleted for bond request #{$bondRequestId}.",
+            $certificateVersion,
+        );
+
+        $certificateVersion->delete();
+
+        return back()->with('success', 'Certificate version deleted.');
+    }
+
     /**
      * @return array<string, mixed>
      */

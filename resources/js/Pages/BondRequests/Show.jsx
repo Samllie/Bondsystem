@@ -14,7 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 export default function Show({
     bondRequest,
-    supportingDocumentUrl,
+    supportingDocuments = [],
     canUpdate,
     canDelete,
     canApprove,
@@ -24,11 +24,13 @@ export default function Show({
     hasDocx,
     certificateVersions = [],
     canMakeVersionCurrent,
+    canDeleteCertificateVersion,
     signatoryOptions,
     notaryOptions,
 }) {
     const { addToast } = useToast();
     const [deleteOpen, setDeleteOpen] = useState(false);
+    const [versionToDelete, setVersionToDelete] = useState(null);
 
     // ── Approve form ──────────────────────────────────────────────────────────
     const [bookNoDraft, setBookNoDraft] = useState('');
@@ -89,6 +91,10 @@ export default function Show({
 
     const selectedGenerateSignatory = signatoryOptions.find(
         (o) => String(o.value) === String(generateForm.data.signatory_id),
+    );
+
+    const selectedGenerateNotary = notaryOptions.find(
+        (o) => String(o.value) === String(generateForm.data.notary_id),
     );
 
     const handleApproveSignatoryChange = (event) => {
@@ -299,13 +305,24 @@ export default function Show({
                         />
                         <Detail label="Amount in words" value={bondRequest.amount_in_words || '—'} className="sm:col-span-2" capitalize={false} />
                         <Detail label="Project name" value={bondRequest.project_name || '—'} className="sm:col-span-2" />
-                        {supportingDocumentUrl && (
+                        {supportingDocuments.length > 0 && (
                             <Detail
-                                label="Supporting document"
+                                label="Supporting documents"
                                 value={
-                                    <a href={supportingDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-sterling-green hover:underline">
-                                        View document →
-                                    </a>
+                                    <ul className="space-y-1">
+                                        {supportingDocuments.map((document) => (
+                                            <li key={document.path}>
+                                                <a
+                                                    href={document.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-sterling-green hover:underline"
+                                                >
+                                                    {document.name}
+                                                </a>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 }
                                 className="sm:col-span-2"
                                 capitalize={false}
@@ -466,37 +483,41 @@ export default function Show({
                                 <dl className="grid gap-3 sm:grid-cols-3 text-sm">
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Signatory</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.signatory?.name || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{selectedGenerateSignatory?.label || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Position</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.signatory_position || bondRequest.signatory?.position || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{selectedGenerateSignatory?.position || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Include signature</dt>
                                         <dd className="mt-1 text-slate-900">
-                                            {bondRequest.include_signatory_signature ? 'Yes' : 'No'}
+                                            {generateForm.data.include_signatory_signature ? 'Yes' : 'No'}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Notary</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.notary?.name || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{selectedGenerateNotary?.label || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Doc No.</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.doc_no}</dd>
+                                        <dd className="mt-1 text-slate-900">{generateForm.data.doc_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Page No.</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.page_no}</dd>
+                                        <dd className="mt-1 text-slate-900">{generateForm.data.page_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Book No.</dt>
-                                        <dd className="mt-1 text-slate-900">{formatBookNoDisplay(bondRequest.book_no)}</dd>
+                                        <dd className="mt-1 text-slate-900">
+                                            {formatBookNoDisplay(generateForm.data.book_no)
+                                                || formatBookNoDisplay(generateBookNoDraft)
+                                                || '—'}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Series year</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.series_year}</dd>
+                                        <dd className="mt-1 text-slate-900">{generateForm.data.series_year || '—'}</dd>
                                     </div>
                                 </dl>
                                 {firstGenerateError && (
@@ -662,6 +683,15 @@ export default function Show({
                                                             Make Current
                                                         </SecondaryButton>
                                                     )}
+                                                    {canDeleteCertificateVersion && !version.is_current && (
+                                                        <SecondaryButton
+                                                            type="button"
+                                                            onClick={() => setVersionToDelete(version)}
+                                                            className="!text-red-600"
+                                                        >
+                                                            Delete
+                                                        </SecondaryButton>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -679,6 +709,25 @@ export default function Show({
                 onConfirm={() => router.delete(route('bond-requests.destroy', bondRequest.id))}
                 title="Delete Bond Request"
                 message="This action cannot be undone."
+                confirmLabel="Delete"
+                danger
+            />
+
+            <ConfirmModal
+                show={versionToDelete !== null}
+                onClose={() => setVersionToDelete(null)}
+                onConfirm={() =>
+                    router.delete(route('certificate-versions.destroy', versionToDelete.id), {
+                        preserveScroll: true,
+                        onSuccess: () => setVersionToDelete(null),
+                    })
+                }
+                title={
+                    versionToDelete
+                        ? `Delete certificate version v${versionToDelete.version_number}?`
+                        : 'Delete certificate version?'
+                }
+                message="This permanently removes the version and its files. This cannot be undone."
                 confirmLabel="Delete"
                 danger
             />

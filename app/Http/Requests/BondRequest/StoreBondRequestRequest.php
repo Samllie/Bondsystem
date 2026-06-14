@@ -4,6 +4,7 @@ namespace App\Http\Requests\BondRequest;
 
 use App\Enums\CertificateType;
 use App\Enums\PartyType;
+use App\Http\Requests\BondRequest\Concerns\ValidatesSupportingDocuments;
 use App\Models\BondRequest;
 use App\Rules\ValidKycObligee;
 use App\Support\BondNumberGenerator;
@@ -13,6 +14,8 @@ use Illuminate\Validation\Validator;
 
 class StoreBondRequestRequest extends FormRequest
 {
+    use ValidatesSupportingDocuments;
+
     public function authorize(): bool
     {
         return $this->user()->can('create', BondRequest::class);
@@ -64,7 +67,7 @@ class StoreBondRequestRequest extends FormRequest
                 'date',
             ],
             'attention' => ['nullable', 'string', 'max:255'],
-            'supporting_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            ...$this->supportingDocumentRules(),
             'certificate_type' => ['required', Rule::enum(CertificateType::class)],
             'request_date' => ['required', 'date'],
             'expiry_date' => ['required', 'string', 'max:500'],
@@ -104,6 +107,7 @@ class StoreBondRequestRequest extends FormRequest
             'endorsement_number.required' => 'The endorsement number is required when include endorsement number is enabled.',
             'party_type.required' => 'Please select Government or Private.',
             'bond_type_id.required' => 'Please select a bond type for bond certificate requests.',
+            ...$this->supportingDocumentMessages(),
         ];
     }
 

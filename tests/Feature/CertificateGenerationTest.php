@@ -440,6 +440,46 @@ class CertificateGenerationTest extends TestCase
         $this->assertSame('V', $bondRequest->book_no);
     }
 
+    public function test_regenerate_certificate_clears_notary_when_notary_is_deselected(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true]);
+        $notary = Notary::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+                'signatory_id' => $signatory->id,
+                'notary_id' => '',
+                'doc_no' => '1',
+                'page_no' => '1',
+                'book_no' => 'I',
+                'series_year' => '2026',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertNull($bondRequest->fresh()->notary_id);
+    }
+
     // -------------------------------------------------------------------------
     // Helper: valid payload for generate-certificate
     // -------------------------------------------------------------------------

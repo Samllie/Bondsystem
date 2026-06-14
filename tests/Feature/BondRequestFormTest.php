@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\BondRequestStatus;
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Enums\RoleSlug;
 use App\Models\BondRequest;
 use App\Models\Maintenance\BondTypeMaster;
@@ -73,7 +74,7 @@ class BondRequestFormTest extends TestCase
             'attention' => 'Ms. Jane Doe',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -81,8 +82,9 @@ class BondRequestFormTest extends TestCase
 
         $bondRequest = BondRequest::query()->where('bond_number', 'G(42)')->first();
         $this->assertNotNull($bondRequest);
-        $this->assertNotNull($bondRequest->supporting_document_path);
-        Storage::disk('public')->assertExists($bondRequest->supporting_document_path);
+        $this->assertNotNull($bondRequest->supporting_document_paths);
+        $this->assertCount(1, $bondRequest->supporting_document_paths);
+        Storage::disk('public')->assertExists($bondRequest->supporting_document_paths[0]);
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
         $this->assertSame('Retention Money Bond NO. G(42)-MKT-0008384', $bondRequest->bond_label);
@@ -235,7 +237,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::CarCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -277,8 +279,8 @@ class BondRequestFormTest extends TestCase
             'request_date' => '2026-05-24',
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::CarCertificate->value,
-            'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'party_type' => 'government',
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -291,6 +293,7 @@ class BondRequestFormTest extends TestCase
         $this->assertSame('CAR-MKT-0072056', $bondRequest->bond_label);
         $this->assertSame('Maria Santos', $bondRequest->authorized_representative);
         $this->assertNull($bondRequest->tin);
+        $this->assertSame(PartyType::Government, $bondRequest->party_type);
     }
 
     public function test_car_certificate_does_not_require_inception_date(): void
@@ -328,6 +331,7 @@ class BondRequestFormTest extends TestCase
         $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
         $this->assertNotNull($bondRequest);
         $this->assertNull($bondRequest->inception_date);
+        $this->assertSame(PartyType::Private, $bondRequest->party_type);
     }
 
     public function test_bond_certificate_still_requires_inception_date(): void
@@ -464,7 +468,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -502,7 +506,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -541,7 +545,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => 'May 24, 2027',
         ]);
 
@@ -579,7 +583,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => $statement,
         ]);
 
@@ -648,7 +652,7 @@ class BondRequestFormTest extends TestCase
 
         $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
         $this->assertNotNull($bondRequest);
-        $this->assertNull($bondRequest->supporting_document_path);
+        $this->assertNull($bondRequest->supporting_document_paths);
     }
 
     public function test_approver_can_approve_without_certificate_details(): void
@@ -691,7 +695,7 @@ class BondRequestFormTest extends TestCase
             'inception_date' => '2026-05-01',
             'certificate_type' => CertificateType::BondCertificate->value,
             'party_type' => 'private',
-            'supporting_document' => UploadedFile::fake()->create('support.pdf', 100, 'application/pdf'),
+            'supporting_documents' => [UploadedFile::fake()->create('support.pdf', 100, 'application/pdf')],
             'expiry_date' => '2027-05-24',
         ]);
 
@@ -785,6 +789,96 @@ class BondRequestFormTest extends TestCase
         ])->assertRedirect();
 
         $this->assertFalse($bondRequest->fresh()->include_signatory_signature);
+    }
+
+    public function test_requester_can_upload_up_to_five_supporting_documents(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create();
+
+        $files = [];
+        for ($index = 1; $index <= 5; $index++) {
+            $files[] = UploadedFile::fake()->create("support-{$index}.pdf", 100, 'application/pdf');
+        }
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'supporting_documents' => $files,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertRedirect();
+
+        $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
+        $this->assertNotNull($bondRequest);
+        $this->assertCount(5, $bondRequest->supporting_document_paths);
+
+        foreach ($bondRequest->supporting_document_paths as $path) {
+            Storage::disk('public')->assertExists($path);
+            $this->assertStringStartsWith('supporting-documents/', $path);
+        }
+    }
+
+    public function test_requester_cannot_upload_more_than_five_supporting_documents(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create();
+
+        $files = [];
+        for ($index = 1; $index <= 6; $index++) {
+            $files[] = UploadedFile::fake()->create("support-{$index}.pdf", 100, 'application/pdf');
+        }
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'supporting_documents' => $files,
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionHasErrors('supporting_documents');
+    }
+
+    public function test_supporting_document_larger_than_15mb_is_rejected(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create();
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'supporting_documents' => [
+                UploadedFile::fake()->create('large.pdf', 15361, 'application/pdf'),
+            ],
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionHasErrors('supporting_documents.0');
     }
 
     private function requesterUser(string $branchCode = 'CEB', float $balance = 10000, float $notaryPrice = 500): User

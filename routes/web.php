@@ -58,6 +58,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('certificate-versions/{certificateVersion}/download', [CertificateVersionController::class, 'download'])->name('certificate-versions.download');
     Route::get('certificate-versions/{certificateVersion}/download-docx', [CertificateVersionController::class, 'downloadDocx'])->name('certificate-versions.download-docx');
     Route::patch('certificate-versions/{certificateVersion}/make-current', [CertificateVersionController::class, 'makeCurrent'])->name('certificate-versions.make-current');
+    Route::delete('certificate-versions/{certificateVersion}', [CertificateVersionController::class, 'destroy'])->name('certificate-versions.destroy');
 
     // Branch-scoped certificates for requesters and approvers
     Route::get('/certifications', [CertificateController::class, 'index'])->name('certifications.index');

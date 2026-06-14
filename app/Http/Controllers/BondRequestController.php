@@ -16,6 +16,7 @@ use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
 use App\Models\PaymentHistory;
 use App\Services\ActivityLogger;
+use App\Services\BondRequestSupportingDocumentService;
 use App\Services\CertificateGenerationService;
 use App\Services\KycObligeeService;
 use App\Services\NotaryFeeService;
@@ -27,7 +28,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Fluent;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,6 +40,7 @@ class BondRequestController extends Controller
         private CertificateGenerationService $certificateGenerationService,
         private NotaryFeeService $notaryFeeService,
         private NotificationService $notificationService,
+        private BondRequestSupportingDocumentService $supportingDocumentService,
     ) {}
 
     public function index(Request $request): Response
@@ -115,6 +116,11 @@ class BondRequestController extends Controller
             $this->bondRequestAttributes($request)
         );
 
+        $paths = $this->supportingDocumentService->syncFromRequest($request, $bondRequest);
+        $bondRequest->update([
+            'supporting_document_paths' => $paths === [] ? null : $paths,
+        ]);
+
         PaymentHistory::create([
             'user_id' => $request->user()->id,
             'bond_request_id' => $bondRequest->id,
@@ -150,12 +156,12 @@ class BondRequestController extends Controller
         $user = request()->user();
         $canMakeVersionCurrent = $user->hasRole(RoleSlug::SuperAdmin)
             || $user->hasPermission('users.view');
+        $canDeleteCertificateVersion = $user->hasRole(RoleSlug::SuperAdmin)
+            || $user->hasPermission('bond-requests.approve');
 
         return Inertia::render('BondRequests/Show', [
             'bondRequest' => $bondRequest,
-            'supportingDocumentUrl' => $bondRequest->supporting_document_path
-                ? Storage::disk('public')->url($bondRequest->supporting_document_path)
-                : null,
+            'supportingDocuments' => $this->supportingDocumentService->documentsFor($bondRequest),
             'canUpdate' => request()->user()->can('update', $bondRequest),
             'canDelete' => request()->user()->can('delete', $bondRequest),
             'canApprove' => $canApprove,
@@ -165,6 +171,7 @@ class BondRequestController extends Controller
             'hasCertificate' => $bondRequest->certificate_path !== null,
             'hasDocx' => $bondRequest->docx_path !== null,
             'canMakeVersionCurrent' => $canMakeVersionCurrent,
+            'canDeleteCertificateVersion' => $canDeleteCertificateVersion,
             'certificateVersions' => $bondRequest->certificateVersions()
                 ->with('generatedBy:id,name')
                 ->get()
@@ -201,9 +208,7 @@ class BondRequestController extends Controller
             'bondTypeOptions' => $this->bondTypeOptions(),
             'certificateTypeOptions' => CertificateType::options(),
             'partyTypeOptions' => PartyType::options(),
-            'supportingDocumentUrl' => $bondRequest->supporting_document_path
-                ? Storage::disk('public')->url($bondRequest->supporting_document_path)
-                : null,
+            'supportingDocuments' => $this->supportingDocumentService->documentsFor($bondRequest),
             'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
         ]);
     }
@@ -213,6 +218,11 @@ class BondRequestController extends Controller
         $bondRequest->update(
             $this->bondRequestAttributes($request, $bondRequest)
         );
+
+        $paths = $this->supportingDocumentService->syncFromRequest($request, $bondRequest);
+        $bondRequest->update([
+            'supporting_document_paths' => $paths === [] ? null : $paths,
+        ]);
 
         ActivityLogger::log('updated', "Bond request {$bondRequest->bond_number} updated.", $bondRequest);
 
@@ -225,6 +235,7 @@ class BondRequestController extends Controller
         $this->authorize('delete', $bondRequest);
 
         $number = $bondRequest->bond_number;
+        $this->supportingDocumentService->deleteAll($bondRequest->supporting_document_paths ?? []);
         $bondRequest->delete();
 
         ActivityLogger::log('deleted', "Bond request {$number} deleted.", $bondRequest);
@@ -320,8 +331,10 @@ class BondRequestController extends Controller
             'series_year' => ['nullable', 'string', 'size:4'],
         ]);
 
-        $signatory = isset($validated['signatory_id']) && filled($validated['signatory_id'])
-            ? Signatory::findOrFail($validated['signatory_id'])
+        $signatory = $request->has('signatory_id')
+            ? (filled($validated['signatory_id'] ?? null)
+                ? Signatory::findOrFail($validated['signatory_id'])
+                : null)
             : ($bondRequest->signatory_id ? $bondRequest->signatory : null);
 
         try {
@@ -330,13 +343,13 @@ class BondRequestController extends Controller
                     'signatory_id' => $signatory?->id,
                     'signatory_position' => $signatory?->position ?? $bondRequest->signatory_position,
                     'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
-                    'notary_id' => filled($validated['notary_id'] ?? null)
-                        ? $validated['notary_id']
+                    'notary_id' => $request->has('notary_id')
+                        ? ($validated['notary_id'] ?? null)
                         : $bondRequest->notary_id,
-                    'doc_no' => filled($validated['doc_no'] ?? null) ? $validated['doc_no'] : $bondRequest->doc_no,
-                    'page_no' => filled($validated['page_no'] ?? null) ? $validated['page_no'] : $bondRequest->page_no,
-                    'book_no' => filled($validated['book_no'] ?? null) ? $validated['book_no'] : $bondRequest->book_no,
-                    'series_year' => filled($validated['series_year'] ?? null) ? $validated['series_year'] : $bondRequest->series_year,
+                    'doc_no' => $request->has('doc_no') ? ($validated['doc_no'] ?? null) : $bondRequest->doc_no,
+                    'page_no' => $request->has('page_no') ? ($validated['page_no'] ?? null) : $bondRequest->page_no,
+                    'book_no' => $request->has('book_no') ? ($validated['book_no'] ?? null) : $bondRequest->book_no,
+                    'series_year' => $request->has('series_year') ? ($validated['series_year'] ?? null) : $bondRequest->series_year,
                     'tin' => $signatory?->tin ?? $bondRequest->tin,
                 ]);
 
@@ -516,22 +529,13 @@ class BondRequestController extends Controller
             $attributes['authorized_representative'] = null;
         }
 
+        $attributes['party_type'] = $request->enum('party_type', PartyType::class) ?? PartyType::Private;
         $attributes['include_endorsement_number'] = $request->boolean('include_endorsement_number');
         $attributes['endorsement_number'] = $request->boolean('include_endorsement_number')
             ? $request->string('endorsement_number')->trim()->toString()
             : null;
-        $attributes['party_type'] = $request->enum('party_type', PartyType::class) ?? PartyType::Private;
 
-        unset($attributes['supporting_document']);
-
-        if ($request->hasFile('supporting_document')) {
-            if ($bondRequest?->supporting_document_path) {
-                Storage::disk('public')->delete($bondRequest->supporting_document_path);
-            }
-
-            $attributes['supporting_document_path'] = $request->file('supporting_document')
-                ->store('bond-documents', 'public');
-        }
+        unset($attributes['supporting_documents'], $attributes['removed_supporting_documents']);
 
         if ($bondRequest === null) {
             $attributes['created_by'] = $request->user()->id;

@@ -312,6 +312,68 @@ class CertificateVersioningTest extends TestCase
             );
     }
 
+    public function test_approver_can_delete_non_current_certificate_version(): void
+    {
+        $approver = $this->approverUser();
+        $bondRequest = $this->approvedBondRequest();
+        $oldVersion = $this->createStoredVersion($bondRequest, 1, $approver, isCurrent: false);
+        $this->createStoredVersion($bondRequest, 2, $approver, isCurrent: true);
+        $bondRequest->update(['certificate_path' => $this->versionPdfPath($bondRequest, 2)]);
+
+        $pdfPath = storage_path('app/'.$oldVersion->pdf_path);
+        $docxPath = storage_path('app/'.$oldVersion->docx_path);
+
+        $this->actingAs($approver)
+            ->delete(route('certificate-versions.destroy', $oldVersion))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('certificate_versions', ['id' => $oldVersion->id]);
+        $this->assertFileDoesNotExist($pdfPath);
+        $this->assertFileDoesNotExist($docxPath);
+        $this->assertDatabaseCount('certificate_versions', 1);
+    }
+
+    public function test_approver_cannot_delete_current_certificate_version(): void
+    {
+        $approver = $this->approverUser();
+        $bondRequest = $this->approvedBondRequest();
+        $currentVersion = $this->createStoredVersion($bondRequest, 1, $approver, isCurrent: true);
+
+        $this->actingAs($approver)
+            ->delete(route('certificate-versions.destroy', $currentVersion))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('certificate_versions', ['id' => $currentVersion->id]);
+    }
+
+    public function test_requester_cannot_delete_certificate_version(): void
+    {
+        $requester = $this->requesterUser();
+        $bondRequest = $this->approvedBondRequest($requester);
+        $oldVersion = $this->createStoredVersion($bondRequest, 1, $this->approverUser(), isCurrent: false);
+        $this->createStoredVersion($bondRequest, 2, $this->approverUser(), isCurrent: true);
+
+        $this->actingAs($requester)
+            ->delete(route('certificate-versions.destroy', $oldVersion))
+            ->assertForbidden();
+    }
+
+    public function test_show_page_exposes_delete_permission_for_approvers(): void
+    {
+        $approver = $this->approverUser();
+        $bondRequest = $this->approvedBondRequest();
+        $this->createStoredVersion($bondRequest, 1, $approver, isCurrent: true);
+
+        $this->actingAs($approver)
+            ->get(route('bond-requests.show', $bondRequest))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('BondRequests/Show')
+                ->where('canDeleteCertificateVersion', true)
+            );
+    }
+
     private function mockSuccessfulGeneration(BondRequest $bondRequest, User $generatedBy, int $versionNumber = 1): void
     {
         $pdfPath = $this->versionPdfPath($bondRequest, $versionNumber);

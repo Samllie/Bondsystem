@@ -7,7 +7,7 @@ import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
 import { visitTable } from '@/lib/visitTable';
 import { certificationFilterSummary } from '@/lib/reportPrint';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 
 const TABLE_PROPS = ['certificates', 'filters'];
 
@@ -113,8 +113,20 @@ export default function Index({
                                 </tr>
                             )}
                             {certificates.data.map((cert) => (
-                                <tr key={cert.id} className="hover:bg-slate-50">
-                                    <td className="px-4 py-3 font-medium text-slate-900">{cert.bond_label || cert.bond_number}</td>
+                                <tr
+                                    key={cert.id}
+                                    className="cursor-pointer hover:bg-slate-50"
+                                    onClick={() => router.visit(route('bond-requests.show', cert.id))}
+                                >
+                                    <td className="px-4 py-3 font-medium text-slate-900">
+                                        <Link
+                                            href={route('bond-requests.show', cert.id)}
+                                            className="text-sterling-green hover:underline"
+                                            onClick={(event) => event.stopPropagation()}
+                                        >
+                                            {cert.bond_label || cert.bond_number}
+                                        </Link>
+                                    </td>
                                     <td className="px-4 py-3 text-slate-700">{cert.certificate_type_label}</td>
                                     <td className="px-4 py-3 text-slate-700">{cert.obligee_name || '—'}</td>
                                     <td className="px-4 py-3 text-slate-700">{cert.principal_name || '—'}</td>
@@ -123,7 +135,13 @@ export default function Index({
                                     <td className="px-4 py-3 text-slate-700">{cert.approver_name || '—'}</td>
                                     <td className="px-4 py-3 text-slate-500">{cert.request_date || '—'}</td>
                                     <td className="print-hide-actions-col px-4 py-3 text-right">
-                                        <div className="flex justify-end gap-3">
+                                        <div className="flex justify-end gap-3" onClick={(event) => event.stopPropagation()}>
+                                            <Link
+                                                href={route('bond-requests.show', cert.id)}
+                                                className="text-sterling-green hover:underline"
+                                            >
+                                                Review
+                                            </Link>
                                             <a
                                                 href={route('bond-requests.view-certificate', cert.id)}
                                                 target="_blank"
