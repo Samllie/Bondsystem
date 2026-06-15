@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\CertificateType;
 use App\Enums\RoleSlug;
 use App\Models\BondRequest;
+use App\Models\CertificateVersion;
 use App\Models\Maintenance\Branch;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
@@ -178,6 +179,76 @@ class CertificationsTest extends TestCase
         );
     }
 
+    public function test_user_can_search_certifications_by_confirmation_number(): void
+    {
+        $branch = $this->makeBranch('AAA');
+        $approver = $this->userWithRole(RoleSlug::Approver, $branch);
+        $cert = $this->certificateFor(
+            $this->userWithRole(RoleSlug::Requester, $branch),
+            $approver,
+            'SICI-BOND-2026-ABCDEF01-V1',
+        );
+        $this->certificateFor(
+            $this->userWithRole(RoleSlug::Requester, $branch),
+            $approver,
+            'SICI-BOND-2026-99999999-V1',
+        );
+
+        $response = $this->actingAs($approver)->get(route('certifications.index', [
+            'search' => 'ABCDEF01',
+        ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('certificates.data', 1)
+            ->where('certificates.data.0.id', $cert->id)
+            ->where('certificates.data.0.confirmation_number', 'SICI-BOND-2026-ABCDEF01-V1')
+        );
+    }
+
+    public function test_requester_cannot_search_other_branch_certificate_by_confirmation_number(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+        $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
+
+        $this->certificateFor(
+            $this->userWithRole(RoleSlug::Requester, $branchB),
+            null,
+            'SICI-BOND-2026-BBBBBBBB-V1',
+        );
+
+        $response = $this->actingAs($requesterA)->get(route('certifications.index', [
+            'search' => 'BBBBBBBB',
+        ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page->has('certificates.data', 0));
+    }
+
+    public function test_user_can_search_certifications_by_verification_token(): void
+    {
+        $branch = $this->makeBranch('AAA');
+        $approver = $this->userWithRole(RoleSlug::Approver, $branch);
+        $token = bin2hex(random_bytes(32));
+        $cert = $this->certificateFor(
+            $this->userWithRole(RoleSlug::Requester, $branch),
+            $approver,
+            'SICI-BOND-2026-TOKEN0001-V1',
+        );
+        $cert->currentCertificateVersion->update(['verification_token' => $token]);
+
+        $response = $this->actingAs($approver)->get(route('certifications.index', [
+            'search' => $token,
+        ]));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->has('certificates.data', 1)
+            ->where('certificates.data.0.id', $cert->id)
+        );
+    }
+
     private function makeBranch(string $code): Branch
     {
         return Branch::query()->create([
@@ -201,10 +272,16 @@ class CertificationsTest extends TestCase
         ]);
     }
 
-    private function certificateFor(User $creator, ?User $approver = null): BondRequest
+    private function certificateFor(User $creator, ?User $approver = null, ?string $confirmationNumber = null): BondRequest
     {
         $bondRequest = $this->approvedBondRequest($creator, $approver);
         $bondRequest->update(['certificate_path' => 'private/certificates/fake.pdf']);
+
+        CertificateVersion::factory()->current()->create([
+            'bond_request_id' => $bondRequest->id,
+            'generated_by' => ($approver ?? $creator)->id,
+            'confirmation_number' => $confirmationNumber ?? 'SICI-BOND-2026-'.strtoupper(bin2hex(random_bytes(4))).'-V1',
+        ]);
 
         return $bondRequest->fresh();
     }

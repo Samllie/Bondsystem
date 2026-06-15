@@ -19,7 +19,7 @@ class CertificateController extends Controller
     {
         $user = $request->user();
 
-        if ($user->hasPermission('certifications.view-assigned')) {
+        if ($user->hasPermission('certifications.view-assigned') && ! $user->hasPermission('bond-requests.view')) {
             return $this->renderIndex($request, scoped: false, attorney: true);
         }
 
@@ -50,6 +50,7 @@ class CertificateController extends Controller
                 'creator.branch:id,name',
                 'approver:id,name',
                 'principal:id,company_name',
+                'currentCertificateVersion:id,bond_request_id,confirmation_number,version_number',
             ]);
 
         if ($scoped) {
@@ -63,7 +64,12 @@ class CertificateController extends Controller
                 $q->where('bond_number', 'like', "%{$search}%")
                     ->orWhere('car', 'like', "%{$search}%")
                     ->orWhere('obligee_name', 'like', "%{$search}%")
-                    ->orWhere('principal_name', 'like', "%{$search}%");
+                    ->orWhere('principal_name', 'like', "%{$search}%")
+                    ->orWhereHas('currentCertificateVersion', fn ($versionQuery) => $versionQuery
+                        ->where(function ($versionSearch) use ($search) {
+                            $versionSearch->where('confirmation_number', 'like', "%{$search}%")
+                                ->orWhere('verification_token', 'like', "%{$search}%");
+                        }));
             });
         }
 
@@ -82,6 +88,7 @@ class CertificateController extends Controller
                     'requester_name' => $bondRequest->creator?->name ?? '—',
                     'approver_name' => $bondRequest->approver?->name ?? '—',
                     'request_date' => optional($bondRequest->request_date)->toDateString(),
+                    'confirmation_number' => $bondRequest->currentCertificateVersion?->confirmation_number,
                     'has_docx' => $bondRequest->docx_path !== null,
                 ];
             })

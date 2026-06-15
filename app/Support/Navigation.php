@@ -39,17 +39,7 @@ class Navigation
             ];
         }
 
-        if ($user->hasPermission('bond-requests.view')) {
-            $items[] = [
-                'type' => 'link',
-                'name' => 'Certifications',
-                'href' => route('certifications.index'),
-                'icon' => 'certificate',
-                'routes' => ['certifications.index'],
-            ];
-        }
-
-        if ($user->hasPermission('certifications.view-assigned')) {
+        if ($user->hasPermission('bond-requests.view') || $user->hasPermission('certifications.view-assigned')) {
             $items[] = [
                 'type' => 'link',
                 'name' => 'Certifications',

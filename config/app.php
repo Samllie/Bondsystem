@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Force HTTPS
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, generated URLs use HTTPS and HTTP requests are redirected.
+    | Defaults to true when APP_URL uses the https scheme.
+    |
+    */
+
+    'force_https' => env('APP_FORCE_HTTPS', str_starts_with((string) env('APP_URL', ''), 'https://')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

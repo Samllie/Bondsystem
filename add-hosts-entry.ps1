@@ -1,5 +1,5 @@
 #Requires -RunAsAdministrator
-# Adds sici-bonds.local to the Windows hosts file (required for http://sici-bonds.local)
+# Adds sici-bonds.local to the Windows hosts file (required for https://sici-bonds.local)
 
 $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
 $entry = "127.0.0.1 sici-bonds.local"
@@ -14,4 +14,4 @@ if ($content -match "sici-bonds\.local") {
 }
 
 ipconfig /flushdns | Out-Null
-Write-Host "DNS cache flushed. Open http://sici-bonds.local in your browser."
+Write-Host "DNS cache flushed. Run scripts/setup-xampp-https.ps1 as Administrator, then open https://sici-bonds.local"

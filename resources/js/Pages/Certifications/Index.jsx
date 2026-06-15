@@ -1,13 +1,20 @@
 import BranchFilter from '@/Components/Report/BranchFilter';
+import CertificateScanModal from '@/Components/Certifications/CertificateScanModal';
 import PrintReportButton from '@/Components/Report/PrintReportButton';
 import ReportPrintHeader from '@/Components/Report/ReportPrintHeader';
 import Pagination from '@/Components/UI/Pagination';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
 import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
+import {
+    getCameraErrorMessage,
+    isCameraScanSupported,
+    requestCameraStream,
+} from '@/lib/certificateScan';
 import { visitTable } from '@/lib/visitTable';
 import { certificationFilterSummary } from '@/lib/reportPrint';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 
 const TABLE_PROPS = ['certificates', 'filters'];
 
@@ -25,6 +32,9 @@ export default function Index({
     scopeMessage,
     readOnly = false,
 }) {
+    const [scanOpen, setScanOpen] = useState(false);
+    const [scanStream, setScanStream] = useState(null);
+    const [scanError, setScanError] = useState('');
     const url = listUrl ?? (context === 'maintenance'
         ? route('maintenance.certifications.index')
         : route('certifications.index'));
@@ -54,6 +64,41 @@ export default function Index({
         }, TABLE_PROPS, { inputRef });
     };
 
+    const handleOpenScan = async () => {
+        setScanError('');
+        setScanOpen(true);
+
+        if (! isCameraScanSupported()) {
+            return;
+        }
+
+        try {
+            const stream = await requestCameraStream();
+            setScanStream(stream);
+        } catch (error) {
+            setScanStream(null);
+            setScanError(getCameraErrorMessage(error));
+        }
+    };
+
+    const handleCloseScan = () => {
+        scanStream?.getTracks().forEach((track) => track.stop());
+        setScanStream(null);
+        setScanError('');
+        setScanOpen(false);
+    };
+
+    const handleScanSuccess = (searchValue) => {
+        if (inputRef.current) {
+            inputRef.current.value = searchValue;
+        }
+
+        visitTable(url, {
+            search: searchValue,
+            branch_id: filters.branch_id || undefined,
+        }, TABLE_PROPS, { inputRef });
+    };
+
     return (
         <AppLayout title={pageTitle} actions={<PrintReportButton />}>
             <Head title={pageTitle} />
@@ -73,7 +118,7 @@ export default function Index({
                             defaultSearch={defaultSearch}
                             onInput={onInput}
                             isSearching={isSearching}
-                            placeholder="Search bond #, CAR #, obligee, principal..."
+                            placeholder="Search bond #, CAR #, confirmation #, obligee, principal..."
                             wrapperClassName="relative flex-1 min-w-[200px]"
                             className="w-full rounded-md border-slate-300 text-sm shadow-sm focus:border-sterling-gold focus:ring-sterling-gold"
                         />
@@ -85,14 +130,32 @@ export default function Index({
                                 className="rounded-md border-slate-300 text-sm shadow-sm focus:border-sterling-gold focus:ring-sterling-gold"
                             />
                         )}
+                        <button
+                            type="button"
+                            onClick={handleOpenScan}
+                            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
+                        >
+                            Scan QR
+                        </button>
+                        {scanError && (
+                            <p className="w-full text-sm text-red-600">{scanError}</p>
+                        )}
                     </div>
                 </div>
+
+                <CertificateScanModal
+                    show={scanOpen}
+                    onClose={handleCloseScan}
+                    onScanSuccess={handleScanSuccess}
+                    initialStream={scanStream}
+                />
 
                 <div className="dashboard-report-card overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table className="dashboard-report-table min-w-full text-sm">
                         <thead className="bg-slate-50">
                             <tr>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Bond / CAR #</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Confirmation #</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Type</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Obligee</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Principal</th>
@@ -108,7 +171,7 @@ export default function Index({
                         <tbody className="divide-y divide-slate-100">
                             {certificates.data.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="px-4 py-10 text-center text-slate-500">
+                                    <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                                         No certificates found.
                                     </td>
                                 </tr>
@@ -131,6 +194,9 @@ export default function Index({
                                                 {cert.bond_label || cert.bond_number}
                                             </Link>
                                         )}
+                                    </td>
+                                    <td className="px-4 py-3 font-mono text-xs text-slate-700">
+                                        {cert.confirmation_number || '—'}
                                     </td>
                                     <td className="px-4 py-3 text-slate-700">{cert.certificate_type_label}</td>
                                     <td className="px-4 py-3 text-slate-700">{cert.obligee_name || '—'}</td>
