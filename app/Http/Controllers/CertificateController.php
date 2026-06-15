@@ -17,7 +17,13 @@ class CertificateController extends Controller
      */
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->hasPermission('bond-requests.view'), 403);
+        $user = $request->user();
+
+        if ($user->hasPermission('certifications.view-assigned')) {
+            return $this->renderIndex($request, scoped: false, attorney: true);
+        }
+
+        abort_unless($user->hasPermission('bond-requests.view'), 403);
 
         return $this->renderIndex($request, scoped: true);
     }
@@ -32,7 +38,7 @@ class CertificateController extends Controller
         return $this->renderIndex($request, scoped: false);
     }
 
-    private function renderIndex(Request $request, bool $scoped): Response
+    private function renderIndex(Request $request, bool $scoped, bool $attorney = false): Response
     {
         $user = $request->user();
         $branchId = $request->integer('branch_id') ?: null;
@@ -81,34 +87,39 @@ class CertificateController extends Controller
             })
         );
 
-        $canViewAllBranches = $scoped
-            ? ($user->hasRole(RoleSlug::SuperAdmin) || BranchScope::canFilterByBranch($user))
-            : true;
+        $canViewAllBranches = $attorney || ! $scoped
+            ? true
+            : ($user->hasRole(RoleSlug::SuperAdmin) || BranchScope::canFilterByBranch($user));
 
-        $showBranchFilter = $scoped
-            ? BranchScope::showBranchFilter($user)
-            : true;
+        $showBranchFilter = $attorney || ! $scoped
+            ? true
+            : BranchScope::showBranchFilter($user);
+
+        $context = $attorney ? 'attorney' : ($scoped ? 'user' : 'maintenance');
 
         return Inertia::render('Certifications/Index', [
             'certificates' => $certificates,
             'filters' => $request->only('search', 'branch_id'),
             'canViewAllBranches' => $canViewAllBranches,
             'branchName' => $user->branch?->name,
-            'branchOptions' => $scoped ? BranchScope::branchOptions($user) : Branch::activeOptions(),
+            'branchOptions' => $scoped && ! $attorney ? BranchScope::branchOptions($user) : Branch::activeOptions(),
             'showBranchFilter' => $showBranchFilter,
             'generatedAt' => now()->timezone(config('app.timezone'))->format('M d, Y g:i A'),
-            'context' => $scoped ? 'user' : 'maintenance',
-            'listUrl' => $scoped
+            'context' => $context,
+            'listUrl' => $attorney || $scoped
                 ? route('certifications.index')
                 : route('maintenance.certifications.index'),
-            'pageTitle' => $scoped ? 'Certifications' : 'Certification',
-            'scopeMessage' => $scoped
-                ? ($canViewAllBranches
-                    ? ($showBranchFilter
-                        ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
-                        : 'Showing generated certificates across all branches.')
-                    : 'Showing generated certificates for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.')
-                : 'Showing all generated certificates across every branch. Use the branch filter to narrow results.',
+            'pageTitle' => $attorney || $scoped ? 'Certifications' : 'Certification',
+            'scopeMessage' => $attorney
+                ? 'Showing all generated certificates across every branch. Use the branch filter to narrow results.'
+                : ($scoped
+                    ? ($canViewAllBranches
+                        ? ($showBranchFilter
+                            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
+                            : 'Showing generated certificates across all branches.')
+                        : 'Showing generated certificates for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.')
+                    : 'Showing all generated certificates across every branch. Use the branch filter to narrow results.'),
+            'readOnly' => $attorney,
         ]);
     }
 }

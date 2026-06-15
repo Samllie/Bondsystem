@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Enums\RoleSlug;
 use App\Models\Maintenance\Branch;
+use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -62,6 +65,21 @@ class User extends Authenticatable
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
+    }
+
+    public function signatory(): HasOne
+    {
+        return $this->hasOne(Signatory::class);
+    }
+
+    public function notary(): HasOne
+    {
+        return $this->hasOne(Notary::class);
+    }
+
+    public function isAttorney(): bool
+    {
+        return $this->hasRole(RoleSlug::Notary);
     }
 
     public function permissionSlugs(): array

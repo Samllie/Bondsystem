@@ -2,10 +2,12 @@
 
 namespace App\Models\Maintenance;
 
+use App\Models\User;
 use Database\Factories\NotaryFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class Notary extends Model
@@ -19,6 +21,7 @@ class Notary extends Model
     }
 
     protected $fillable = [
+        'user_id',
         'name',
         'commission_number',
         'expiry_date',
@@ -44,5 +47,10 @@ class Notary extends Model
         return Attribute::get(fn (): ?string => $this->signature_path
             ? Storage::disk('public')->url($this->signature_path)
             : null);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

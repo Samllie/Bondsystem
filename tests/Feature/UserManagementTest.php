@@ -50,7 +50,7 @@ class UserManagementTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('users.store'), [
             'name' => 'New Bond User',
-            'email' => 'newuser@sterling.test',
+            'email' => 'newuser@sterling-insurance.com.ph',
             'password' => 'password',
             'password_confirmation' => 'password',
             'role_id' => $requesterRole->id,
@@ -62,7 +62,7 @@ class UserManagementTest extends TestCase
         $response->assertRedirect(route('users.index'));
 
         $this->assertDatabaseHas('users', [
-            'email' => 'newuser@sterling.test',
+            'email' => 'newuser@sterling-insurance.com.ph',
             'name' => 'New Bond User',
             'role_id' => $requesterRole->id,
             'branch_id' => $branch->id,
@@ -82,12 +82,27 @@ class UserManagementTest extends TestCase
 
         $this->actingAs($encoder)->post(route('users.store'), [
             'name' => 'Bad Admin',
-            'email' => 'badadmin@sterling.test',
+            'email' => 'badadmin@sterling-insurance.com.ph',
             'password' => 'password',
             'password_confirmation' => 'password',
             'role_id' => $superAdminRole->id,
             'is_active' => true,
         ])->assertSessionHasErrors('role_id');
+    }
+
+    public function test_user_email_must_use_sterling_insurance_domain(): void
+    {
+        $admin = $this->superAdmin();
+        $requesterRole = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
+
+        $this->actingAs($admin)->post(route('users.store'), [
+            'name' => 'External User',
+            'email' => 'external@gmail.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role_id' => $requesterRole->id,
+            'is_active' => true,
+        ])->assertSessionHasErrors('email');
     }
 
     private function superAdmin(): User

@@ -57,6 +57,7 @@ export default function SignatoriesIndex({ records, filters, canManage }) {
                     <thead className="bg-slate-50">
                         <tr>
                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Account</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Position</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">TIN</th>
                             <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Signature</th>
@@ -67,7 +68,10 @@ export default function SignatoriesIndex({ records, filters, canManage }) {
                         {records.data.map((signatory) => (
                             <tr key={signatory.id} className="hover:bg-slate-50">
                                 <td className="px-4 py-3 font-medium text-slate-900">{signatory.name}</td>
-                                <td className="px-4 py-3 text-slate-600">{signatory.position}</td>
+                                <td className="px-4 py-3 text-slate-600">
+                                    {signatory.user?.email ?? '—'}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">{signatory.position || '—'}</td>
                                 <td className="px-4 py-3 font-mono text-xs text-slate-600">{signatory.tin}</td>
                                 <td className="px-4 py-3">
                                     {signatory.signature_url ? (

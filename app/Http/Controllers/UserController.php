@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleSlug;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Maintenance\Branch;
+use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -53,12 +56,28 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
-        User::create([
+        $user = User::create([
             ...$request->safe()->except(['password', 'password_confirmation']),
             'password' => Hash::make($request->string('password')->toString()),
             'email_verified_at' => now(),
             'is_active' => $request->boolean('is_active', true),
         ]);
+
+        $role = Role::query()->find($request->integer('role_id'));
+
+        if ($role?->slug === RoleSlug::Notary->value) {
+            Signatory::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'is_active' => true,
+            ]);
+
+            Notary::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'is_active' => true,
+            ]);
+        }
 
         return redirect()
             ->route('users.index')

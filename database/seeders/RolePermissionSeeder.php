@@ -31,8 +31,8 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Create Principals', 'slug' => 'principals.create', 'group' => 'principals'],
             ['name' => 'Update Principals', 'slug' => 'principals.update', 'group' => 'principals'],
             ['name' => 'Delete Principals', 'slug' => 'principals.delete', 'group' => 'principals'],
-            // Activity Logs
-            ['name' => 'View Activity Logs', 'slug' => 'activity-logs.view', 'group' => 'activity-logs'],
+            // Certifications
+            ['name' => 'View Certifications', 'slug' => 'certifications.view-assigned', 'group' => 'certifications'],
             ['name' => 'View Audit Logs', 'slug' => 'audit-logs.view', 'group' => 'audit-logs'],
             // Maintenance
             ['name' => 'View Maintenance', 'slug' => 'maintenance.view', 'group' => 'maintenance'],
@@ -96,7 +96,7 @@ class RolePermissionSeeder extends Seeder
                     'principals.view',
                     'principals.create',
                     'principals.update',
-                    'activity-logs.view',
+                    'audit-logs.view',
                     'maintenance.view',
                     'maintenance.manage',
                     'deposits.create',
@@ -114,7 +114,7 @@ class RolePermissionSeeder extends Seeder
                     'bond-requests.approve',
                     'obligees.view',
                     'principals.view',
-                    'activity-logs.view',
+                    'audit-logs.view',
                     'deposits.view',
                     'deposits.create',
                     'deposits.approve',
@@ -125,17 +125,9 @@ class RolePermissionSeeder extends Seeder
             [
                 'name' => 'Notary / Signatory',
                 'slug' => RoleSlug::Notary->value,
-                'description' => 'Notarizes approved bonds',
+                'description' => 'Attorneys who manage signatures and view assigned certificates',
                 'permissions' => Permission::whereIn('slug', [
-                    'dashboard.view',
-                    'bond-requests.view',
-                    'bond-requests.notarize',
-                    'obligees.view',
-                    'principals.view',
-                    'activity-logs.view',
-                    'deposits.create',
-                    'transactions.view',
-                    'payment-histories.view',
+                    'certifications.view-assigned',
                 ])->pluck('id'),
             ],
         ];

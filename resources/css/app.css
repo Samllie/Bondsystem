@@ -779,6 +779,55 @@
         display: none !important;
     }
 
+    .audit-logs-report .dashboard-report-table {
+        table-layout: fixed;
+        width: 100%;
+        font-size: 6.5pt;
+        line-height: 1.15;
+    }
+
+    .audit-logs-report .dashboard-report-table th,
+    .audit-logs-report .dashboard-report-table td {
+        padding: 2px 3px;
+        white-space: normal !important;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        hyphens: auto;
+    }
+
+    .audit-logs-report .dashboard-report-table th {
+        font-size: 6pt;
+        letter-spacing: 0;
+    }
+
+    .audit-logs-report .print-audit-col-timestamp {
+        width: 13%;
+    }
+
+    .audit-logs-report .print-audit-col-user {
+        width: 11%;
+    }
+
+    .audit-logs-report .print-audit-col-action {
+        width: 15%;
+    }
+
+    .audit-logs-report .print-audit-col-entity-type {
+        width: 9%;
+    }
+
+    .audit-logs-report .print-audit-col-entity-id {
+        width: 5%;
+    }
+
+    .audit-logs-report .print-audit-col-description {
+        width: 38%;
+    }
+
+    .audit-logs-report .print-audit-col-ip {
+        width: 9%;
+    }
+
     .dashboard-print-summary {
         margin-top: 1.25rem;
     }

@@ -25,7 +25,21 @@ use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    $user = auth()->user();
+
+    if ($user->hasPermission('dashboard.view')) {
+        return redirect()->route('dashboard');
+    }
+
+    if ($user->hasPermission('certifications.view-assigned')) {
+        return redirect()->route('certifications.index');
+    }
+
+    return redirect()->route('bond-requests.index');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

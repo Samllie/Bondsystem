@@ -101,3 +101,32 @@ export function depositFilterSummary(filters, statusOptions, branchOptions) {
 
     return summary;
 }
+
+export function auditLogFilterSummary(filters, userOptions, actionOptions, entityTypeOptions) {
+    const summary = [];
+
+    if (filters.user_id) {
+        const user = userOptions.find((option) => String(option.value) === String(filters.user_id));
+        summary.push(`User: ${user?.label ?? filters.user_id}`);
+    }
+
+    if (filters.action) {
+        const action = actionOptions.find((option) => option.value === filters.action);
+        summary.push(`Action: ${action?.label ?? filters.action}`);
+    }
+
+    if (filters.entity_type) {
+        const entityType = entityTypeOptions.find((option) => option.value === filters.entity_type);
+        summary.push(`Entity Type: ${entityType?.label ?? filters.entity_type}`);
+    }
+
+    if (filters.date_from) {
+        summary.push(`Date From: ${filters.date_from}`);
+    }
+
+    if (filters.date_to) {
+        summary.push(`Date To: ${filters.date_to}`);
+    }
+
+    return summary;
+}

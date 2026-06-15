@@ -81,6 +81,7 @@ export default function Form({ roleOptions, branchOptions }) {
                             value={data.email}
                             onChange={(e) => setData('email', e.target.value)}
                             error={errors.email}
+                            placeholder="name@sterling-insurance.com.ph"
                             required
                         />
 

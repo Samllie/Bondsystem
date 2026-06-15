@@ -52,6 +52,7 @@ class SignatoryController extends MaintenanceController
         abort_unless($request->user()->hasPermission('maintenance.view'), 403);
 
         $records = Signatory::query()
+            ->with('user:id,name,email')
             ->when($request->string('search')->trim()->toString(), function ($query, $search) {
                 $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")

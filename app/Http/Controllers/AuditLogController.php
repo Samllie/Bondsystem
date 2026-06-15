@@ -23,7 +23,7 @@ class AuditLogController extends Controller
             ->when($request->date('date_from'), fn ($query, $dateFrom) => $query->whereDate('created_at', '>=', $dateFrom))
             ->when($request->date('date_to'), fn ($query, $dateTo) => $query->whereDate('created_at', '<=', $dateTo))
             ->latest('created_at')
-            ->paginate(50)
+            ->paginate(25)
             ->withQueryString();
 
         return Inertia::render('AuditLogs/Index', [

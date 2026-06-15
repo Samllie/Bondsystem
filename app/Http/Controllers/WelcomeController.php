@@ -30,6 +30,10 @@ class WelcomeController extends Controller
             return route('dashboard', absolute: false);
         }
 
+        if ($user->hasPermission('certifications.view-assigned')) {
+            return route('certifications.index', absolute: false);
+        }
+
         return route('bond-requests.index', absolute: false);
     }
 }

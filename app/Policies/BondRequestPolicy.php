@@ -27,12 +27,15 @@ class BondRequestPolicy
     }
 
     /**
-     * Access to the generated certificate file is branch-scoped: super admins may
-     * access any branch, while every other role may only access certificates
-     * created within their own branch.
+     * Access to the generated certificate file is branch-scoped for most roles.
+     * Signatory account levels may view any generated certificate.
      */
     public function viewCertificate(User $user, BondRequest $bondRequest): bool
     {
+        if ($user->hasPermission('certifications.view-assigned')) {
+            return $bondRequest->certificate_path !== null;
+        }
+
         if (! $user->hasPermission('bond-requests.view')) {
             return false;
         }

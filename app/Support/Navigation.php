@@ -49,6 +49,16 @@ class Navigation
             ];
         }
 
+        if ($user->hasPermission('certifications.view-assigned')) {
+            $items[] = [
+                'type' => 'link',
+                'name' => 'Certifications',
+                'href' => route('certifications.index'),
+                'icon' => 'certificate',
+                'routes' => ['certifications.index'],
+            ];
+        }
+
         if ($user->hasPermission('obligees.view')) {
             $items[] = [
                 'type' => 'link',
@@ -125,46 +135,48 @@ class Navigation
 
         $paymentChildren = [];
 
-        if ($user->hasPermission('transactions.view')) {
-            $paymentChildren[] = [
-                'name' => 'Transactions',
-                'href' => route('payments.transactions.index'),
-                'icon' => 'list',
-                'routes' => ['payments.transactions.index'],
-            ];
-        }
+        if (! $user->isAttorney()) {
+            if ($user->hasPermission('transactions.view')) {
+                $paymentChildren[] = [
+                    'name' => 'Transactions',
+                    'href' => route('payments.transactions.index'),
+                    'icon' => 'list',
+                    'routes' => ['payments.transactions.index'],
+                ];
+            }
 
-        if ($user->hasPermission('payment-histories.view')) {
-            $paymentChildren[] = [
-                'name' => 'Payment Histories',
-                'href' => route('payments.histories.index'),
-                'icon' => 'history',
-                'routes' => ['payments.histories.index'],
-            ];
-        }
+            if ($user->hasPermission('payment-histories.view')) {
+                $paymentChildren[] = [
+                    'name' => 'Payment Histories',
+                    'href' => route('payments.histories.index'),
+                    'icon' => 'history',
+                    'routes' => ['payments.histories.index'],
+                ];
+            }
 
-        if ($user->hasPermission('deposits.view')) {
-            $paymentChildren[] = [
-                'name' => 'Deposit Submissions',
-                'href' => route('payments.deposits.index'),
-                'icon' => 'inbox',
-                'routes' => ['payments.deposits.index', 'payments.deposits.show', 'payments.deposits.approve', 'payments.deposits.reject'],
-            ];
-        }
+            if ($user->hasPermission('deposits.view')) {
+                $paymentChildren[] = [
+                    'name' => 'Deposit Submissions',
+                    'href' => route('payments.deposits.index'),
+                    'icon' => 'inbox',
+                    'routes' => ['payments.deposits.index', 'payments.deposits.show', 'payments.deposits.approve', 'payments.deposits.reject'],
+                ];
+            }
 
-        if ($user->hasPermission('deposits.create')) {
-            $depositHref = $user->hasPermission('deposits.view')
-                ? route('payments.deposits.create')
-                : route('payments.deposits.index');
+            if ($user->hasPermission('deposits.create')) {
+                $depositHref = $user->hasPermission('deposits.view')
+                    ? route('payments.deposits.create')
+                    : route('payments.deposits.index');
 
-            $paymentChildren[] = [
-                'name' => 'Deposit',
-                'href' => $depositHref,
-                'icon' => 'money',
-                'routes' => $user->hasPermission('deposits.view')
-                    ? ['payments.deposits.create']
-                    : ['payments.deposits.index', 'payments.deposits.create', 'payments.deposits.show'],
-            ];
+                $paymentChildren[] = [
+                    'name' => 'Deposit',
+                    'href' => $depositHref,
+                    'icon' => 'money',
+                    'routes' => $user->hasPermission('deposits.view')
+                        ? ['payments.deposits.create']
+                        : ['payments.deposits.index', 'payments.deposits.create', 'payments.deposits.show'],
+                ];
+            }
         }
 
         if (! empty($paymentChildren)) {

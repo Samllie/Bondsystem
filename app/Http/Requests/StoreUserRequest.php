@@ -28,7 +28,15 @@ class StoreUserRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:users,email'],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                'unique:users,email',
+                'regex:/^[a-z0-9._%+-]+@sterling-insurance\.com\.ph$/',
+            ],
             'password' => ['required', 'confirmed', Password::defaults()],
             'role_id' => [
                 'required',
@@ -49,6 +57,16 @@ class StoreUserRequest extends FormRequest
             'branch_city' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'is_active' => ['boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'email.regex' => 'The email must use the @sterling-insurance.com.ph domain.',
         ];
     }
 }
