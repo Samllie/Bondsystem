@@ -14,8 +14,10 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Services\AmountToWordsService;
 use App\Services\CertificateGenerationService;
+use App\Services\ConfirmationNumberService;
 use App\Services\DocxEndorsementSpacingNormalizer;
 use App\Services\PlaceholderRenderer;
+use App\Services\QRCodeGenerationService;
 use App\Services\TemplateDataBuilder;
 use App\Services\TemplateNormalizerService;
 use Database\Seeders\RolePermissionSeeder;
@@ -63,6 +65,8 @@ class CertificateGenerationTest extends TestCase
             new TemplateDataBuilder(new AmountToWordsService),
             new PlaceholderRenderer,
             new DocxEndorsementSpacingNormalizer,
+            new ConfirmationNumberService,
+            new QRCodeGenerationService,
         );
         $user = User::factory()->create();
         $service->generate($bondRequest, $user);

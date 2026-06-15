@@ -6,6 +6,7 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CertificateTemplateController;
+use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\CertificateVersionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
@@ -23,6 +24,13 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/verify-certificate', [CertificateVerificationController::class, 'search'])
+    ->name('certificate-verification.search');
+Route::get('/verify-certificate/{verification_token}', [CertificateVerificationController::class, 'show'])
+    ->name('certificate-verification.show');
+Route::post('/verify-certificate/search', [CertificateVerificationController::class, 'lookup'])
+    ->name('certificate-verification.lookup');
 
 Route::get('/', function () {
     if (! auth()->check()) {

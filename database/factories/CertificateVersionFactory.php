@@ -7,6 +7,7 @@ use App\Models\BondRequest;
 use App\Models\CertificateVersion;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Support\Str;
 
 /**
  * @extends Factory<CertificateVersion>
@@ -17,11 +18,12 @@ class CertificateVersionFactory extends Factory
 
     public function definition(): array
     {
-        $bondRequest = BondRequest::factory();
+        $versionNumber = fake()->numberBetween(1, 9);
+        $random = Str::upper(bin2hex(random_bytes(4)));
 
         return [
-            'bond_request_id' => $bondRequest,
-            'version_number' => 1,
+            'bond_request_id' => BondRequest::factory(),
+            'version_number' => $versionNumber,
             'certificate_type' => CertificateType::BondCertificate,
             'template_id' => null,
             'docx_path' => 'private/generated-docx/2026/06/request_1_v1.docx',
@@ -30,6 +32,11 @@ class CertificateVersionFactory extends Factory
             'generated_at' => now(),
             'is_current' => true,
             'remarks' => null,
+            'confirmation_number' => "SICI-BOND-2026-{$random}-V{$versionNumber}",
+            'verification_token' => bin2hex(random_bytes(32)),
+            'qr_code_path' => 'private/qr-codes/2026/06/certificate_version_1.png',
+            'verification_count' => 0,
+            'last_verified_at' => null,
         ];
     }
 

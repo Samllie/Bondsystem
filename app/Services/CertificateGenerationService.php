@@ -36,6 +36,8 @@ class CertificateGenerationService
         private readonly TemplateDataBuilder $dataBuilder,
         private readonly PlaceholderRenderer $placeholderRenderer,
         private readonly DocxEndorsementSpacingNormalizer $endorsementSpacingNormalizer,
+        private readonly ConfirmationNumberService $confirmationNumberService,
+        private readonly QRCodeGenerationService $qrCodeGenerationService,
     ) {}
 
     /**
@@ -53,8 +55,24 @@ class CertificateGenerationService
         $templatePath = $this->templatePath($bondRequest);
         $normalizedPath = $this->normalizer->normalize($templatePath);
 
+        $confirmationNumber = $this->confirmationNumberService->generate(
+            $bondRequest->certificate_type,
+            $versionNumber,
+        );
+        $verificationToken = $this->confirmationNumberService->generateVerificationToken();
+        $temporaryQrPath = $this->qrCodeGenerationService->generateTemporary(
+            $bondRequest,
+            $versionNumber,
+            $verificationToken,
+        );
+
         try {
             $data = $this->dataBuilder->build($bondRequest);
+            $data = $this->dataBuilder->mergeVerificationPlaceholders(
+                $data,
+                $confirmationNumber,
+                $this->qrCodeGenerationService->templateImageData($temporaryQrPath),
+            );
             $renderedText = $this->placeholderRenderer->render($data['text']);
             $processor = new TemplateProcessor($normalizedPath);
 
@@ -78,6 +96,9 @@ class CertificateGenerationService
                 $docxPath,
                 $pdfPath,
                 $currentPath,
+                $confirmationNumber,
+                $verificationToken,
+                $temporaryQrPath,
             ): void {
                 CertificateVersion::query()
                     ->where('bond_request_id', $bondRequest->id)
@@ -93,7 +114,13 @@ class CertificateGenerationService
                     'generated_by' => $generatedBy->id,
                     'generated_at' => now(),
                     'is_current' => true,
+                    'confirmation_number' => $confirmationNumber,
+                    'verification_token' => $verificationToken,
+                    'qr_code_path' => $temporaryQrPath,
                 ]);
+
+                $finalQrPath = $this->qrCodeGenerationService->finalizeForVersion($version, $temporaryQrPath);
+                $version->update(['qr_code_path' => $finalQrPath]);
 
                 $bondRequest->update([
                     'docx_path' => $docxPath,
@@ -107,6 +134,7 @@ class CertificateGenerationService
                     [
                         'bond_request_id' => $bondRequest->id,
                         'version_number' => $versionNumber,
+                        'confirmation_number' => $confirmationNumber,
                     ],
                 );
 
@@ -118,8 +146,21 @@ class CertificateGenerationService
                     newValues: [
                         'bond_request_id' => $bondRequest->id,
                         'version_number' => $versionNumber,
+                        'confirmation_number' => $confirmationNumber,
                     ],
                     description: "Certificate version {$versionNumber} created for bond request #{$bondRequest->id}.",
+                );
+
+                AuditLogService::log(
+                    user: $generatedBy,
+                    action: 'qr_code_generated',
+                    entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+                    entityId: $version->id,
+                    newValues: [
+                        'confirmation_number' => $confirmationNumber,
+                        'qr_code_path' => $finalQrPath,
+                    ],
+                    description: "QR code generated for certificate version {$versionNumber}.",
                 );
             });
         } finally {

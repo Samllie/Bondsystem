@@ -11,8 +11,10 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\AmountToWordsService;
 use App\Services\CertificateGenerationService;
+use App\Services\ConfirmationNumberService;
 use App\Services\DocxEndorsementSpacingNormalizer;
 use App\Services\PlaceholderRenderer;
+use App\Services\QRCodeGenerationService;
 use App\Services\TemplateDataBuilder;
 use App\Services\TemplateNormalizerService;
 use Database\Seeders\RolePermissionSeeder;
@@ -232,6 +234,8 @@ class CertificateTemplateManagementTest extends TestCase
             new TemplateDataBuilder(new AmountToWordsService),
             new PlaceholderRenderer,
             new DocxEndorsementSpacingNormalizer,
+            new ConfirmationNumberService,
+            new QRCodeGenerationService,
         );
 
         $method = new \ReflectionMethod($service, 'templatePath');
@@ -253,6 +257,8 @@ class CertificateTemplateManagementTest extends TestCase
             new TemplateDataBuilder(new AmountToWordsService),
             new PlaceholderRenderer,
             new DocxEndorsementSpacingNormalizer,
+            new ConfirmationNumberService,
+            new QRCodeGenerationService,
         );
 
         $method = new \ReflectionMethod($service, 'templatePath');

@@ -24,6 +24,11 @@ class CertificateVersion extends Model
         'generated_at',
         'is_current',
         'remarks',
+        'confirmation_number',
+        'verification_token',
+        'qr_code_path',
+        'verification_count',
+        'last_verified_at',
     ];
 
     protected function casts(): array
@@ -33,6 +38,8 @@ class CertificateVersion extends Model
             'certificate_type' => CertificateType::class,
             'generated_at' => 'datetime',
             'is_current' => 'boolean',
+            'verification_count' => 'integer',
+            'last_verified_at' => 'datetime',
         ];
     }
 

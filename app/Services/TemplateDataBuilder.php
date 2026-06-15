@@ -65,6 +65,30 @@ class TemplateDataBuilder
         ];
     }
 
+    /**
+     * Merge verification placeholders added during certificate generation.
+     *
+     * @param  array{
+     *   text: array<string, string>,
+     *   images: array<string, array{path: string, width: int, height: int, ratio: bool}>
+     * }  $data
+     * @param  array{path: string, width: int, height: int, ratio: bool}  $qrImage
+     * @return array{
+     *   text: array<string, string>,
+     *   images: array<string, array{path: string, width: int, height: int, ratio: bool}>
+     * }
+     */
+    public function mergeVerificationPlaceholders(
+        array $data,
+        string $confirmationNumber,
+        array $qrImage,
+    ): array {
+        $data['text']['Confirmation Number'] = $confirmationNumber;
+        $data['images']['QR'] = $qrImage;
+
+        return $data;
+    }
+
     // -------------------------------------------------------------------------
     // Shared placeholders (present in both Bond and CAR templates)
     // -------------------------------------------------------------------------

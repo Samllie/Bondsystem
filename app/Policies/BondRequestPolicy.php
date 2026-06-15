@@ -32,7 +32,7 @@ class BondRequestPolicy
      */
     public function viewCertificate(User $user, BondRequest $bondRequest): bool
     {
-        if ($user->hasPermission('certifications.view-assigned')) {
+        if ($user->hasPermission('certifications.view-assigned') && ! $user->hasPermission('bond-requests.view')) {
             return $bondRequest->certificate_path !== null;
         }
 
