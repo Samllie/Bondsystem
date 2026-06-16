@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Enums\RoleSlug;
 use App\Models\User;
 
 class Navigation
@@ -79,7 +80,7 @@ class Navigation
             ];
         }
 
-        if ($user->hasPermission('audit-logs.view')) {
+        if ($user->hasRole(RoleSlug::SuperAdmin)) {
             $items[] = [
                 'type' => 'link',
                 'name' => 'Audit Logs',

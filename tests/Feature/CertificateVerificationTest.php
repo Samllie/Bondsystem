@@ -308,6 +308,34 @@ class CertificateVerificationTest extends TestCase
         $this->assertStringStartsWith('SICI-CAR-2026-', $confirmationNumber);
     }
 
+    public function test_public_verification_lookup_is_rate_limited(): void
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $this->post(route('certificate-verification.lookup'), [
+                'confirmation_number' => 'SICI-BOND-2026-NOTFOUND-V1',
+            ])->assertRedirect();
+        }
+
+        $this->post(route('certificate-verification.lookup'), [
+            'confirmation_number' => 'SICI-BOND-2026-NOTFOUND-V1',
+        ])->assertStatus(429);
+    }
+
+    public function test_public_verification_show_is_rate_limited(): void
+    {
+        $token = str_repeat('a', 64);
+
+        for ($attempt = 0; $attempt < 60; $attempt++) {
+            $this->get(route('certificate-verification.show', [
+                'verification_token' => $token,
+            ]))->assertOk();
+        }
+
+        $this->get(route('certificate-verification.show', [
+            'verification_token' => $token,
+        ]))->assertStatus(429);
+    }
+
     private function certificateVersion(bool $isCurrent = true, int $verificationCount = 0): CertificateVersion
     {
         $bondRequest = BondRequest::factory()->approved()->create([

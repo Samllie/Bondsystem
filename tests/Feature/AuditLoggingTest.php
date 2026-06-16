@@ -208,6 +208,15 @@ class AuditLoggingTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_encoder_cannot_access_audit_logs(): void
+    {
+        $encoder = $this->createUser(RoleSlug::Encoder);
+
+        $this->actingAs($encoder)
+            ->get(route('audit-logs.index'))
+            ->assertForbidden();
+    }
+
     public function test_filters_work_correctly(): void
     {
         $admin = $this->superAdminUser();

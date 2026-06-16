@@ -8,6 +8,9 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
+
+$trustedProxies = env('TRUSTED_PROXIES');
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,7 +18,19 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
+    ->withMiddleware(function (Middleware $middleware) use ($trustedProxies): void {
+        if ($trustedProxies !== null && $trustedProxies !== '') {
+            $middleware->trustProxies(
+                at: $trustedProxies === '*' ? '*' : array_map(trim(...), explode(',', $trustedProxies)),
+                headers: Request::HEADER_X_FORWARDED_FOR
+                    | Request::HEADER_X_FORWARDED_HOST
+                    | Request::HEADER_X_FORWARDED_PORT
+                    | Request::HEADER_X_FORWARDED_PROTO
+                    | Request::HEADER_X_FORWARDED_PREFIX
+                    | Request::HEADER_X_FORWARDED_AWS_ELB,
+            );
+        }
+
         $middleware->web(prepend: [
             ForceHttps::class,
         ]);

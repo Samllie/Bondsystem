@@ -25,11 +25,15 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/verify-certificate', [CertificateVerificationController::class, 'search'])
-    ->name('certificate-verification.search');
-Route::get('/verify-certificate/{verification_token}', [CertificateVerificationController::class, 'show'])
-    ->name('certificate-verification.show');
+Route::middleware('throttle:certificate-verification')->group(function () {
+    Route::get('/verify-certificate', [CertificateVerificationController::class, 'search'])
+        ->name('certificate-verification.search');
+    Route::get('/verify-certificate/{verification_token}', [CertificateVerificationController::class, 'show'])
+        ->name('certificate-verification.show');
+});
+
 Route::post('/verify-certificate/search', [CertificateVerificationController::class, 'lookup'])
+    ->middleware('throttle:certificate-verification-lookup')
     ->name('certificate-verification.lookup');
 
 Route::get('/', function () {
@@ -114,9 +118,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Users (admin)
     Route::resource('users', UserController::class)->only(['index', 'create', 'store']);
 
-    // Audit Logs (admin)
+    // Audit Logs (super admin only)
     Route::get('/audit-logs', [AuditLogController::class, 'index'])
-        ->middleware('permission:audit-logs.view')
+        ->middleware('role:super-admin')
         ->name('audit-logs.index');
 
     // Maintenance
