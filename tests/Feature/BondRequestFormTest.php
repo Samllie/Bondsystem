@@ -32,7 +32,7 @@ class BondRequestFormTest extends TestCase
         parent::setUp();
 
         $this->seed(RolePermissionSeeder::class);
-        Storage::fake('public');
+        Storage::fake('local');
     }
 
     public function test_requester_can_create_bond_request_with_form_fields(): void
@@ -84,7 +84,7 @@ class BondRequestFormTest extends TestCase
         $this->assertNotNull($bondRequest);
         $this->assertNotNull($bondRequest->supporting_document_paths);
         $this->assertCount(1, $bondRequest->supporting_document_paths);
-        Storage::disk('public')->assertExists($bondRequest->supporting_document_paths[0]);
+        Storage::disk('local')->assertExists($bondRequest->supporting_document_paths[0]);
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
         $this->assertSame('Retention Money Bond NO. G(42)-MKT-0008384', $bondRequest->bond_label);
@@ -861,7 +861,7 @@ class BondRequestFormTest extends TestCase
         $this->assertCount(5, $bondRequest->supporting_document_paths);
 
         foreach ($bondRequest->supporting_document_paths as $path) {
-            Storage::disk('public')->assertExists($path);
+            Storage::disk('local')->assertExists($path);
             $this->assertStringStartsWith('supporting-documents/', $path);
         }
     }

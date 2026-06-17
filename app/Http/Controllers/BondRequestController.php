@@ -515,6 +515,23 @@ class BondRequestController extends Controller
         return response()->download($absolutePath, $filename);
     }
 
+    public function downloadSupportingDocument(Request $request, BondRequest $bondRequest): BinaryFileResponse
+    {
+        $this->authorize('view', $bondRequest);
+
+        $path = $request->query('path');
+        abort_unless(
+            is_string($path) && in_array($path, $bondRequest->supporting_document_paths ?? [], true),
+            404,
+            'Supporting document not found.',
+        );
+
+        $absolutePath = $this->supportingDocumentService->absolutePath($path);
+        abort_if($absolutePath === null, 404, 'Supporting document file not found.');
+
+        return response()->download($absolutePath, basename($path));
+    }
+
     /**
      * Build a human-readable download filename: "{Obligee} - {Bond}.{ext}".
      */

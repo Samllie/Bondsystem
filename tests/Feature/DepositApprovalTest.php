@@ -25,7 +25,7 @@ class DepositApprovalTest extends TestCase
         parent::setUp();
 
         $this->seed(RolePermissionSeeder::class);
-        Storage::fake('public');
+        Storage::fake('local');
     }
 
     public function test_approver_can_download_deposit_receipt(): void
@@ -34,7 +34,7 @@ class DepositApprovalTest extends TestCase
         $approver = $this->createUser(RoleSlug::Approver);
         $bankAccount = BankAccount::factory()->create();
         $receiptPath = 'receipts/deposit-receipt.pdf';
-        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+        Storage::disk('local')->put($receiptPath, 'fake receipt content');
 
         $deposit = Deposit::factory()->create([
             'user_id' => $requester->id,
@@ -53,7 +53,7 @@ class DepositApprovalTest extends TestCase
         $requester = $this->createUser(RoleSlug::Requester);
         $bankAccount = BankAccount::factory()->create();
         $receiptPath = 'receipts/my-receipt.png';
-        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+        Storage::disk('local')->put($receiptPath, 'fake receipt content');
 
         $deposit = Deposit::factory()->create([
             'user_id' => $requester->id,
@@ -73,7 +73,7 @@ class DepositApprovalTest extends TestCase
         $otherRequester = $this->createUser(RoleSlug::Requester);
         $bankAccount = BankAccount::factory()->create();
         $receiptPath = 'receipts/other-receipt.pdf';
-        Storage::disk('public')->put($receiptPath, 'fake receipt content');
+        Storage::disk('local')->put($receiptPath, 'fake receipt content');
 
         $deposit = Deposit::factory()->create([
             'user_id' => $otherRequester->id,

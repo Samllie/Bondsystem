@@ -25,6 +25,8 @@ class AuditLogService
 
     public const ENTITY_USER = 'User';
 
+    public const ENTITY_BACKUP = 'BackupRecord';
+
     public static function log(
         ?User $user,
         string $action,

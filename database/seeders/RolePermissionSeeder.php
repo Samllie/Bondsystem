@@ -50,6 +50,8 @@ class RolePermissionSeeder extends Seeder
             // Confirmation Templates
             ['name' => 'View Confirmation Templates', 'slug' => 'certificate-templates.view', 'group' => 'certificate-templates'],
             ['name' => 'Manage Confirmation Templates', 'slug' => 'certificate-templates.manage', 'group' => 'certificate-templates'],
+            // Backups
+            ['name' => 'Manage Backups', 'slug' => 'backups.manage', 'group' => 'backups'],
         ];
 
         foreach ($permissions as $permission) {

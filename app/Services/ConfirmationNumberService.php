@@ -31,7 +31,7 @@ class ConfirmationNumberService
     }
 
     /**
-     * Resolve a certificate version from a full confirmation number or its 8-character hex segment.
+     * Resolve a certificate version from an exact confirmation number match.
      */
     public function findVersionByLookup(string $input): ?CertificateVersion
     {
@@ -41,22 +41,8 @@ class ConfirmationNumberService
             return null;
         }
 
-        $exactMatch = CertificateVersion::query()
-            ->where('confirmation_number', $normalized)
-            ->first();
-
-        if ($exactMatch !== null) {
-            return $exactMatch;
-        }
-
-        if (preg_match('/^[A-F0-9]{8}$/', $normalized)) {
-            return CertificateVersion::query()
-                ->where('confirmation_number', 'like', "%-{$normalized}-%")
-                ->first();
-        }
-
         return CertificateVersion::query()
-            ->where('confirmation_number', 'like', "%{$normalized}%")
+            ->where('confirmation_number', $normalized)
             ->first();
     }
 }

@@ -15,15 +15,11 @@ class BondRequestPolicy
 
     public function view(User $user, BondRequest $bondRequest): bool
     {
-        if ($user->hasPermission('bond-requests.view')) {
-            if ($user->hasRole(RoleSlug::Requester)) {
-                return $bondRequest->created_by === $user->id;
-            }
-
-            return true;
+        if (! $user->hasPermission('bond-requests.view')) {
+            return false;
         }
 
-        return false;
+        return $this->canAccessBondRequest($user, $bondRequest);
     }
 
     /**
@@ -63,11 +59,28 @@ class BondRequestPolicy
                 && in_array($bondRequest->status->value, ['draft', 'pending'], true);
         }
 
-        return true;
+        if ($user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver)) {
+            return true;
+        }
+
+        return $bondRequest->creator?->branch_id === $user->branch_id;
     }
 
     public function delete(User $user, BondRequest $bondRequest): bool
     {
         return $user->hasPermission('bond-requests.delete');
+    }
+
+    private function canAccessBondRequest(User $user, BondRequest $bondRequest): bool
+    {
+        if ($user->hasRole(RoleSlug::Requester)) {
+            return $bondRequest->created_by === $user->id;
+        }
+
+        if ($user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver)) {
+            return true;
+        }
+
+        return $bondRequest->creator?->branch_id === $user->branch_id;
     }
 }

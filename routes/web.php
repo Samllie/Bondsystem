@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\ObligeeController as ApiObligeeController;
 use App\Http\Controllers\Api\PrincipalController as ApiPrincipalController;
 use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\BondRequestController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CertificateTemplateController;
@@ -80,6 +81,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('bond-requests/{bond_request}/view-certificate', [BondRequestController::class, 'viewCertificate'])->name('bond-requests.view-certificate');
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
     Route::get('bond-requests/{bond_request}/download-docx', [BondRequestController::class, 'downloadDocx'])->name('bond-requests.download-docx');
+    Route::get('bond-requests/{bond_request}/supporting-documents/download', [BondRequestController::class, 'downloadSupportingDocument'])->name('bond-requests.supporting-documents.download');
     Route::get('bond-requests/{bond_request}/certificate-versions', [CertificateVersionController::class, 'index'])->name('bond-requests.certificate-versions.index');
 
     Route::get('certificate-versions/{certificateVersion}/view', [CertificateVersionController::class, 'view'])->name('certificate-versions.view');
@@ -109,6 +111,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/deposits/create', [DepositController::class, 'create'])->name('deposits.create');
         Route::post('/deposits', [DepositController::class, 'store'])->name('deposits.store');
         Route::get('/deposits/{deposit}', [DepositController::class, 'show'])->name('deposits.show');
+        Route::get('/deposits/{deposit}/view-receipt', [DepositController::class, 'viewReceipt'])->name('deposits.view-receipt');
         Route::get('/deposits/{deposit}/download-receipt', [DepositController::class, 'downloadReceipt'])->name('deposits.download-receipt');
         Route::post('/deposits/{deposit}/approve', [DepositController::class, 'approve'])->name('deposits.approve');
         Route::post('/deposits/{deposit}/reject', [DepositController::class, 'reject'])->name('deposits.reject');
@@ -123,6 +126,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/audit-logs', [AuditLogController::class, 'index'])
         ->middleware('role:super-admin')
         ->name('audit-logs.index');
+
+    // Backups (super admin / backups.manage)
+    Route::prefix('backups')->name('backups.')->middleware('permission:backups.manage')->group(function () {
+        Route::get('/', [BackupController::class, 'index'])->name('index');
+        Route::post('/', [BackupController::class, 'store'])->name('store');
+        Route::get('/{backup}', [BackupController::class, 'show'])->name('show');
+        Route::get('/{backup}/download', [BackupController::class, 'download'])->name('download');
+        Route::post('/{backup}/verify', [BackupController::class, 'verify'])->name('verify');
+        Route::delete('/{backup}', [BackupController::class, 'destroy'])->name('destroy');
+    });
 
     // Maintenance
     Route::prefix('maintenance')->name('maintenance.')->group(function () {

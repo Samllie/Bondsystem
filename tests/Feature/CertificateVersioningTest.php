@@ -323,6 +323,9 @@ class CertificateVersioningTest extends TestCase
 
         $pdfPath = storage_path('app/'.$oldVersion->pdf_path);
         $docxPath = storage_path('app/'.$oldVersion->docx_path);
+        $qrPath = storage_path('app/private/qr-codes/test_version_qr.png');
+        $this->writeFile('private/qr-codes/test_version_qr.png', 'qr');
+        $oldVersion->update(['qr_code_path' => 'private/qr-codes/test_version_qr.png']);
 
         $this->actingAs($approver)
             ->delete(route('certificate-versions.destroy', $oldVersion))
@@ -332,6 +335,7 @@ class CertificateVersioningTest extends TestCase
         $this->assertDatabaseMissing('certificate_versions', ['id' => $oldVersion->id]);
         $this->assertFileDoesNotExist($pdfPath);
         $this->assertFileDoesNotExist($docxPath);
+        $this->assertFileDoesNotExist($qrPath);
         $this->assertDatabaseCount('certificate_versions', 1);
     }
 

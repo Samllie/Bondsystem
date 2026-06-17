@@ -138,6 +138,14 @@ class Navigation
             ];
         }
 
+        if ($user->hasPermission('backups.manage')) {
+            $maintenanceChildren[] = [
+                'name' => 'Backups',
+                'href' => route('backups.index'),
+                'routes' => ['backups.index', 'backups.show'],
+            ];
+        }
+
         if ($maintenanceChildren !== []) {
             $items[] = [
                 'type' => 'group',

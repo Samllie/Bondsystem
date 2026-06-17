@@ -282,7 +282,82 @@ php artisan queue:work --tries=3
 
 ---
 
-## Backup recommendations
+## Backup & disaster recovery
+
+The application includes a built-in **Backup Management** module (Maintenance → Backups, Super Admin only). It creates local archives under:
+
+```
+storage/app/private/backups/
+├── database/     # backup_YYYY_MM_DD_HHMMSS.sql
+├── files/        # files_YYYY_MM_DD_HHMMSS.zip
+└── full/         # full_backup_YYYY_MM_DD_HHMMSS.zip
+```
+
+### Backup types
+
+| Type | Contents |
+|------|----------|
+| **Database only** | Full SQL dump of the application database (bond requests, deposits, certificate versions, templates metadata, audit logs, users, roles, permissions) |
+| **Files only** | Certificates (PDF), generated DOCX, QR images, deposit receipts, signatures, notary seals, uploaded template DOCX, fallback templates |
+| **Full backup** | SQL dump (`database/backup.sql`) plus all protected files in one ZIP |
+
+Backups are created through the UI or Artisan:
+
+```bash
+php artisan backups:create database
+php artisan backups:create files
+php artisan backups:create full
+php artisan backups:cleanup
+```
+
+On MySQL/MariaDB production servers, configure `BACKUP_MYSQLDUMP_PATH` in `.env` if `mysqldump` is not on the default PATH. When `mysqldump` is unavailable, the system falls back to a PHP-based exporter.
+
+### Retention policy
+
+Default retention is **30 days** (`BACKUP_KEEP_DAYS` in `.env`, see `config/backups.php`).
+
+- `php artisan backups:cleanup` deletes **completed** backups older than the retention period.
+- **Failed** backups are never auto-deleted.
+
+Example schedule for Sterling IT (not enabled automatically — add to the server crontab if desired):
+
+| Schedule | Command |
+|----------|---------|
+| Daily 01:00 | `php artisan backups:create database` |
+| Weekly Sunday 02:00 | `php artisan backups:create full` |
+| Monthly 1st 03:00 | `php artisan backups:cleanup` |
+
+### Restore strategy (manual only)
+
+Automatic restore is **intentionally disabled** to prevent accidental data loss.
+
+1. Put the application in maintenance mode.
+2. Download the required backup from **Maintenance → Backups**.
+3. Restore the SQL file with `mysql` or your DBA tooling.
+4. Extract file archives into the matching storage paths on the server.
+5. Verify permissions and run `php artisan storage:link` if needed.
+6. Confirm sample bond requests, receipts, and confirmation PDFs open correctly.
+7. Disable maintenance mode after Sterling IT validates the restore.
+
+Preserve the same `APP_KEY` when restoring to avoid invalidating sessions and encrypted data.
+
+### Storage requirements
+
+Plan disk space for:
+
+| Asset | Notes |
+|-------|-------|
+| MySQL application database | Grows with bond requests, audit logs, versions |
+| `storage/app/private/backups/` | Retained archives (monitor free space) |
+| `storage/app/private/certificates/` | Generated PDFs |
+| `storage/app/private/generated-docx/` | Generated DOCX |
+| `storage/app/private/qr-codes/` | QR PNG files |
+| `storage/app/public/` | Receipts, signatures, seals |
+| Uploaded certificate templates | `storage/app/private/certificate-templates/` |
+
+Copy completed backup archives off-server (NAS, tape, or Sterling IT backup jobs) for true disaster recovery. The module does not upload to cloud services.
+
+### Legacy asset summary
 
 | Asset | Priority |
 |-------|----------|
@@ -291,8 +366,6 @@ php artisan queue:work --tries=3
 | Certificate templates (DB + uploaded DOCX) | Critical |
 | `storage/app/public/` (signatures, seals, receipts) | High |
 | `.env` (store in a secure secrets manager) | Critical |
-
-Preserve the same `APP_KEY` when restoring to avoid invalidating sessions and encrypted data.
 
 ---
 
@@ -316,6 +389,7 @@ Confirmation numbers (`SICI-BOND-2026-XXXXXXXX-V1`) remain valid regardless of h
 4. Scan QR code or visit `/verify-certificate` — public verification works.
 5. Test camera scan on Certifications page (requires trusted HTTPS).
 6. Confirm obligee search works (KYC database connectivity).
+7. Create a test backup from **Maintenance → Backups** and download it to confirm archive integrity.
 
 ---
 

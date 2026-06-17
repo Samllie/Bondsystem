@@ -176,7 +176,11 @@ class CertificateVersionController extends Controller
         $versionNumber = $certificateVersion->version_number;
         $bondRequestId = $certificateVersion->bond_request_id;
 
-        foreach ([$certificateVersion->docx_path, $certificateVersion->pdf_path] as $relativePath) {
+        foreach ([
+            $certificateVersion->docx_path,
+            $certificateVersion->pdf_path,
+            $certificateVersion->qr_code_path,
+        ] as $relativePath) {
             if (! filled($relativePath)) {
                 continue;
             }
@@ -223,6 +227,8 @@ class CertificateVersionController extends Controller
         $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Confirmation';
         $bond = trim((string) ($bondRequest->bond_number ?? ''));
         $label = $bond !== '' ? "{$obligee} - {$bond}" : $obligee;
+        $label = preg_replace('/[\/\\\\:*?"<>|]+/', ' ', $label);
+        $label = trim(preg_replace('/\s+/', ' ', (string) $label));
 
         return "{$label} v{$version->version_number}.{$extension}";
     }

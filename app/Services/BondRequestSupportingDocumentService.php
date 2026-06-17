@@ -16,7 +16,7 @@ class BondRequestSupportingDocumentService
 
     public function disk(): Filesystem
     {
-        return Storage::disk('public');
+        return Storage::disk('local');
     }
 
     public function storageDirectory(BondRequest $bondRequest): string
@@ -40,11 +40,27 @@ class BondRequestSupportingDocumentService
             ->filter(fn ($path): bool => is_string($path) && $path !== '')
             ->map(fn (string $path): array => [
                 'path' => $path,
-                'url' => $this->disk()->url($path),
+                'url' => route('bond-requests.supporting-documents.download', [
+                    'bond_request' => $bondRequest->id,
+                    'path' => $path,
+                ]),
                 'name' => basename($path),
             ])
             ->values()
             ->all();
+    }
+
+    public function absolutePath(string $relativePath): ?string
+    {
+        if ($this->disk()->exists($relativePath)) {
+            return $this->disk()->path($relativePath);
+        }
+
+        if (Storage::disk('public')->exists($relativePath)) {
+            return Storage::disk('public')->path($relativePath);
+        }
+
+        return null;
     }
 
     /**
@@ -76,7 +92,7 @@ class BondRequestSupportingDocumentService
                     continue;
                 }
 
-                $paths[] = $file->store($directory, 'public');
+                $paths[] = $file->store($directory, 'local');
             }
         }
 
@@ -99,6 +115,10 @@ class BondRequestSupportingDocumentService
     {
         if ($this->disk()->exists($path)) {
             $this->disk()->delete($path);
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
         }
     }
 

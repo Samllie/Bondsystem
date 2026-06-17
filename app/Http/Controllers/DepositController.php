@@ -95,7 +95,7 @@ class DepositController extends Controller
             'deposit_date' => ['required', 'date'],
         ]);
 
-        $path = $request->file('receipt')->store('receipts', 'public');
+        $path = $request->file('receipt')->store('receipts', 'local');
 
         $deposit = Deposit::create([
             ...$validated,
@@ -145,7 +145,7 @@ class DepositController extends Controller
 
         return Inertia::render('Deposits/Show', [
             'deposit' => $deposit,
-            'receiptUrl' => Storage::disk('public')->url($deposit->receipt_path),
+            'receiptUrl' => route('payments.deposits.view-receipt', $deposit),
             'receiptDownloadUrl' => route('payments.deposits.download-receipt', $deposit),
             'canApprove' => $request->user()->hasPermission('deposits.approve') && $deposit->status === DepositStatus::Pending,
             'submitterBalance' => (float) ($deposit->user->branch?->balance ?? 0),
@@ -154,18 +154,41 @@ class DepositController extends Controller
         ]);
     }
 
-    public function downloadReceipt(Request $request, Deposit $deposit): BinaryFileResponse
+    public function viewReceipt(Request $request, Deposit $deposit): BinaryFileResponse
     {
-        abort_unless(
-            $request->user()->hasPermission('deposits.view') || $deposit->user_id === $request->user()->id,
-            403,
+        $this->authorizeReceiptAccess($request, $deposit);
+
+        $absolutePath = $this->receiptAbsolutePath($deposit);
+        abort_if($absolutePath === null, 404, 'Receipt file not found.');
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'receipt_viewed',
+            entityType: AuditLogService::ENTITY_RECEIPT,
+            entityId: $deposit->id,
+            description: "Receipt viewed inline for deposit #{$deposit->id}.",
         );
 
-        abort_unless(
-            Storage::disk('public')->exists($deposit->receipt_path),
-            404,
-            'Receipt file not found.',
-        );
+        $extension = pathinfo($deposit->receipt_path, PATHINFO_EXTENSION) ?: 'bin';
+        $mimeType = match (strtolower($extension)) {
+            'pdf' => 'application/pdf',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            default => 'application/octet-stream',
+        };
+
+        return response()->file($absolutePath, [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="'.sprintf('deposit-%d-receipt.%s', $deposit->id, $extension).'"',
+        ]);
+    }
+
+    public function downloadReceipt(Request $request, Deposit $deposit): BinaryFileResponse
+    {
+        $this->authorizeReceiptAccess($request, $deposit);
+
+        $absolutePath = $this->receiptAbsolutePath($deposit);
+        abort_if($absolutePath === null, 404, 'Receipt file not found.');
 
         AuditLogService::log(
             user: $request->user(),
@@ -178,9 +201,30 @@ class DepositController extends Controller
         $extension = pathinfo($deposit->receipt_path, PATHINFO_EXTENSION) ?: 'bin';
 
         return response()->download(
-            Storage::disk('public')->path($deposit->receipt_path),
+            $absolutePath,
             sprintf('deposit-%d-receipt.%s', $deposit->id, $extension),
         );
+    }
+
+    private function authorizeReceiptAccess(Request $request, Deposit $deposit): void
+    {
+        abort_unless(
+            $request->user()->hasPermission('deposits.view') || $deposit->user_id === $request->user()->id,
+            403,
+        );
+    }
+
+    private function receiptAbsolutePath(Deposit $deposit): ?string
+    {
+        if (Storage::disk('local')->exists($deposit->receipt_path)) {
+            return Storage::disk('local')->path($deposit->receipt_path);
+        }
+
+        if (Storage::disk('public')->exists($deposit->receipt_path)) {
+            return Storage::disk('public')->path($deposit->receipt_path);
+        }
+
+        return null;
     }
 
     public function approve(Request $request, Deposit $deposit): RedirectResponse
