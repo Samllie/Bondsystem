@@ -89,8 +89,8 @@ class NotificationService
             $bondRequest->creator,
             AppNotification::make(
                 type: 'certificate.generated',
-                title: 'Certificate ready',
-                message: "The certificate for bond request {$bondRequest->bond_number} is ready to view.",
+                title: 'Confirmation ready',
+                message: "The confirmation for bond request {$bondRequest->bond_number} is ready to view.",
                 url: route('bond-requests.show', $bondRequest),
                 subjectType: BondRequest::class,
                 subjectId: $bondRequest->id,

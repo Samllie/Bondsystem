@@ -14,6 +14,7 @@ use App\Support\BranchScope;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -84,7 +85,10 @@ class DepositController extends Controller
         abort_unless($request->user()->hasPermission('deposits.create'), 403);
 
         $validated = $request->validate([
-            'bank_account_id' => ['required', 'exists:bank_accounts,id'],
+            'bank_account_id' => [
+                'required',
+                Rule::exists('bank_accounts', 'id')->where('is_active', true),
+            ],
             'amount' => ['required', 'numeric', 'min:1'],
             'reference_number' => ['required', 'string', 'max:100'],
             'receipt' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],

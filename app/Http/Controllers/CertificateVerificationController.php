@@ -40,7 +40,7 @@ class CertificateVerificationController extends Controller
             return redirect()
                 ->route('certificate-verification.search')
                 ->withErrors([
-                    'confirmation_number' => 'No certificate found for that confirmation number.',
+                    'confirmation_number' => 'No confirmation found for that confirmation number.',
                 ]);
         }
 
@@ -61,7 +61,7 @@ class CertificateVerificationController extends Controller
                 user: null,
                 action: 'certificate_verification_failed',
                 entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
-                description: 'Public certificate verification failed for an unknown token.',
+                description: 'Public confirmation verification failed for an unknown token.',
             );
 
             return Inertia::render('CertificateVerification/Show', [
@@ -81,7 +81,7 @@ class CertificateVerificationController extends Controller
                 'confirmation_number' => $version->confirmation_number,
                 'verification_count' => $version->verification_count,
             ],
-            description: 'Public certificate verification succeeded.',
+            description: 'Public confirmation verification succeeded.',
         );
 
         $bondRequest = $version->bondRequest;

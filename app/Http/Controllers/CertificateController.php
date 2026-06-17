@@ -116,16 +116,16 @@ class CertificateController extends Controller
             'listUrl' => $attorney || $scoped
                 ? route('certifications.index')
                 : route('maintenance.certifications.index'),
-            'pageTitle' => $attorney || $scoped ? 'Certifications' : 'Certification',
+            'pageTitle' => 'Confirmations',
             'scopeMessage' => $attorney
-                ? 'Showing all generated certificates across every branch. Use the branch filter to narrow results.'
+                ? 'Showing all generated confirmations across every branch. Use the branch filter to narrow results.'
                 : ($scoped
                     ? ($canViewAllBranches
                         ? ($showBranchFilter
-                            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
-                            : 'Showing generated certificates across all branches.')
-                        : 'Showing generated certificates for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.')
-                    : 'Showing all generated certificates across every branch. Use the branch filter to narrow results.'),
+                            ? 'Showing generated confirmations across all branches. Use the branch filter to narrow results.'
+                            : 'Showing generated confirmations across all branches.')
+                        : 'Showing generated confirmations for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.')
+                    : 'Showing all generated confirmations across every branch. Use the branch filter to narrow results.'),
             'readOnly' => $attorney,
         ]);
     }

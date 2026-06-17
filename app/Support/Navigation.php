@@ -43,7 +43,7 @@ class Navigation
         if ($user->hasPermission('bond-requests.view') || $user->hasPermission('certifications.view-assigned')) {
             $items[] = [
                 'type' => 'link',
-                'name' => 'Certifications',
+                'name' => 'Confirmations',
                 'href' => route('certifications.index'),
                 'icon' => 'certificate',
                 'routes' => ['certifications.index'],
@@ -98,7 +98,7 @@ class Navigation
                 self::maintenanceChild('Signatories', 'maintenance.signatories'),
                 self::maintenanceChild('Notary', 'maintenance.notaries'),
                 [
-                    'name' => 'Certification',
+                    'name' => 'Confirmations',
                     'href' => route('maintenance.certifications.index'),
                     'routes' => ['maintenance.certifications.index'],
                 ],
@@ -107,9 +107,21 @@ class Navigation
             ];
         }
 
+        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+            $maintenanceChildren[] = [
+                'name' => 'Bank Accounts',
+                'href' => route('maintenance.bank-accounts.index'),
+                'routes' => [
+                    'maintenance.bank-accounts.index',
+                    'maintenance.bank-accounts.create',
+                    'maintenance.bank-accounts.edit',
+                ],
+            ];
+        }
+
         if ($user->hasPermission('certificate-templates.view')) {
             $maintenanceChildren[] = [
-                'name' => 'Certificate Templates',
+                'name' => 'Confirmation Templates',
                 'href' => route('certificate-templates.index'),
                 'routes' => ['certificate-templates.index'],
             ];

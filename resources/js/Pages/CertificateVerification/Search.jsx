@@ -17,13 +17,13 @@ export default function Search() {
 
     return (
         <GuestLayout unified>
-            <Head title="Verify Certificate" />
+            <Head title="Verify Confirmation" />
 
             <h2 className="text-center font-serif text-xl font-bold text-sterling-green">
-                Verify Certificate
+                Verify Confirmation
             </h2>
             <p className="mt-2 text-center text-sm text-slate-500">
-                Enter the confirmation number printed on the certificate.
+                Enter the confirmation number printed on the confirmation.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
@@ -43,7 +43,7 @@ export default function Search() {
                 </div>
 
                 <PrimaryButton className="w-full justify-center" disabled={processing}>
-                    Verify Certificate
+                    Verify Confirmation
                 </PrimaryButton>
             </form>
         </GuestLayout>

@@ -14,6 +14,8 @@ The application is a Laravel 12 + Inertia React system. Production deployment us
 
 User accounts are provisioned by Super Admin inside the application. **Public self-registration is disabled.**
 
+For a printable handoff to Sterling IT, use [STERLING_IT_CHECKLIST.md](./STERLING_IT_CHECKLIST.md).
+
 ---
 
 ## PHP requirements
@@ -182,7 +184,17 @@ KYC_DB_PORT=3306
 KYC_DB_DATABASE=kycsystem
 KYC_DB_USERNAME=
 KYC_DB_PASSWORD=
+```
 
+### KYC database (existing on Sterling server)
+
+The bond app connects to a **separate read-only KYC database** for obligee lookup. On Sterling’s server, this database typically **already exists** (e.g. `kycsystem`). Do **not** run migrations against it or overwrite it — only create and migrate the **application** database (e.g. `bondsystem`).
+
+When the KYC database uses the **same MySQL host, username, and password** as the app database, set `KYC_DB_HOST`, `KYC_DB_USERNAME`, and `KYC_DB_PASSWORD` to the same values as `DB_HOST`, `DB_USERNAME`, and `DB_PASSWORD`. Only `KYC_DB_DATABASE` must differ. Laravel’s KYC connection also falls back to `DB_*` values when `KYC_DB_*` entries are omitted (see `config/database.php`).
+
+Grant the MySQL user **SELECT only** on the KYC database if possible; full read/write is required only on the bond application database.
+
+```env
 SESSION_DRIVER=database
 SESSION_LIFETIME=120
 SESSION_SECURE_COOKIE=true

@@ -31,8 +31,8 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Create Principals', 'slug' => 'principals.create', 'group' => 'principals'],
             ['name' => 'Update Principals', 'slug' => 'principals.update', 'group' => 'principals'],
             ['name' => 'Delete Principals', 'slug' => 'principals.delete', 'group' => 'principals'],
-            // Certifications
-            ['name' => 'View Certifications', 'slug' => 'certifications.view-assigned', 'group' => 'certifications'],
+            // Confirmations
+            ['name' => 'View Confirmations', 'slug' => 'certifications.view-assigned', 'group' => 'certifications'],
             ['name' => 'View Audit Logs', 'slug' => 'audit-logs.view', 'group' => 'audit-logs'],
             // Maintenance
             ['name' => 'View Maintenance', 'slug' => 'maintenance.view', 'group' => 'maintenance'],
@@ -47,9 +47,9 @@ class RolePermissionSeeder extends Seeder
             // Users
             ['name' => 'View Users', 'slug' => 'users.view', 'group' => 'users'],
             ['name' => 'Manage Users', 'slug' => 'users.manage', 'group' => 'users'],
-            // Certificate Templates
-            ['name' => 'View Certificate Templates', 'slug' => 'certificate-templates.view', 'group' => 'certificate-templates'],
-            ['name' => 'Manage Certificate Templates', 'slug' => 'certificate-templates.manage', 'group' => 'certificate-templates'],
+            // Confirmation Templates
+            ['name' => 'View Confirmation Templates', 'slug' => 'certificate-templates.view', 'group' => 'certificate-templates'],
+            ['name' => 'Manage Confirmation Templates', 'slug' => 'certificate-templates.manage', 'group' => 'certificate-templates'],
         ];
 
         foreach ($permissions as $permission) {

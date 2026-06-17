@@ -28,7 +28,7 @@ export default function Index({
     generatedAt,
     context = 'user',
     listUrl,
-    pageTitle = 'Certifications',
+    pageTitle = 'Confirmations',
     scopeMessage,
     readOnly = false,
 }) {
@@ -39,13 +39,13 @@ export default function Index({
         ? route('maintenance.certifications.index')
         : route('certifications.index'));
     const filterSummary = certificationFilterSummary(filters, branchOptions);
-    const reportTitle = context === 'maintenance' ? 'Certification Report' : 'Certifications Report';
+    const reportTitle = context === 'maintenance' ? 'Confirmations Report' : 'Confirmations Report';
 
     const defaultScopeMessage = canViewAllBranches
         ? showBranchFilter
-            ? 'Showing generated certificates across all branches. Use the branch filter to narrow results.'
-            : 'Showing generated certificates across all branches.'
-        : `Showing generated certificates for your branch${branchName ? ` (${branchName})` : ''}.`;
+            ? 'Showing generated confirmations across all branches. Use the branch filter to narrow results.'
+            : 'Showing generated confirmations across all branches.'
+        : `Showing generated confirmations for your branch${branchName ? ` (${branchName})` : ''}.`;
 
     const { inputRef, isSearching, onInput, getValue, defaultSearch } = useDebouncedInertiaSearch({
         initialSearch: filters.search,
@@ -172,7 +172,7 @@ export default function Index({
                             {certificates.data.length === 0 && (
                                 <tr>
                                     <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
-                                        No certificates found.
+                                        No confirmations found.
                                     </td>
                                 </tr>
                             )}

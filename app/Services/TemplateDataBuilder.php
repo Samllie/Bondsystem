@@ -47,7 +47,7 @@ class TemplateDataBuilder
     {
         if ($bondRequest->certificate_type === null) {
             throw new RuntimeException(
-                "Bond request #{$bondRequest->id} has no certificate type. Cannot generate certificate."
+                "Bond request #{$bondRequest->id} has no confirmation type. Cannot generate confirmation."
             );
         }
 

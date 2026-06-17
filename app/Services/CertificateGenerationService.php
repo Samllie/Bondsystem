@@ -129,7 +129,7 @@ class CertificateGenerationService
 
                 ActivityLogger::log(
                     'certificate_version_created',
-                    "Certificate version {$versionNumber} created for bond request #{$bondRequest->id}.",
+                    "Confirmation version {$versionNumber} created for bond request #{$bondRequest->id}.",
                     $version,
                     [
                         'bond_request_id' => $bondRequest->id,
@@ -148,7 +148,7 @@ class CertificateGenerationService
                         'version_number' => $versionNumber,
                         'confirmation_number' => $confirmationNumber,
                     ],
-                    description: "Certificate version {$versionNumber} created for bond request #{$bondRequest->id}.",
+                    description: "Confirmation version {$versionNumber} created for bond request #{$bondRequest->id}.",
                 );
 
                 AuditLogService::log(
@@ -203,7 +203,7 @@ class CertificateGenerationService
         $path = CertificateTemplate::fallbackPath($type);
 
         if (! file_exists($path)) {
-            throw new RuntimeException("Certificate template not found: {$path}");
+            throw new RuntimeException("Confirmation template not found: {$path}");
         }
 
         return $path;

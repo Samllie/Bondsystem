@@ -21,6 +21,8 @@ class AuditLogService
 
     public const ENTITY_NOTARY = 'Notary';
 
+    public const ENTITY_BANK_ACCOUNT = 'BankAccount';
+
     public const ENTITY_USER = 'User';
 
     public static function log(

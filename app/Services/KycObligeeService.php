@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use stdClass;
@@ -27,6 +28,35 @@ class KycObligeeService
             ->get()
             ->map(fn (stdClass $row) => $this->mapClient($row))
             ->all();
+    }
+
+    public function paginate(?string $term = null, int $perPage = 10): LengthAwarePaginator
+    {
+        $query = $this->baseQuery();
+
+        if ($term !== null && $term !== '') {
+            $nameColumn = config('kyc.columns.company_name');
+            $contactColumn = config('kyc.columns.contact_person');
+            $emailColumn = config('kyc.columns.email');
+
+            $query->where(function (Builder $inner) use ($term, $nameColumn, $contactColumn, $emailColumn) {
+                $inner->where($nameColumn, 'like', '%'.$term.'%');
+
+                if ($contactColumn) {
+                    $inner->orWhere($contactColumn, 'like', '%'.$term.'%');
+                }
+
+                if ($emailColumn) {
+                    $inner->orWhere($emailColumn, 'like', '%'.$term.'%');
+                }
+            });
+        }
+
+        return $query
+            ->orderBy(config('kyc.columns.company_name'))
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (stdClass $row) => $this->mapClient($row));
     }
 
     public function find(int $id): ?array

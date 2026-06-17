@@ -7,6 +7,8 @@ use App\Models\Maintenance\Branch;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Facades\DB;
 
 class BranchScope
 {
@@ -108,5 +110,22 @@ class BranchScope
         $branch = Branch::query()->find($branchId);
 
         return 'Branch: '.($branch?->name ?? 'Unknown');
+    }
+
+    /**
+     * Limit bond_requests query builder rows to those created by users in the given branch.
+     */
+    public static function applyBondCreatorTableScope(QueryBuilder $query, ?int $branchId): void
+    {
+        if ($branchId === null) {
+            return;
+        }
+
+        $query->whereExists(function (QueryBuilder $sub) use ($branchId) {
+            $sub->select(DB::raw(1))
+                ->from('users')
+                ->whereColumn('users.id', 'bond_requests.created_by')
+                ->where('users.branch_id', $branchId);
+        });
     }
 }

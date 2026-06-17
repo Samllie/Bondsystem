@@ -10,6 +10,7 @@ use App\Http\Controllers\CertificateVerificationController;
 use App\Http\Controllers\CertificateVersionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DepositController;
+use App\Http\Controllers\Maintenance\BankAccountController;
 use App\Http\Controllers\Maintenance\BondTypeMasterController;
 use App\Http\Controllers\Maintenance\BranchController;
 use App\Http\Controllers\Maintenance\CtcController;
@@ -131,6 +132,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('certifications', [CertificateController::class, 'maintenanceIndex'])->name('certifications.index');
         Route::resource('ctcs', CtcController::class)->except('show');
         Route::resource('branches', BranchController::class)->except('show');
+        Route::resource('bank-accounts', BankAccountController::class)
+            ->except('show')
+            ->middleware('role:super-admin');
     });
 
     // Profile

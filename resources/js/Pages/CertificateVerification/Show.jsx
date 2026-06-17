@@ -27,7 +27,7 @@ export default function Show({
 }) {
     return (
         <GuestLayout unified>
-            <Head title={valid ? 'Certificate Verified' : 'Invalid Certificate'} />
+            <Head title={valid ? 'Confirmation Verified' : 'Invalid Confirmation'} />
 
             {!valid ? (
                 <div className="text-center">
@@ -35,9 +35,9 @@ export default function Show({
                         <span className="text-2xl font-bold">!</span>
                     </div>
                     <h2 className="mt-4 font-serif text-xl font-bold text-red-700">
-                        INVALID CERTIFICATE
+                        INVALID CONFIRMATION
                     </h2>
-                    <p className="mt-2 text-sm text-slate-600">No certificate found.</p>
+                    <p className="mt-2 text-sm text-slate-600">No confirmation found.</p>
                     <Link
                         href={route('certificate-verification.search')}
                         className="mt-6 inline-block text-sm font-medium text-sterling-green hover:underline"
@@ -52,18 +52,18 @@ export default function Show({
                             <span className="text-2xl font-bold">✓</span>
                         </div>
                         <h2 className="mt-4 font-serif text-xl font-bold text-emerald-700">
-                            {status === 'ARCHIVED' ? 'VALID CERTIFICATE VERSION' : 'VALID CERTIFICATE'}
+                            {status === 'ARCHIVED' ? 'VALID CONFIRMATION VERSION' : 'VALID CONFIRMATION'}
                         </h2>
                         {status === 'ARCHIVED' && (
                             <p className="mt-2 text-sm text-slate-600">
-                                This certificate version has been superseded.
+                                This confirmation version has been superseded.
                             </p>
                         )}
                     </div>
 
                     <dl className="mt-6 grid gap-4 sm:grid-cols-2">
                         <Detail label="Confirmation Number" value={confirmationNumber} />
-                        <Detail label="Certificate Type" value={certificateType} />
+                        <Detail label="Confirmation Type" value={certificateType} />
                         <Detail label="Bond Request Reference" value={bondRequestReference} />
                         <Detail label="Principal" value={principal} />
                         <Detail label="Obligee" value={obligee} />
@@ -82,14 +82,14 @@ export default function Show({
                     </dl>
 
                     <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
-                        This page is for verification only. Certificate files are not available for public download.
+                        This page is for verification only. Confirmation files are not available for public download.
                     </div>
 
                     <Link
                         href={route('certificate-verification.search')}
                         className="mt-6 inline-block text-sm font-medium text-sterling-green hover:underline"
                     >
-                        Verify another certificate
+                        Verify another confirmation
                     </Link>
                 </div>
             )}

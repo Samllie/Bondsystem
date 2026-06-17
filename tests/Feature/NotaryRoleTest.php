@@ -78,7 +78,7 @@ class NotaryRoleTest extends TestCase
         $paymentSection = collect($navigation)->firstWhere('name', 'Payments');
 
         $this->assertNull($paymentSection);
-        $this->assertCount(1, collect($navigation)->where('name', 'Certifications'));
+        $this->assertCount(1, collect($navigation)->where('name', 'Confirmations'));
     }
 
     public function test_attorney_can_access_profile_and_certifications(): void

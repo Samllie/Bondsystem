@@ -156,8 +156,8 @@ export default function CertificateTemplatesIndex({
         (archivedTemplates?.data?.length ?? 0) > 0;
 
     return (
-        <AppLayout title="Certificate Templates">
-            <Head title="Certificate Templates" />
+        <AppLayout title="Confirmation Templates">
+            <Head title="Confirmation Templates" />
 
             {canManage && (
                 <Card className="mb-6 max-w-3xl">
@@ -227,8 +227,8 @@ export default function CertificateTemplatesIndex({
                             {inUseTemplates?.length > 0 && (
                                 <>
                                     <SectionHeader
-                                        title="Currently in use for certificate generation"
-                                        description="One Bond template and one CAR template are used when generating certificates."
+                                        title="Currently in use for confirmation generation"
+                                        description="One Bond template and one CAR template are used when generating confirmations."
                                     />
                                     {inUseTemplates.map((template) => (
                                         <TemplateRow
@@ -282,7 +282,7 @@ export default function CertificateTemplatesIndex({
                     </table>
                     {!hasAnyRows && (
                         <p className="px-6 py-8 text-center text-sm text-slate-500">
-                            No certificate templates uploaded yet. Fallback templates in resources/templates/ will be
+                            No confirmation templates uploaded yet. Fallback templates in resources/templates/ will be
                             used.
                         </p>
                     )}

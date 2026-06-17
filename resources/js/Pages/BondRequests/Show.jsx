@@ -25,6 +25,7 @@ export default function Show({
     certificateVersions = [],
     canMakeVersionCurrent,
     canDeleteCertificateVersion,
+    showVersionGeneratedBy = true,
     signatoryOptions,
     notaryOptions,
 }) {
@@ -178,7 +179,7 @@ export default function Show({
                 if (firstError) {
                     addToast(Array.isArray(firstError) ? firstError[0] : firstError, 'error');
                 } else {
-                    addToast('Unable to generate certificate. Please check the form details.', 'error');
+                    addToast('Unable to generate confirmation. Please check the form details.', 'error');
                 }
             },
         });
@@ -223,12 +224,12 @@ export default function Show({
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            <SecondaryButton type="button">View Certificate</SecondaryButton>
+                            <SecondaryButton type="button">View Confirmation</SecondaryButton>
                         </a>
                     )}
                     {hasCertificate && (
                         <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
-                            <SecondaryButton type="button">Download Certificate</SecondaryButton>
+                            <SecondaryButton type="button">Download Confirmation</SecondaryButton>
                         </a>
                     )}
                     {hasDocx && (
@@ -292,7 +293,7 @@ export default function Show({
                             capitalize={false}
                         />
                         <Detail label="Attention" value={bondRequest.attention || '—'} capitalize={false} />
-                        <Detail label="Certificate type" value={bondRequest.certificate_type_label || '—'} />
+                        <Detail label="Confirmation type" value={bondRequest.certificate_type_label || '—'} />
                         <Detail
                             label="Expiry date or validity statement"
                             value={bondRequest.expiry_date || '—'}
@@ -353,7 +354,7 @@ export default function Show({
                     <CardHeader title="Approver review" />
                     <CardBody>
                         <p className="mb-4 text-sm text-slate-600">
-                            Certificate details are optional at approval. Complete them now or when generating the certificate.
+                            Confirmation details are optional at approval. Complete them now or when generating the confirmation.
                         </p>
                         <form onSubmit={submitApprove} className="grid gap-4 sm:grid-cols-2">
                             <SelectField
@@ -437,24 +438,24 @@ export default function Show({
 
             {['approved', 'notarized'].includes(status) && !canGenerateCertificate && (
                 <Card className="mt-6">
-                    <CardHeader title="Certificate" />
+                    <CardHeader title="Confirmation" />
                     <CardBody>
                         {hasCertificate ? (
                             <div className="flex flex-wrap items-center gap-3">
-                                <p className="text-sm text-slate-600">Your certificate is ready.</p>
+                                <p className="text-sm text-slate-600">Your confirmation is ready.</p>
                                 <a
                                     href={route('bond-requests.view-certificate', bondRequest.id)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 >
-                                    <SecondaryButton type="button">View Certificate</SecondaryButton>
+                                    <SecondaryButton type="button">View Confirmation</SecondaryButton>
                                 </a>
                                 <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
-                                    <SecondaryButton type="button">Download Certificate</SecondaryButton>
+                                    <SecondaryButton type="button">Download Confirmation</SecondaryButton>
                                 </a>
                             </div>
                         ) : (
-                            <p className="text-sm text-slate-500">Certificate not yet available.</p>
+                            <p className="text-sm text-slate-500">Confirmation not yet available.</p>
                         )}
                     </CardBody>
                 </Card>
@@ -463,7 +464,7 @@ export default function Show({
             {canGenerateCertificate && (
                 <Card className="mt-6">
                     <CardHeader
-                        title="Generate Certificate"
+                        title="Generate Confirmation"
                         action={
                             detailsAlreadySaved && (
                                 <button
@@ -527,7 +528,7 @@ export default function Show({
                                 )}
                                 <form onSubmit={submitGenerate}>
                                     <PrimaryButton disabled={generateForm.processing}>
-                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
+                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Confirmation' : 'Generate Confirmation'}
                                     </PrimaryButton>
                                 </form>
                             </div>
@@ -605,7 +606,7 @@ export default function Show({
                                 />
                                 <div className="flex flex-col gap-2 sm:col-span-2">
                                     <PrimaryButton disabled={generateForm.processing}>
-                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Certificate' : 'Generate Certificate'}
+                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Confirmation' : 'Generate Confirmation'}
                                     </PrimaryButton>
                                 </div>
                             </form>
@@ -616,7 +617,7 @@ export default function Show({
 
             {certificateVersions.length > 0 && (
                 <Card className="mt-6">
-                    <CardHeader title="Certificate Versions" />
+                    <CardHeader title="Confirmation Versions" />
                     <CardBody>
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -624,7 +625,9 @@ export default function Show({
                                     <tr className="text-left text-xs font-medium uppercase text-slate-500">
                                         <th className="px-3 py-2">Version</th>
                                         <th className="px-3 py-2">Type</th>
-                                        <th className="px-3 py-2">Generated By</th>
+                                        {showVersionGeneratedBy && (
+                                            <th className="px-3 py-2">Generated By</th>
+                                        )}
                                         <th className="px-3 py-2">Generated</th>
                                         <th className="px-3 py-2">Status</th>
                                         <th className="px-3 py-2">Actions</th>
@@ -635,7 +638,9 @@ export default function Show({
                                         <tr key={version.id}>
                                             <td className="px-3 py-3 font-medium text-slate-900">v{version.version_number}</td>
                                             <td className="px-3 py-3 text-slate-700">{version.certificate_type_label || '—'}</td>
-                                            <td className="px-3 py-3 text-slate-700">{version.generated_by?.name || '—'}</td>
+                                            {showVersionGeneratedBy && (
+                                                <td className="px-3 py-3 text-slate-700">{version.generated_by?.name || '—'}</td>
+                                            )}
                                             <td className="px-3 py-3 text-slate-700">
                                                 {version.generated_at
                                                     ? new Date(version.generated_at).toLocaleString()
@@ -724,8 +729,8 @@ export default function Show({
                 }
                 title={
                     versionToDelete
-                        ? `Delete certificate version v${versionToDelete.version_number}?`
-                        : 'Delete certificate version?'
+                        ? `Delete confirmation version v${versionToDelete.version_number}?`
+                        : 'Delete confirmation version?'
                 }
                 message="This permanently removes the version and its files. This cannot be undone."
                 confirmLabel="Delete"

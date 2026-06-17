@@ -73,7 +73,7 @@ class CertificateTemplateController extends Controller
 
         ActivityLogger::log(
             'template_uploaded',
-            "Certificate template {$template->template_name} ({$type->label()} v{$version}) uploaded.",
+            "Confirmation template {$template->template_name} ({$type->label()} v{$version}) uploaded.",
             $template,
             [
                 'template_type' => $type->value,
@@ -92,12 +92,12 @@ class CertificateTemplateController extends Controller
                 'template_type' => $type->value,
                 'version' => $version,
             ],
-            description: "Certificate template {$template->template_name} ({$type->label()} v{$version}) uploaded.",
+            description: "Confirmation template {$template->template_name} ({$type->label()} v{$version}) uploaded.",
         );
 
         return redirect()
             ->route('certificate-templates.index')
-            ->with('success', 'Certificate template uploaded successfully.');
+            ->with('success', 'Confirmation template uploaded successfully.');
     }
 
     public function activate(Request $request, CertificateTemplate $certificateTemplate): RedirectResponse
@@ -117,7 +117,7 @@ class CertificateTemplateController extends Controller
 
         ActivityLogger::log(
             'template_activated',
-            "Certificate template {$certificateTemplate->template_name} ({$certificateTemplate->template_type->label()} v{$certificateTemplate->version}) activated.",
+            "Confirmation template {$certificateTemplate->template_name} ({$certificateTemplate->template_type->label()} v{$certificateTemplate->version}) activated.",
             $certificateTemplate,
         );
 
@@ -128,10 +128,10 @@ class CertificateTemplateController extends Controller
             entityId: $certificateTemplate->id,
             oldValues: ['is_active' => false],
             newValues: ['is_active' => true],
-            description: "Certificate template {$certificateTemplate->template_name} activated.",
+            description: "Confirmation template {$certificateTemplate->template_name} activated.",
         );
 
-        return back()->with('success', 'Certificate template activated.');
+        return back()->with('success', 'Confirmation template activated.');
     }
 
     public function archive(Request $request, CertificateTemplate $certificateTemplate): RedirectResponse
@@ -147,7 +147,7 @@ class CertificateTemplateController extends Controller
 
         ActivityLogger::log(
             'template_archived',
-            "Certificate template {$certificateTemplate->template_name} ({$certificateTemplate->template_type->label()} v{$certificateTemplate->version}) archived.",
+            "Confirmation template {$certificateTemplate->template_name} ({$certificateTemplate->template_type->label()} v{$certificateTemplate->version}) archived.",
             $certificateTemplate,
         );
 
@@ -158,10 +158,10 @@ class CertificateTemplateController extends Controller
             entityId: $certificateTemplate->id,
             oldValues: ['archived_at' => null],
             newValues: ['archived_at' => $certificateTemplate->archived_at?->toIso8601String()],
-            description: "Certificate template {$certificateTemplate->template_name} archived.",
+            description: "Confirmation template {$certificateTemplate->template_name} archived.",
         );
 
-        return back()->with('success', 'Certificate template archived.');
+        return back()->with('success', 'Confirmation template archived.');
     }
 
     public function download(Request $request, CertificateTemplate $certificateTemplate): BinaryFileResponse
@@ -173,7 +173,7 @@ class CertificateTemplateController extends Controller
 
         ActivityLogger::log(
             'template_downloaded',
-            "Certificate template {$certificateTemplate->template_name} (v{$certificateTemplate->version}) downloaded.",
+            "Confirmation template {$certificateTemplate->template_name} (v{$certificateTemplate->version}) downloaded.",
             $certificateTemplate,
         );
 
@@ -182,7 +182,7 @@ class CertificateTemplateController extends Controller
             action: 'template_downloaded',
             entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
             entityId: $certificateTemplate->id,
-            description: "Certificate template {$certificateTemplate->template_name} downloaded.",
+            description: "Confirmation template {$certificateTemplate->template_name} downloaded.",
         );
 
         return response()->download($absolutePath, $certificateTemplate->original_filename);

@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleSlug;
 use App\Http\Requests\Obligee\StoreObligeeRequest;
 use App\Http\Requests\Obligee\UpdateObligeeRequest;
 use App\Models\Obligee;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\GeneratedCertificateObligeeService;
+use App\Services\KycObligeeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,11 +17,40 @@ use Inertia\Response;
 
 class ObligeeController extends Controller
 {
+    public function __construct(
+        private KycObligeeService $kycObligeeService,
+        private GeneratedCertificateObligeeService $generatedCertificateObligeeService,
+    ) {}
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Obligee::class);
 
         $search = $request->string('search')->trim()->toString();
+        $user = $request->user();
+        $user->loadMissing('branch');
+
+        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+            return Inertia::render('Obligees/Index', [
+                'kycObligees' => $this->kycObligeeService->paginate($search !== '' ? $search : null),
+                'certificateObligeesFromKyc' => $this->generatedCertificateObligeeService->paginateFromKyc($request),
+                'certificateObligeesTyped' => $this->generatedCertificateObligeeService->paginateTyped($request),
+                'filters' => $request->only(['search']),
+                'kycView' => true,
+                'branchConfirmationsView' => false,
+            ]);
+        }
+
+        if ($this->usesBranchConfirmationRecords($user)) {
+            return Inertia::render('Obligees/Index', [
+                'certificateObligeesFromKyc' => $this->generatedCertificateObligeeService->paginateFromKyc($request, branchId: $user->branch_id),
+                'certificateObligeesTyped' => $this->generatedCertificateObligeeService->paginateTyped($request, branchId: $user->branch_id),
+                'filters' => $request->only(['search']),
+                'kycView' => false,
+                'branchConfirmationsView' => true,
+                'branchName' => $user->branch?->name,
+            ]);
+        }
 
         $obligees = Obligee::query()
             ->when($search, function ($query) use ($search) {
@@ -34,6 +67,8 @@ class ObligeeController extends Controller
         return Inertia::render('Obligees/Index', [
             'obligees' => $obligees,
             'filters' => $request->only(['search']),
+            'kycView' => false,
+            'branchConfirmationsView' => false,
         ]);
     }
 
@@ -94,5 +129,10 @@ class ObligeeController extends Controller
         ActivityLogger::log('deleted', "Obligee {$name} deleted.", $obligee);
 
         return redirect()->route('obligees.index')->with('success', 'Obligee deleted successfully.');
+    }
+
+    private function usesBranchConfirmationRecords(User $user): bool
+    {
+        return $user->hasRole(RoleSlug::Requester) || $user->hasRole(RoleSlug::Encoder);
     }
 }

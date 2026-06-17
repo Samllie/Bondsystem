@@ -307,6 +307,7 @@ class CertificateVersioningTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('BondRequests/Show')
+                ->where('showVersionGeneratedBy', false)
                 ->has('certificateVersions', 1)
                 ->where('certificateVersions.0.version_number', 1)
             );
@@ -370,6 +371,7 @@ class CertificateVersioningTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('BondRequests/Show')
+                ->where('showVersionGeneratedBy', true)
                 ->where('canDeleteCertificateVersion', true)
             );
     }

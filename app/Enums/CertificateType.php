@@ -10,8 +10,8 @@ enum CertificateType: string
     public function label(): string
     {
         return match ($this) {
-            self::BondCertificate => 'Bond Certificate',
-            self::CarCertificate => 'CAR Certificate',
+            self::BondCertificate => 'Bond Confirmation',
+            self::CarCertificate => 'CAR Confirmation',
         };
     }
 

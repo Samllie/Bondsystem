@@ -53,7 +53,7 @@ export default function CertificateScanModal({
         const searchValue = parseCertificateScanValue(rawValue);
 
         if (! searchValue) {
-            setError('The scanned QR code did not contain a recognizable certificate reference.');
+            setError('The scanned QR code did not contain a recognizable confirmation reference.');
             return;
         }
 
@@ -189,9 +189,9 @@ export default function CertificateScanModal({
             <div className="p-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
-                        <h3 className="text-lg font-semibold text-slate-900">Scan Certificate QR</h3>
+                        <h3 className="text-lg font-semibold text-slate-900">Scan Confirmation QR</h3>
                         <p className="mt-1 text-sm text-slate-600">
-                            Scan a certificate QR code to search this table by confirmation number or verification token.
+                            Scan a confirmation QR code to search this table by confirmation number or verification token.
                         </p>
                     </div>
                     <button
@@ -263,14 +263,14 @@ export default function CertificateScanModal({
                         )}
                         <p className="mt-3 text-xs text-slate-500">
                             {cameraActive
-                                ? 'Point your camera at the certificate QR code. Scanning starts automatically.'
+                                ? 'Point your camera at the confirmation QR code. Scanning starts automatically.'
                                 : 'Click Start Camera and allow browser permission when prompted.'}
                         </p>
                     </div>
                 ) : (
                     <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center">
                         <p className="text-sm text-slate-600">
-                            Upload a PNG or JPG image containing the certificate QR code.
+                            Upload a PNG or JPG image containing the confirmation QR code.
                         </p>
                         <p className="mt-2 text-xs text-slate-500">
                             Photos of screens work best when the QR code fills most of the image. Crop tightly around the code if scanning fails.

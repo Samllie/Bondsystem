@@ -37,7 +37,7 @@ class TemplateDataBuilderTest extends TestCase
     public function test_throws_when_certificate_type_is_null(): void
     {
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('has no certificate type');
+        $this->expectExceptionMessage('has no confirmation type');
 
         $bondRequest = BondRequest::factory()->approved()->create([
             'certificate_type' => null,

@@ -107,11 +107,11 @@ export default function Dashboard({
                                 <table className="dashboard-report-table min-w-full text-sm">
                                     <thead className="bg-slate-50">
                                         <tr>
-                                            {['Bond #', 'Amount', 'Status', 'Date', 'Certificate'].map((h) => (
+                                            {['Bond #', 'Amount', 'Status', 'Date', 'Confirmation'].map((h) => (
                                                 <th
                                                     key={h}
                                                     className={`px-4 py-3 text-left text-xs font-medium text-slate-500 ${
-                                                        h === 'Certificate' ? 'print-hide-certificate-col' : ''
+                                                        h === 'Confirmation' ? 'print-hide-certificate-col' : ''
                                                     } ${h === 'Amount' ? 'print-amount' : ''}`}
                                                 >
                                                     {h}

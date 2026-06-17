@@ -10,7 +10,7 @@ export default function DashboardBondsTable({ bondRecords, variant = 'requester'
 
     const headings = isAdmin
         ? ['Bond #', 'Type', 'Principal', 'Obligee', 'Requester', 'Branch', 'Amount', 'Status', 'Date']
-        : ['Bond #', 'Type', 'Principal', 'Amount', 'Status', 'Date', 'Certificate'];
+        : ['Bond #', 'Type', 'Principal', 'Amount', 'Status', 'Date', 'Confirmation'];
 
     return (
         <Card className="dashboard-report-card">
@@ -33,7 +33,7 @@ export default function DashboardBondsTable({ bondRecords, variant = 'requester'
                                     <th
                                         key={heading}
                                         className={`px-4 py-3 text-left text-xs font-medium text-slate-500 ${
-                                            heading === 'Certificate' ? 'print-hide-certificate-col' : ''
+                                            heading === 'Confirmation' ? 'print-hide-certificate-col' : ''
                                         } ${heading === 'Amount' ? 'print-amount' : ''}`}
                                     >
                                         {heading}

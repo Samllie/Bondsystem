@@ -37,11 +37,11 @@ class CertificateVersionController extends Controller
         abort_if($relativePath === null, 404, 'No certificate file available for this version.');
 
         $absolutePath = storage_path('app/'.$relativePath);
-        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
+        abort_unless(file_exists($absolutePath), 404, 'Confirmation file not found.');
 
         ActivityLogger::log(
             'certificate_version_viewed',
-            "Certificate version {$certificateVersion->version_number} viewed for bond request #{$certificateVersion->bond_request_id}.",
+            "Confirmation version {$certificateVersion->version_number} viewed for bond request #{$certificateVersion->bond_request_id}.",
             $certificateVersion,
         );
 
@@ -50,7 +50,7 @@ class CertificateVersionController extends Controller
             action: 'certificate_viewed',
             entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
             entityId: $certificateVersion->id,
-            description: "Certificate version {$certificateVersion->version_number} viewed for bond request #{$certificateVersion->bond_request_id}.",
+            description: "Confirmation version {$certificateVersion->version_number} viewed for bond request #{$certificateVersion->bond_request_id}.",
         );
 
         $extension = pathinfo($relativePath, PATHINFO_EXTENSION);
@@ -74,11 +74,11 @@ class CertificateVersionController extends Controller
         abort_if($relativePath === null, 404, 'No certificate file available for this version.');
 
         $absolutePath = storage_path('app/'.$relativePath);
-        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
+        abort_unless(file_exists($absolutePath), 404, 'Confirmation file not found.');
 
         ActivityLogger::log(
             'certificate_version_downloaded',
-            "Certificate version {$certificateVersion->version_number} downloaded for bond request #{$certificateVersion->bond_request_id}.",
+            "Confirmation version {$certificateVersion->version_number} downloaded for bond request #{$certificateVersion->bond_request_id}.",
             $certificateVersion,
         );
 
@@ -87,7 +87,7 @@ class CertificateVersionController extends Controller
             action: 'certificate_downloaded',
             entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
             entityId: $certificateVersion->id,
-            description: "Certificate version {$certificateVersion->version_number} downloaded for bond request #{$certificateVersion->bond_request_id}.",
+            description: "Confirmation version {$certificateVersion->version_number} downloaded for bond request #{$certificateVersion->bond_request_id}.",
         );
 
         $extension = pathinfo($relativePath, PATHINFO_EXTENSION);
@@ -108,7 +108,7 @@ class CertificateVersionController extends Controller
 
         ActivityLogger::log(
             'certificate_version_downloaded',
-            "Certificate version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
+            "Confirmation version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
             $certificateVersion,
             ['format' => 'docx'],
         );
@@ -118,7 +118,7 @@ class CertificateVersionController extends Controller
             action: 'certificate_downloaded',
             entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
             entityId: $certificateVersion->id,
-            description: "Certificate version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
+            description: "Confirmation version {$certificateVersion->version_number} DOCX downloaded for bond request #{$certificateVersion->bond_request_id}.",
         );
 
         $filename = $this->downloadFilename($certificateVersion, 'docx');
@@ -134,7 +134,7 @@ class CertificateVersionController extends Controller
 
         $currentPath = $certificateVersion->currentPdfPath();
         abort_if($currentPath === null, 404, 'No certificate file available for this version.');
-        abort_unless(file_exists(storage_path('app/'.$currentPath)), 404, 'Certificate file not found.');
+        abort_unless(file_exists(storage_path('app/'.$currentPath)), 404, 'Confirmation file not found.');
 
         DB::transaction(function () use ($certificateVersion, $bondRequest, $currentPath): void {
             CertificateVersion::query()
@@ -152,7 +152,7 @@ class CertificateVersionController extends Controller
 
         ActivityLogger::log(
             'certificate_version_made_current',
-            "Certificate version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
+            "Confirmation version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
             $certificateVersion,
         );
 
@@ -163,10 +163,10 @@ class CertificateVersionController extends Controller
             entityId: $certificateVersion->id,
             oldValues: ['is_current' => false],
             newValues: ['is_current' => true, 'bond_request_id' => $bondRequest->id],
-            description: "Certificate version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
+            description: "Confirmation version {$certificateVersion->version_number} marked current for bond request #{$bondRequest->id}.",
         );
 
-        return back()->with('success', 'Certificate version marked as current.');
+        return back()->with('success', 'Confirmation version marked as current.');
     }
 
     public function destroy(Request $request, CertificateVersion $certificateVersion): RedirectResponse
@@ -190,13 +190,13 @@ class CertificateVersionController extends Controller
 
         ActivityLogger::log(
             'certificate_version_deleted',
-            "Certificate version {$versionNumber} deleted for bond request #{$bondRequestId}.",
+            "Confirmation version {$versionNumber} deleted for bond request #{$bondRequestId}.",
             $certificateVersion,
         );
 
         $certificateVersion->delete();
 
-        return back()->with('success', 'Certificate version deleted.');
+        return back()->with('success', 'Confirmation version deleted.');
     }
 
     /**
@@ -220,7 +220,7 @@ class CertificateVersionController extends Controller
     private function downloadFilename(CertificateVersion $version, string $extension): string
     {
         $bondRequest = $version->bondRequest;
-        $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Certificate';
+        $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Confirmation';
         $bond = trim((string) ($bondRequest->bond_number ?? ''));
         $label = $bond !== '' ? "{$obligee} - {$bond}" : $obligee;
 

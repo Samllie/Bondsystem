@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleSlug;
 use App\Http\Requests\Principal\StorePrincipalRequest;
 use App\Http\Requests\Principal\UpdatePrincipalRequest;
 use App\Models\Principal;
+use App\Models\User;
 use App\Services\ActivityLogger;
+use App\Services\GeneratedCertificatePrincipalService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -13,11 +16,33 @@ use Inertia\Response;
 
 class PrincipalController extends Controller
 {
+    public function __construct(private GeneratedCertificatePrincipalService $generatedCertificatePrincipalService) {}
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Principal::class);
 
         $search = $request->string('search')->trim()->toString();
+        $user = $request->user();
+        $user->loadMissing('branch');
+
+        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+            return Inertia::render('Principals/Index', [
+                'principals' => $this->generatedCertificatePrincipalService->paginate($request),
+                'filters' => $request->only(['search']),
+                'generatedCertificatesView' => true,
+                'branchName' => null,
+            ]);
+        }
+
+        if ($this->usesBranchConfirmationRecords($user)) {
+            return Inertia::render('Principals/Index', [
+                'principals' => $this->generatedCertificatePrincipalService->paginate($request, branchId: $user->branch_id),
+                'filters' => $request->only(['search']),
+                'generatedCertificatesView' => true,
+                'branchName' => $user->branch?->name,
+            ]);
+        }
 
         $principals = Principal::query()
             ->when($search, function ($query) use ($search) {
@@ -34,6 +59,7 @@ class PrincipalController extends Controller
         return Inertia::render('Principals/Index', [
             'principals' => $principals,
             'filters' => $request->only(['search']),
+            'generatedCertificatesView' => false,
         ]);
     }
 
@@ -94,5 +120,10 @@ class PrincipalController extends Controller
         ActivityLogger::log('deleted', "Principal {$name} deleted.", $principal);
 
         return redirect()->route('principals.index')->with('success', 'Principal deleted successfully.');
+    }
+
+    private function usesBranchConfirmationRecords(User $user): bool
+    {
+        return $user->hasRole(RoleSlug::Requester) || $user->hasRole(RoleSlug::Encoder);
     }
 }

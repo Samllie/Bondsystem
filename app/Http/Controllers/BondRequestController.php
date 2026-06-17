@@ -195,6 +195,7 @@ class BondRequestController extends Controller
             'hasDocx' => $bondRequest->docx_path !== null,
             'canMakeVersionCurrent' => $canMakeVersionCurrent,
             'canDeleteCertificateVersion' => $canDeleteCertificateVersion,
+            'showVersionGeneratedBy' => ! $user->hasRole(RoleSlug::Requester),
             'certificateVersions' => $bondRequest->certificateVersions()
                 ->with('generatedBy:id,name')
                 ->get()
@@ -372,7 +373,7 @@ class BondRequestController extends Controller
         abort_unless(
             in_array($bondRequest->status->value, [BondRequestStatus::Approved->value, BondRequestStatus::Notarized->value], true),
             422,
-            'Certificate can only be generated for approved or notarized bond requests.',
+            'Confirmation can only be generated for approved or notarized bond requests.',
         );
 
         if ($bondRequest->include_endorsement_number && blank($bondRequest->endorsement_number)) {
@@ -428,10 +429,10 @@ class BondRequestController extends Controller
                 'exception' => $e,
             ]);
 
-            return back()->with('error', 'Certificate generation failed: '.$e->getMessage());
+            return back()->with('error', 'Confirmation generation failed: '.$e->getMessage());
         }
 
-        ActivityLogger::log('generated', "Certificate generated for bond request {$bondRequest->bond_number}.", $bondRequest);
+        ActivityLogger::log('generated', "Confirmation generated for bond request {$bondRequest->bond_number}.", $bondRequest);
 
         $bondRequest->refresh();
         $version = $bondRequest->certificateVersions()->latest('version_number')->first();
@@ -446,22 +447,22 @@ class BondRequestController extends Controller
                 'version_number' => $version?->version_number,
             ],
             description: $version
-                ? "Generated bond certificate version {$version->version_number} for {$bondRequest->bond_number}."
-                : "Generated bond certificate for {$bondRequest->bond_number}.",
+                ? "Generated bond confirmation version {$version->version_number} for {$bondRequest->bond_number}."
+                : "Generated bond confirmation for {$bondRequest->bond_number}.",
         );
 
         $this->notificationService->certificateGenerated($bondRequest);
 
-        return back()->with('success', 'Certificate generated successfully.');
+        return back()->with('success', 'Confirmation generated successfully.');
     }
 
     public function viewCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
     {
         $this->authorize('viewCertificate', $bondRequest);
-        abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
+        abort_if($bondRequest->certificate_path === null, 404, 'No confirmation has been generated yet.');
 
         $absolutePath = storage_path('app/'.$bondRequest->certificate_path);
-        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
+        abort_unless(file_exists($absolutePath), 404, 'Confirmation file not found.');
 
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
         $filename = $this->certificateFilename($bondRequest, $extension);
@@ -472,7 +473,7 @@ class BondRequestController extends Controller
             action: 'certificate_viewed',
             entityType: AuditLogService::ENTITY_BOND_REQUEST,
             entityId: $bondRequest->id,
-            description: "Certificate viewed for bond request {$bondRequest->bond_number}.",
+            description: "Confirmation viewed for bond request {$bondRequest->bond_number}.",
         );
 
         return response()->file(
@@ -487,10 +488,10 @@ class BondRequestController extends Controller
     public function downloadCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
     {
         $this->authorize('viewCertificate', $bondRequest);
-        abort_if($bondRequest->certificate_path === null, 404, 'No certificate has been generated yet.');
+        abort_if($bondRequest->certificate_path === null, 404, 'No confirmation has been generated yet.');
 
         $absolutePath = storage_path('app/'.$bondRequest->certificate_path);
-        abort_unless(file_exists($absolutePath), 404, 'Certificate file not found.');
+        abort_unless(file_exists($absolutePath), 404, 'Confirmation file not found.');
 
         $extension = pathinfo($bondRequest->certificate_path, PATHINFO_EXTENSION);
         $filename = $this->certificateFilename($bondRequest, $extension);
@@ -500,7 +501,7 @@ class BondRequestController extends Controller
             action: 'certificate_downloaded',
             entityType: AuditLogService::ENTITY_BOND_REQUEST,
             entityId: $bondRequest->id,
-            description: "Certificate downloaded for bond request {$bondRequest->bond_number}.",
+            description: "Confirmation downloaded for bond request {$bondRequest->bond_number}.",
         );
 
         return response()->download($absolutePath, $filename);
@@ -524,7 +525,7 @@ class BondRequestController extends Controller
      */
     private function certificateFilename(BondRequest $bondRequest, string $extension): string
     {
-        $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Certificate';
+        $obligee = trim((string) ($bondRequest->obligee_name ?? '')) ?: 'Confirmation';
         $bond = trim((string) ($bondRequest->bond_number ?? ''));
         $name = $bond !== '' ? "{$obligee} - {$bond}" : $obligee;
 

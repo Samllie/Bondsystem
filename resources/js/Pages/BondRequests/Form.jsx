@@ -350,7 +350,7 @@ export default function Form({
                 <CardBody>
                     <form onSubmit={submit} encType="multipart/form-data" className="space-y-6">
                         <section className="space-y-4">
-                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Certificate request</h2>
+                            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Confirmation request</h2>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 {certificateTypeOptions.map((option) => (
                                     <label
@@ -420,7 +420,7 @@ export default function Form({
                                     <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
                                 </label>
                                 {isCarCertificate && (
-                                    <p className="mt-2 text-xs text-slate-500">Not used for CAR certificates.</p>
+                                    <p className="mt-2 text-xs text-slate-500">Not used for CAR confirmations.</p>
                                 )}
                             </div>
                             {data.include_endorsement_number && !isCarCertificate && (
@@ -428,7 +428,7 @@ export default function Form({
                                     label="Endorsement Number"
                                     value={data.endorsement_number}
                                     onChange={(e) => setData('endorsement_number', e.target.value)}
-                                    placeholder="For [[Endorsement No.]] in the certificate template"
+                                    placeholder="For [[Endorsement No.]] in the confirmation template"
                                     error={errors.endorsement_number}
                                     required
                                 />
