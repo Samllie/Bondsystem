@@ -1,5 +1,6 @@
+import BackLink from '@/Components/UI/BackLink';
 import GuestLayout from '@/Layouts/GuestLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 
 function Detail({ label, value }) {
     return (
@@ -25,9 +26,17 @@ export default function Show({
     generatedDate,
     currentVersionNumber,
 }) {
+    const { auth } = usePage().props;
+    const backHref = auth?.user ? route('dashboard') : route('login');
+    const backLabel = auth?.user ? 'Back to Dashboard' : 'Back to Login';
+
     return (
         <GuestLayout unified>
             <Head title={valid ? 'Confirmation Verified' : 'Invalid Confirmation'} />
+
+            <BackLink href={backHref} className="mb-0">
+                {backLabel}
+            </BackLink>
 
             {!valid ? (
                 <div className="text-center">

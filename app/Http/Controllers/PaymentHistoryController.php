@@ -24,6 +24,7 @@ class PaymentHistoryController extends Controller
             'bondRequest:id,bond_number,bond_type,status,principal_id,obligee_id,obligee_name',
             'bondRequest.principal:id,company_name',
         ])
+            ->where('description', 'like', 'Document fee —%')
             ->when(! $isAdmin, fn ($q) => $q->where('user_id', $user->id))
             ->when($isAdmin, fn ($q) => BranchScope::applyUserRelationScope($q, $user, $branchId))
             ->when($request->string('search')->trim()->toString(), function ($q, $search) {

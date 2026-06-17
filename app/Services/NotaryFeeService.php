@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\TransactionType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\Branch;
+use App\Models\PaymentHistory;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -86,7 +87,7 @@ class NotaryFeeService
                 ?? $bondRequest->car
                 ?? "BR-{$bondRequest->id}";
 
-            return Transaction::create([
+            $transaction = Transaction::create([
                 'user_id' => $lockedUser->id,
                 'branch_id' => $branch->id,
                 'type' => TransactionType::Debit->value,
@@ -98,6 +99,18 @@ class NotaryFeeService
                 'subject_type' => BondRequest::class,
                 'subject_id' => $bondRequest->id,
             ]);
+
+            PaymentHistory::updateOrCreate(
+                ['bond_request_id' => $bondRequest->id],
+                [
+                    'user_id' => $lockedUser->id,
+                    'amount' => $fee,
+                    'description' => "Document fee — {$reference}",
+                    'paid_at' => now(),
+                ],
+            );
+
+            return $transaction;
         });
     }
 

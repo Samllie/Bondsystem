@@ -1,4 +1,5 @@
 const CONFIRMATION_PATTERN = /^SICI-(BOND|CAR)-\d{4}-[A-F0-9]{8}-V\d+$/i;
+const CONFIRMATION_HEX_SEGMENT_PATTERN = /^[A-F0-9]{8}$/i;
 const TOKEN_PATH_PATTERN = /\/verify-certificate\/([a-f0-9]{64})\/?$/i;
 const MAX_DECODE_DIMENSION = 2200;
 
@@ -31,6 +32,12 @@ export function parseCertificateScanValue(raw) {
 
     if (CONFIRMATION_PATTERN.test(value)) {
         return value.toUpperCase();
+    }
+
+    const hexSegment = value.toUpperCase();
+
+    if (CONFIRMATION_HEX_SEGMENT_PATTERN.test(hexSegment)) {
+        return hexSegment;
     }
 
     return value;

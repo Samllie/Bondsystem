@@ -1,5 +1,6 @@
 import PrimaryButton from '@/Components/PrimaryButton';
 import Card, { CardBody } from '@/Components/UI/Card';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import { SelectField, TextField } from '@/Components/UI/FormField';
 import Pagination from '@/Components/UI/Pagination';
 import StatusBadge from '@/Components/UI/StatusBadge';
@@ -87,12 +88,12 @@ function TemplateRow({ template, canManage, onActivate, onArchive, highlight = f
             </td>
             <td className="px-4 py-3">
                 <div className="flex flex-wrap justify-end gap-2">
-                    <Link
+                    <FileDownloadLink
                         href={downloadHref}
                         className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                     >
                         Download
-                    </Link>
+                    </FileDownloadLink>
                     {canManage && template.id && !template.archived_at && !template.is_active && (
                         <button
                             type="button"

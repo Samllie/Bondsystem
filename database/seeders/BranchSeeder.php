@@ -66,6 +66,7 @@ class BranchSeeder extends Seeder
                     'branch_city' => $branch['branch_city'],
                     'contact' => $branch['contact'],
                     'notary_price' => self::SAMPLE_NOTARY_PRICE,
+                    'minimum_balance' => 1000,
                     'is_active' => true,
                 ],
             );

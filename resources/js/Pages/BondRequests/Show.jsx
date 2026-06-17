@@ -3,6 +3,7 @@ import PrimaryButton from '@/Components/PrimaryButton';
 import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
 import ConfirmModal from '@/Components/UI/ConfirmModal';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import { SelectField, TextField } from '@/Components/UI/FormField';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import { useToast } from '@/Contexts/ToastContext';
@@ -228,14 +229,14 @@ export default function Show({
                         </a>
                     )}
                     {hasCertificate && (
-                        <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
-                            <SecondaryButton type="button">Download Confirmation</SecondaryButton>
-                        </a>
+                        <FileDownloadLink href={route('bond-requests.download-certificate', bondRequest.id)}>
+                            Download Confirmation
+                        </FileDownloadLink>
                     )}
                     {hasDocx && (
-                        <a href={route('bond-requests.download-docx', bondRequest.id)} download>
-                            <SecondaryButton type="button">Download DOCX</SecondaryButton>
-                        </a>
+                        <FileDownloadLink href={route('bond-requests.download-docx', bondRequest.id)}>
+                            Download DOCX
+                        </FileDownloadLink>
                     )}
                     {canDelete && (
                         <SecondaryButton onClick={() => setDeleteOpen(true)} className="!text-red-600">
@@ -450,9 +451,9 @@ export default function Show({
                                 >
                                     <SecondaryButton type="button">View Confirmation</SecondaryButton>
                                 </a>
-                                <a href={route('bond-requests.download-certificate', bondRequest.id)} download>
-                                    <SecondaryButton type="button">Download Confirmation</SecondaryButton>
-                                </a>
+                                <FileDownloadLink href={route('bond-requests.download-certificate', bondRequest.id)}>
+                                    Download Confirmation
+                                </FileDownloadLink>
                             </div>
                         ) : (
                             <p className="text-sm text-slate-500">Confirmation not yet available.</p>
@@ -667,14 +668,14 @@ export default function Show({
                                                         </a>
                                                     )}
                                                     {(version.has_pdf || version.has_docx) && (
-                                                        <a href={route('certificate-versions.download', version.id)} download>
-                                                            <SecondaryButton type="button">Download PDF</SecondaryButton>
-                                                        </a>
+                                                        <FileDownloadLink href={route('certificate-versions.download', version.id)}>
+                                                            Download PDF
+                                                        </FileDownloadLink>
                                                     )}
                                                     {version.has_docx && (
-                                                        <a href={route('certificate-versions.download-docx', version.id)} download>
-                                                            <SecondaryButton type="button">Download DOCX</SecondaryButton>
-                                                        </a>
+                                                        <FileDownloadLink href={route('certificate-versions.download-docx', version.id)}>
+                                                            Download DOCX
+                                                        </FileDownloadLink>
                                                     )}
                                                     {canMakeVersionCurrent && !version.is_current && (
                                                         <SecondaryButton

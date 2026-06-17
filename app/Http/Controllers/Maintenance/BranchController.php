@@ -43,6 +43,7 @@ class BranchController extends MaintenanceController
             'address' => ['nullable', 'string'],
             'contact' => ['nullable', 'string', 'max:100'],
             'notary_price' => ['nullable', 'numeric', 'min:0'],
+            'minimum_balance' => ['required', 'numeric', 'min:0'],
             'is_active' => ['boolean'],
         ];
     }

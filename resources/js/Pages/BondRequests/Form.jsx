@@ -64,8 +64,11 @@ export default function Form({
     partyTypeOptions,
     supportingDocuments = [],
     requesterBranchCode = '',
+    branchFund = null,
 }) {
     const isEdit = Boolean(bondRequest?.id);
+    const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
+    const hasInsufficientBranchFund = !isEdit && branchFund && !branchFund.canSubmit;
     const [removedSupportingDocuments, setRemovedSupportingDocuments] = useState([]);
 
     const remainingSupportingDocumentSlots = Math.max(
@@ -348,6 +351,17 @@ export default function Form({
 
             <Card className="max-w-3xl">
                 <CardBody>
+                    {hasInsufficientBranchFund && (
+                        <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                            <p className="font-semibold">Insufficient branch fund</p>
+                            <p className="mt-1">
+                                {branchFund.branchName ? `${branchFund.branchName} fund` : 'Your branch fund'} is{' '}
+                                {php(branchFund.balance)}. A minimum balance of {php(branchFund.minimumBalance)} is required
+                                to submit a request. Please submit a deposit before creating a new request.
+                            </p>
+                        </div>
+                    )}
+
                     <form onSubmit={submit} encType="multipart/form-data" className="space-y-6">
                         <section className="space-y-4">
                             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Confirmation request</h2>
@@ -756,10 +770,13 @@ export default function Form({
                             )}
                             <InputError message={errors.supporting_documents} className="mt-2" />
                             <InputError message={errors['supporting_documents.0']} className="mt-2" />
+                            <InputError message={errors.branch_balance} className="mt-2" />
                         </section>
 
                         <div className="flex gap-3">
-                            <PrimaryButton disabled={processing}>{isEdit ? 'Update' : 'Create'}</PrimaryButton>
+                            <PrimaryButton disabled={processing || hasInsufficientBranchFund}>
+                                {isEdit ? 'Update' : 'Create'}
+                            </PrimaryButton>
                             <Link href={route('bond-requests.index')}>
                                 <SecondaryButton type="button">Cancel</SecondaryButton>
                             </Link>

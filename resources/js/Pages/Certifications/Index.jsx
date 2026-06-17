@@ -2,6 +2,7 @@ import BranchFilter from '@/Components/Report/BranchFilter';
 import CertificateScanModal from '@/Components/Certifications/CertificateScanModal';
 import PrintReportButton from '@/Components/Report/PrintReportButton';
 import ReportPrintHeader from '@/Components/Report/ReportPrintHeader';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import Pagination from '@/Components/UI/Pagination';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
 import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
@@ -223,19 +224,19 @@ export default function Index({
                                             >
                                                 View
                                             </a>
-                                            <a
+                                            <FileDownloadLink
                                                 href={route('bond-requests.download-certificate', cert.id)}
                                                 className="text-sterling-green hover:underline"
                                             >
                                                 Download
-                                            </a>
+                                            </FileDownloadLink>
                                             {cert.has_docx && (
-                                                <a
+                                                <FileDownloadLink
                                                     href={route('bond-requests.download-docx', cert.id)}
                                                     className="text-slate-500 hover:underline"
                                                 >
                                                     DOCX
-                                                </a>
+                                                </FileDownloadLink>
                                             )}
                                         </div>
                                     </td>

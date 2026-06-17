@@ -122,7 +122,7 @@ class BondRequestFormTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
-    public function test_bond_request_creation_succeeds_even_when_balance_is_insufficient_for_notary_fee(): void
+    public function test_bond_request_creation_succeeds_when_balance_meets_minimum_but_is_below_notary_fee(): void
     {
         $this->mock(KycObligeeService::class, function ($mock): void {
             $mock->shouldReceive('find')->andReturn([
@@ -132,7 +132,7 @@ class BondRequestFormTest extends TestCase
             ]);
         });
 
-        $requester = $this->requesterUser('MKT', balance: 100, notaryPrice: 500);
+        $requester = $this->requesterUser('MKT', balance: 1000, notaryPrice: 500);
         $principal = Principal::factory()->create();
         $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
 
@@ -152,8 +152,46 @@ class BondRequestFormTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseCount('bond_requests', 1);
-        $this->assertEquals(100, (float) $requester->branch->fresh()->balance);
+        $this->assertEquals(1000, (float) $requester->branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_bond_request_creation_is_rejected_when_branch_balance_is_below_minimum(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 999, minimumBalance: 1000);
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $response->assertSessionHasErrors('branch_balance');
+        $this->assertDatabaseCount('bond_requests', 0);
+    }
+
+    public function test_create_form_includes_branch_fund_requirements(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 999, minimumBalance: 1000);
+
+        $this->actingAs($requester)
+            ->get(route('bond-requests.create'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('BondRequests/Form')
+                ->where('branchFund.balance', 999)
+                ->where('branchFund.minimumBalance', 1000)
+                ->where('branchFund.canSubmit', false)
+            );
     }
 
     public function test_approval_with_notary_does_not_charge_notary_fee_until_generation(): void
@@ -881,7 +919,7 @@ class BondRequestFormTest extends TestCase
         $response->assertSessionHasErrors('supporting_documents.0');
     }
 
-    private function requesterUser(string $branchCode = 'CEB', float $balance = 10000, float $notaryPrice = 500): User
+    private function requesterUser(string $branchCode = 'CEB', float $balance = 10000, float $notaryPrice = 500, float $minimumBalance = 1000): User
     {
         $role = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
         $branch = Branch::query()->create([
@@ -889,6 +927,7 @@ class BondRequestFormTest extends TestCase
             'branch_code' => $branchCode,
             'address' => 'Branch City',
             'notary_price' => $notaryPrice,
+            'minimum_balance' => $minimumBalance,
             'balance' => $balance,
             'is_active' => true,
         ]);

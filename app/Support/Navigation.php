@@ -50,6 +50,17 @@ class Navigation
             ];
         }
 
+        $items[] = [
+            'type' => 'link',
+            'name' => 'Verify Confirmation',
+            'href' => route('certificate-verification.search'),
+            'icon' => 'certificate',
+            'routes' => [
+                'certificate-verification.search',
+                'certificate-verification.show',
+            ],
+        ];
+
         if ($user->hasPermission('obligees.view')) {
             $items[] = [
                 'type' => 'link',

@@ -1,4 +1,5 @@
 import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import Pagination from '@/Components/UI/Pagination';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import { Link } from '@inertiajs/react';
@@ -80,12 +81,12 @@ export default function DashboardBondsTable({ bondRecords, variant = 'requester'
                                                             View
                                                         </a>
                                                         <span className="text-slate-300">|</span>
-                                                        <a
+                                                        <FileDownloadLink
                                                             href={route('bond-requests.download-certificate', record.id)}
                                                             className="text-xs font-medium text-sterling-green hover:underline"
                                                         >
                                                             Download
-                                                        </a>
+                                                        </FileDownloadLink>
                                                     </div>
                                                 ) : (
                                                     <span className="text-xs text-slate-400">Not yet available</span>

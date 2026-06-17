@@ -253,6 +253,24 @@ class CertificateVerificationTest extends TestCase
         ]));
     }
 
+    public function test_confirmation_number_search_accepts_eight_character_hex_segment(): void
+    {
+        $version = CertificateVersion::factory()->create([
+            'bond_request_id' => BondRequest::factory()->approved()->create()->id,
+            'confirmation_number' => 'SICI-BOND-2026-67F3CB62-V1',
+            'verification_token' => bin2hex(random_bytes(32)),
+            'is_current' => true,
+        ]);
+
+        $response = $this->post(route('certificate-verification.lookup'), [
+            'confirmation_number' => '67f3cb62',
+        ]);
+
+        $response->assertRedirect(route('certificate-verification.show', [
+            'verification_token' => $version->verification_token,
+        ]));
+    }
+
     public function test_audit_log_is_created_for_successful_verification(): void
     {
         $version = $this->certificateVersion(isCurrent: true);

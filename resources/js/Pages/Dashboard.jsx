@@ -6,6 +6,7 @@ import DashboardPrintSummary from '@/Components/Dashboard/DashboardPrintSummary'
 import DashboardTransactionsTable from '@/Components/Dashboard/DashboardTransactionsTable';
 import DashboardViewToggle from '@/Components/Dashboard/DashboardViewToggle';
 import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import StatCard from '@/Components/UI/StatCard';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import AppLayout from '@/Layouts/AppLayout';
@@ -148,12 +149,12 @@ export default function Dashboard({
                                                                     View
                                                                 </a>
                                                                 <span className="text-slate-300">|</span>
-                                                                <a
+                                                                <FileDownloadLink
                                                                     href={route('bond-requests.download-certificate', r.id)}
                                                                     className="text-xs font-medium text-sterling-green hover:underline"
                                                                 >
                                                                     Download
-                                                                </a>
+                                                                </FileDownloadLink>
                                                             </div>
                                                         ) : (
                                                             <span className="text-xs text-slate-400">Not yet available</span>

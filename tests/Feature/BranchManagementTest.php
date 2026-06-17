@@ -32,6 +32,7 @@ class BranchManagementTest extends TestCase
             'address' => '123 Test Street',
             'contact' => '09171234567',
             'notary_price' => 1500,
+            'minimum_balance' => 2500,
             'is_active' => true,
         ]);
 
@@ -42,6 +43,7 @@ class BranchManagementTest extends TestCase
             'branch_code' => 'TST',
             'branch_city' => 'Cebu',
             'address' => '123 Test Street',
+            'minimum_balance' => 2500,
             'is_active' => true,
         ]);
     }
@@ -63,6 +65,7 @@ class BranchManagementTest extends TestCase
             'address' => '456 Updated Avenue',
             'contact' => null,
             'notary_price' => null,
+            'minimum_balance' => 1500,
             'is_active' => true,
         ]);
 
@@ -72,6 +75,7 @@ class BranchManagementTest extends TestCase
             'id' => $branch->id,
             'branch_city' => 'Quezon City',
             'address' => '456 Updated Avenue',
+            'minimum_balance' => 1500,
         ]);
     }
 

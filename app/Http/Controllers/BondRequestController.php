@@ -14,7 +14,7 @@ use App\Models\CertificateVersion;
 use App\Models\Maintenance\BondTypeMaster;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
-use App\Models\PaymentHistory;
+use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\AuditLogService;
 use App\Services\BondRequestSupportingDocumentService;
@@ -100,6 +100,8 @@ class BondRequestController extends Controller
     {
         $this->authorize('create', BondRequest::class);
 
+        $user = $request->user()->load('branch');
+
         return Inertia::render('BondRequests/Form', [
             'bondRequest' => null,
             'selectedPrincipal' => null,
@@ -107,7 +109,8 @@ class BondRequestController extends Controller
             'bondTypeOptions' => $this->bondTypeOptions(),
             'certificateTypeOptions' => CertificateType::options(),
             'partyTypeOptions' => PartyType::options(),
-            'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
+            'requesterBranchCode' => BondNumberGenerator::branchCodeFor($user),
+            'branchFund' => $this->branchFundProps($user),
         ]);
     }
 
@@ -120,14 +123,6 @@ class BondRequestController extends Controller
         $paths = $this->supportingDocumentService->syncFromRequest($request, $bondRequest);
         $bondRequest->update([
             'supporting_document_paths' => $paths === [] ? null : $paths,
-        ]);
-
-        PaymentHistory::create([
-            'user_id' => $request->user()->id,
-            'bond_request_id' => $bondRequest->id,
-            'amount' => $bondRequest->amount,
-            'description' => "Bond request payment — {$bondRequest->bond_number}",
-            'paid_at' => now(),
         ]);
 
         ActivityLogger::log('created', "Bond request {$bondRequest->bond_number} created.", $bondRequest);
@@ -638,5 +633,22 @@ class BondRequestController extends Controller
         }
 
         return $attributes;
+    }
+
+    /**
+     * @return array{balance: float, minimumBalance: float, canSubmit: bool, branchName: string|null}
+     */
+    private function branchFundProps(User $user): array
+    {
+        $branch = $user->branch;
+        $balance = $user->branchBalance();
+        $minimumBalance = $branch?->minimumBalance() ?? 1000.0;
+
+        return [
+            'balance' => $balance,
+            'minimumBalance' => $minimumBalance,
+            'canSubmit' => $branch !== null && $branch->meetsMinimumBalanceForSubmission(),
+            'branchName' => $branch?->name,
+        ];
     }
 }

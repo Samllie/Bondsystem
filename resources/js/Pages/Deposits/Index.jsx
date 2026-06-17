@@ -1,4 +1,5 @@
 import BranchFilter from '@/Components/Report/BranchFilter';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import Pagination from '@/Components/UI/Pagination';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import TableSearchInput from '@/Components/UI/TableSearchInput';
@@ -160,12 +161,12 @@ export default function DepositsIndex({
                                         <Link href={route('payments.deposits.show', d.id)} className="text-sterling-green hover:underline">
                                             {isAdmin && d.status === 'pending' ? 'Review' : 'View'}
                                         </Link>
-                                        <a
+                                        <FileDownloadLink
                                             href={route('payments.deposits.download-receipt', d.id)}
                                             className="text-slate-600 hover:text-sterling-green hover:underline"
                                         >
                                             Download
-                                        </a>
+                                        </FileDownloadLink>
                                     </div>
                                 </td>
                             </tr>

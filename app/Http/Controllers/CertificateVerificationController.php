@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\CertificateVersion;
 use App\Services\AuditLogService;
+use App\Services\ConfirmationNumberService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,6 +12,10 @@ use Inertia\Response;
 
 class CertificateVerificationController extends Controller
 {
+    public function __construct(
+        private readonly ConfirmationNumberService $confirmationNumberService,
+    ) {}
+
     public function search(): Response
     {
         return Inertia::render('CertificateVerification/Search');
@@ -32,9 +37,9 @@ class CertificateVerificationController extends Controller
             description: 'Confirmation number searched on public verification page.',
         );
 
-        $version = CertificateVersion::query()
-            ->where('confirmation_number', $validated['confirmation_number'])
-            ->first();
+        $version = $this->confirmationNumberService->findVersionByLookup(
+            $validated['confirmation_number'],
+        );
 
         if ($version === null) {
             return redirect()

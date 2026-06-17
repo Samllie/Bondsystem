@@ -91,6 +91,28 @@ class StoreBondRequestRequest extends FormRequest
                     'Set your branch (with a branch code) in your profile before submitting a bond request.',
                 );
             }
+
+            $branch = $this->user()->branch;
+
+            if ($branch === null) {
+                $validator->errors()->add(
+                    'branch_balance',
+                    'You must belong to a branch before submitting a bond request.',
+                );
+
+                return;
+            }
+
+            if (! $branch->meetsMinimumBalanceForSubmission()) {
+                $minimum = $branch->minimumBalance();
+                $balance = (float) $branch->balance;
+
+                $validator->errors()->add(
+                    'branch_balance',
+                    'Insufficient branch fund. A minimum balance of PHP '.number_format($minimum, 2)
+                    .' is required to submit a request. Current balance: PHP '.number_format($balance, 2).'.',
+                );
+            }
         });
     }
 

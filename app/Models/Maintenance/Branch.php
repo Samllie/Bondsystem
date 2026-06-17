@@ -11,7 +11,7 @@ class Branch extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'branch_code', 'branch_city', 'address', 'contact', 'notary_price', 'balance', 'is_active'];
+    protected $fillable = ['name', 'branch_code', 'branch_city', 'address', 'contact', 'notary_price', 'balance', 'minimum_balance', 'is_active'];
 
     protected function casts(): array
     {
@@ -19,7 +19,18 @@ class Branch extends Model
             'is_active' => 'boolean',
             'notary_price' => 'decimal:2',
             'balance' => 'decimal:2',
+            'minimum_balance' => 'decimal:2',
         ];
+    }
+
+    public function minimumBalance(): float
+    {
+        return (float) ($this->minimum_balance ?? 1000);
+    }
+
+    public function meetsMinimumBalanceForSubmission(): bool
+    {
+        return (float) $this->balance >= $this->minimumBalance();
     }
 
     public function transactions(): HasMany

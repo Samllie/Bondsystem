@@ -24,6 +24,7 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
         branch_code: record?.branch_code ?? '',
         branch_city: record?.branch_city ?? '',
         notary_price: record?.notary_price ?? '',
+        minimum_balance: record?.minimum_balance ?? '1000',
         description: record?.description ?? '',
         address: record?.address ?? '',
         contact: record?.contact ?? '',
@@ -141,6 +142,19 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
                                     onChange={(e) => setData('notary_price', e.target.value)}
                                     error={errors.notary_price}
                                 />
+                                <TextField
+                                    label="Minimum Branch Balance"
+                                    type="number"
+                                    inputMode="decimal"
+                                    min="0"
+                                    step="0.01"
+                                    value={data.minimum_balance}
+                                    onChange={(e) => setData('minimum_balance', e.target.value)}
+                                    error={errors.minimum_balance}
+                                />
+                                <p className="text-xs text-slate-500">
+                                    Minimum fund required before a requester can submit a bond request.
+                                </p>
                             </>
                         )}
 

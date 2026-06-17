@@ -44,7 +44,9 @@ export default function PaymentHistoriesIndex({ payments, isAdmin, filters, bran
             <ReportPrintHeader title={`${pageTitle} Report`} filterSummary={filterSummary} />
 
             <div className="report-print-content">
-                <p className="no-print mb-4 text-sm text-slate-600">Payments made for bond and document requests.</p>
+                <p className="no-print mb-4 text-sm text-slate-600">
+                    Document and notary fee payments deducted from branch funds when confirmations are generated.
+                </p>
 
                 <div className="no-print mb-4 flex flex-wrap gap-3">
                     <TableSearchInput
@@ -69,7 +71,7 @@ export default function PaymentHistoriesIndex({ payments, isAdmin, filters, bran
                     <table className="dashboard-report-table min-w-full text-sm">
                         <thead className="bg-slate-50">
                             <tr>
-                                {[isAdmin && 'User', 'Payment #', 'Bond #', 'Principal', 'Amount', 'Paid At', 'Actions']
+                                {[isAdmin && 'User', 'Payment #', 'Bond #', 'Principal', 'Document Fee', 'Paid At', 'Actions']
                                     .filter(Boolean)
                                     .map((heading) => (
                                         <th
