@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Maintenance\Branch;
 use App\Support\Navigation;
+use App\Support\UserHomeRoute;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Schema;
@@ -41,6 +42,10 @@ class HandleInertiaRequests extends Middleware
                     'role' => $user->role?->only(['id', 'name', 'slug']),
                     'permissions' => $user->permissionSlugs(),
                 ] : null,
+                'home' => [
+                    'url' => UserHomeRoute::url($user),
+                    'label' => UserHomeRoute::label($user),
+                ],
             ],
             'navigation' => Navigation::items($user),
             'flash' => [

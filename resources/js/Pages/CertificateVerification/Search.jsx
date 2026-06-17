@@ -8,8 +8,8 @@ import { Head, useForm, usePage } from '@inertiajs/react';
 
 export default function Search() {
     const { auth } = usePage().props;
-    const backHref = auth?.user ? route('dashboard') : route('login');
-    const backLabel = auth?.user ? 'Back to Dashboard' : 'Back to Login';
+    const backHref = auth?.home?.url ?? route('login');
+    const backLabel = auth?.home?.label ?? 'Back to Login';
 
     const { data, setData, post, processing, errors } = useForm({
         confirmation_number: '',

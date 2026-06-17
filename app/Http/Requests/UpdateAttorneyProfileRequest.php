@@ -16,6 +16,14 @@ class UpdateAttorneyProfileRequest extends FormRequest
 
     public function rules(): array
     {
+        return self::rulesFor($this->user());
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function rulesFor(?User $user): array
+    {
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
@@ -24,11 +32,11 @@ class UpdateAttorneyProfileRequest extends FormRequest
                 'lowercase',
                 'email',
                 'max:255',
-                Rule::unique(User::class)->ignore($this->user()->id),
+                Rule::unique(User::class)->ignore($user?->id),
                 'regex:/^[a-z0-9._%+-]+@sterling-insurance\.com\.ph$/',
             ],
             'signatory_position' => ['required', 'string', 'max:255'],
-            'signatory_tin' => ['required', 'string', 'max:50'],
+            'signatory_tin' => ['nullable', 'string', 'max:50'],
             'signatory_signature' => ['nullable', File::types(['png'])->max(2048)],
             'notary_commission_number' => ['required', 'string', 'max:100'],
             'notary_tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-0000$/'],

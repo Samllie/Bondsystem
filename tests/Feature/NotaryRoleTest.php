@@ -172,11 +172,10 @@ class NotaryRoleTest extends TestCase
         $attorney = $this->attorneyUser();
         $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
 
-        $response = $this->actingAs($attorney)->patch(route('profile.update'), [
+        $response = $this->actingAs($attorney)->post(route('profile.update'), [
             'name' => 'Updated Attorney',
             'email' => 'updated.attorney@sterling-insurance.com.ph',
             'signatory_position' => 'Vice President',
-            'signatory_tin' => '111-222-333-000',
             'notary_commission_number' => 'CN-12345',
             'notary_tin' => '123-456-789-0000',
             'signatory_signature' => UploadedFile::fake()->createWithContent('signature.png', $png, 'image/png'),
@@ -191,13 +190,60 @@ class NotaryRoleTest extends TestCase
         $this->assertSame('Updated Attorney', $attorney->name);
         $this->assertSame('updated.attorney@sterling-insurance.com.ph', $attorney->email);
         $this->assertSame('Vice President', $attorney->signatory->position);
-        $this->assertSame('111-222-333-000', $attorney->signatory->tin);
+        $this->assertSame('123-456-789-0000', $attorney->signatory->tin);
         $this->assertSame('CN-12345', $attorney->notary->commission_number);
         $this->assertSame('123-456-789-0000', $attorney->notary->tin);
         $this->assertNotNull($attorney->signatory->signature_path);
         $this->assertNotNull($attorney->notary->signature_path);
         Storage::disk('public')->assertExists($attorney->signatory->signature_path);
         Storage::disk('public')->assertExists($attorney->notary->signature_path);
+    }
+
+    public function test_attorney_profile_update_creates_missing_signatory_and_notary_records(): void
+    {
+        $role = Role::where('slug', RoleSlug::Notary->value)->firstOrFail();
+
+        $attorney = User::factory()->create([
+            'role_id' => $role->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+            'email' => 'missing-records@sterling-insurance.com.ph',
+        ]);
+
+        $this->assertNull($attorney->signatory);
+        $this->assertNull($attorney->notary);
+
+        $response = $this->actingAs($attorney)->post(route('profile.update'), [
+            'name' => 'Recovered Attorney',
+            'email' => 'missing-records@sterling-insurance.com.ph',
+            'signatory_position' => 'Counsel',
+            'notary_commission_number' => 'CN-0001',
+            'notary_tin' => '111-222-333-0000',
+        ]);
+
+        $response->assertRedirect(route('profile.edit'));
+
+        $attorney->refresh()->load(['signatory', 'notary']);
+
+        $this->assertNotNull($attorney->signatory);
+        $this->assertNotNull($attorney->notary);
+        $this->assertSame('Counsel', $attorney->signatory->position);
+        $this->assertSame('CN-0001', $attorney->notary->commission_number);
+    }
+
+    public function test_attorney_profile_update_rejects_non_corporate_email(): void
+    {
+        $attorney = $this->attorneyUser();
+
+        $response = $this->actingAs($attorney)->post(route('profile.update'), [
+            'name' => $attorney->name,
+            'email' => 'notary@sterling.test',
+            'signatory_position' => 'AVP',
+            'notary_commission_number' => 'CN-999',
+            'notary_tin' => '123-456-789-0000',
+        ]);
+
+        $response->assertSessionHasErrors(['email']);
     }
 
     public function test_signatory_index_shows_linked_account_email(): void

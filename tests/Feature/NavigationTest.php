@@ -46,6 +46,32 @@ class NavigationTest extends TestCase
         $this->assertSame(route('certificate-verification.search'), $verifyLink['href']);
     }
 
+    public function test_notary_home_route_points_to_confirmations(): void
+    {
+        $notary = $this->userWithRole(RoleSlug::Notary);
+
+        $response = $this->actingAs($notary)->get(route('certificate-verification.search'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('auth.home.url', '/certifications')
+            ->where('auth.home.label', 'Back to Confirmations')
+        );
+    }
+
+    public function test_requester_home_route_points_to_dashboard(): void
+    {
+        $requester = $this->userWithRole(RoleSlug::Requester);
+
+        $response = $this->actingAs($requester)->get(route('certificate-verification.search'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->where('auth.home.url', '/dashboard')
+            ->where('auth.home.label', 'Back to Dashboard')
+        );
+    }
+
     private function userWithRole(RoleSlug $slug): User
     {
         $role = Role::where('slug', $slug->value)->firstOrFail();

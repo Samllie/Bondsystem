@@ -387,25 +387,27 @@ class BondRequestController extends Controller
             'series_year' => ['nullable', 'string', 'size:4'],
         ]);
 
-        $signatory = $request->has('signatory_id')
-            ? (filled($validated['signatory_id'] ?? null)
-                ? Signatory::findOrFail($validated['signatory_id'])
-                : null)
+        $signatory = $request->filled('signatory_id')
+            ? Signatory::findOrFail($validated['signatory_id'])
             : ($bondRequest->signatory_id ? $bondRequest->signatory : null);
 
         try {
             DB::transaction(function () use ($request, $bondRequest, $validated, $signatory): void {
+                $includeSignature = $request->filled('signatory_id')
+                    ? $request->boolean('include_signatory_signature')
+                    : (bool) $bondRequest->include_signatory_signature;
+
                 $bondRequest->update([
                     'signatory_id' => $signatory?->id,
                     'signatory_position' => $signatory?->position ?? $bondRequest->signatory_position,
-                    'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
-                    'notary_id' => $request->has('notary_id')
-                        ? ($validated['notary_id'] ?? null)
+                    'include_signatory_signature' => $signatory !== null && $includeSignature,
+                    'notary_id' => $request->filled('notary_id')
+                        ? $validated['notary_id']
                         : $bondRequest->notary_id,
-                    'doc_no' => $request->has('doc_no') ? ($validated['doc_no'] ?? null) : $bondRequest->doc_no,
-                    'page_no' => $request->has('page_no') ? ($validated['page_no'] ?? null) : $bondRequest->page_no,
-                    'book_no' => $request->has('book_no') ? ($validated['book_no'] ?? null) : $bondRequest->book_no,
-                    'series_year' => $request->has('series_year') ? ($validated['series_year'] ?? null) : $bondRequest->series_year,
+                    'doc_no' => $request->filled('doc_no') ? $validated['doc_no'] : $bondRequest->doc_no,
+                    'page_no' => $request->filled('page_no') ? $validated['page_no'] : $bondRequest->page_no,
+                    'book_no' => $request->filled('book_no') ? $validated['book_no'] : $bondRequest->book_no,
+                    'series_year' => $request->filled('series_year') ? $validated['series_year'] : $bondRequest->series_year,
                     'tin' => $signatory?->tin ?? $bondRequest->tin,
                 ]);
 

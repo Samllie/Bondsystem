@@ -79,6 +79,28 @@ export default function Show({
         series_year: bondRequest.series_year || String(new Date().getFullYear()),
     });
 
+    useEffect(() => {
+        generateForm.setData({
+            signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
+            include_signatory_signature: Boolean(bondRequest.include_signatory_signature),
+            notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
+            doc_no: bondRequest.doc_no || '',
+            page_no: bondRequest.page_no || '',
+            book_no: bondRequest.book_no || '',
+            series_year: bondRequest.series_year || String(new Date().getFullYear()),
+        });
+        setGenerateBookNoDraft(formatBookNoDisplay(bondRequest.book_no) || '');
+    }, [
+        bondRequest.id,
+        bondRequest.signatory_id,
+        bondRequest.include_signatory_signature,
+        bondRequest.notary_id,
+        bondRequest.doc_no,
+        bondRequest.page_no,
+        bondRequest.book_no,
+        bondRequest.series_year,
+    ]);
+
     const displayTin = bondRequest.signatory?.tin || bondRequest.tin || '—';
 
     // ── Shared option lists ───────────────────────────────────────────────────
@@ -485,41 +507,45 @@ export default function Show({
                                 <dl className="grid gap-3 sm:grid-cols-3 text-sm">
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Signatory</dt>
-                                        <dd className="mt-1 text-slate-900">{selectedGenerateSignatory?.label || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">
+                                            {bondRequest.signatory?.name || selectedGenerateSignatory?.label || '—'}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Position</dt>
-                                        <dd className="mt-1 text-slate-900">{selectedGenerateSignatory?.position || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">
+                                            {bondRequest.signatory_position || bondRequest.signatory?.position || selectedGenerateSignatory?.position || '—'}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Include signature</dt>
                                         <dd className="mt-1 text-slate-900">
-                                            {generateForm.data.include_signatory_signature ? 'Yes' : 'No'}
+                                            {bondRequest.include_signatory_signature ? 'Yes' : 'No'}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Notary</dt>
-                                        <dd className="mt-1 text-slate-900">{selectedGenerateNotary?.label || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">
+                                            {bondRequest.notary?.name || selectedGenerateNotary?.label || '—'}
+                                        </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Doc No.</dt>
-                                        <dd className="mt-1 text-slate-900">{generateForm.data.doc_no || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.doc_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Page No.</dt>
-                                        <dd className="mt-1 text-slate-900">{generateForm.data.page_no || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.page_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Book No.</dt>
                                         <dd className="mt-1 text-slate-900">
-                                            {formatBookNoDisplay(generateForm.data.book_no)
-                                                || formatBookNoDisplay(generateBookNoDraft)
-                                                || '—'}
+                                            {formatBookNoDisplay(bondRequest.book_no) || '—'}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Series year</dt>
-                                        <dd className="mt-1 text-slate-900">{generateForm.data.series_year || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.series_year || '—'}</dd>
                                     </div>
                                 </dl>
                                 {firstGenerateError && (

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Http\Requests\UpdateAttorneyProfileRequest;
 use App\Models\Maintenance\Branch;
+use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -62,10 +64,17 @@ class ProfileController extends Controller
 
     private function updateAttorneyProfile(Request $request): RedirectResponse
     {
-        $formRequest = UpdateAttorneyProfileRequest::createFrom($request);
-        $formRequest->setContainer(app())->setRedirector(app('redirect'))->validateResolved();
+        if ($request->filled('notary_tin') && ! $request->filled('signatory_tin')) {
+            $request->merge([
+                'signatory_tin' => $request->input('notary_tin'),
+            ]);
+        }
 
-        $validated = $formRequest->validated();
+        $validated = $request->validate(
+            UpdateAttorneyProfileRequest::rulesFor($request->user()),
+            (new UpdateAttorneyProfileRequest)->messages(),
+        );
+
         $user = $request->user();
         $user->load(['signatory', 'notary']);
 
@@ -80,12 +89,17 @@ class ProfileController extends Controller
 
         $user->save();
 
-        $signatory = $user->signatory;
-        $notary = $user->notary;
+        $signatory = $user->signatory ?? Signatory::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'is_active' => true,
+        ]);
 
-        if ($signatory === null || $notary === null) {
-            abort(500, 'Attorney account is missing signatory or notary records.');
-        }
+        $notary = $user->notary ?? Notary::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'is_active' => true,
+        ]);
 
         $signatoryData = [
             'name' => $validated['name'],

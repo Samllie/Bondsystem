@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\UserHomeRoute;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,16 +25,6 @@ class WelcomeController extends Controller
             return $request->session()->get('url.intended');
         }
 
-        $user = $request->user();
-
-        if ($user->hasPermission('dashboard.view')) {
-            return route('dashboard', absolute: false);
-        }
-
-        if ($user->hasPermission('certifications.view-assigned')) {
-            return route('certifications.index', absolute: false);
-        }
-
-        return route('bond-requests.index', absolute: false);
+        return UserHomeRoute::url($request->user());
     }
 }

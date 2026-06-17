@@ -15,15 +15,15 @@ export default function UpdateAttorneyProfileForm({
     className = '',
 }) {
     const user = usePage().props.auth.user;
+    const tin = notary?.tin ?? signatory?.tin ?? '';
 
     const { data, setData, post, errors, processing, recentlySuccessful } = useForm({
         name: user.name,
         email: user.email,
         signatory_position: signatory?.position ?? '',
-        signatory_tin: signatory?.tin ?? '',
-        signatory_signature: null,
         notary_commission_number: notary?.commission_number ?? '',
-        notary_tin: notary?.tin ?? '',
+        notary_tin: tin,
+        signatory_signature: null,
         notary_signature: null,
     });
 
@@ -32,7 +32,23 @@ export default function UpdateAttorneyProfileForm({
 
         post(route('profile.update'), {
             forceFormData: true,
-            _method: 'patch',
+            preserveScroll: true,
+            transform: (formData) => {
+                const payload = {
+                    ...formData,
+                    signatory_tin: formData.notary_tin,
+                };
+
+                if (!payload.signatory_signature) {
+                    delete payload.signatory_signature;
+                }
+
+                if (!payload.notary_signature) {
+                    delete payload.notary_signature;
+                }
+
+                return payload;
+            },
         });
     };
 
@@ -85,6 +101,14 @@ export default function UpdateAttorneyProfileForm({
                         <InputError className="mt-2" message={errors.email} />
                     </div>
 
+                    <TinField
+                        label="TIN"
+                        required
+                        value={data.notary_tin}
+                        onChange={(value) => setData('notary_tin', value)}
+                        error={errors.notary_tin}
+                    />
+
                     {mustVerifyEmail && user.email_verified_at === null && (
                         <div>
                             <p className="mt-2 text-sm text-gray-800">
@@ -121,14 +145,6 @@ export default function UpdateAttorneyProfileForm({
                         error={errors.signatory_position}
                     />
 
-                    <TextField
-                        label="TIN"
-                        required
-                        value={data.signatory_tin}
-                        onChange={(e) => setData('signatory_tin', e.target.value)}
-                        error={errors.signatory_tin}
-                    />
-
                     <FormField label="Signature (PNG)" error={errors.signatory_signature}>
                         {signatory?.signature_url && (
                             <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -161,14 +177,6 @@ export default function UpdateAttorneyProfileForm({
                         value={data.notary_commission_number}
                         onChange={(e) => setData('notary_commission_number', e.target.value)}
                         error={errors.notary_commission_number}
-                    />
-
-                    <TinField
-                        label="TIN"
-                        required
-                        value={data.notary_tin}
-                        onChange={(value) => setData('notary_tin', value)}
-                        error={errors.notary_tin}
                     />
 
                     <FormField label="Seal / Signature (PNG)" error={errors.notary_signature}>

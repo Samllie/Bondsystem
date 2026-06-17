@@ -31,18 +31,53 @@ class ConfirmationNumberService
     }
 
     /**
-     * Resolve a certificate version from an exact confirmation number match.
+     * Resolve a certificate version from a full confirmation number or its 8-character hex segment.
      */
     public function findVersionByLookup(string $input): ?CertificateVersion
     {
-        $normalized = strtoupper(trim($input));
+        $normalized = $this->normalizeConfirmationInput($input);
 
         if ($normalized === '') {
             return null;
         }
 
-        return CertificateVersion::query()
+        $exactMatch = CertificateVersion::query()
             ->where('confirmation_number', $normalized)
             ->first();
+
+        if ($exactMatch !== null) {
+            return $exactMatch;
+        }
+
+        if (preg_match('/^[A-F0-9]{8}$/', $normalized)) {
+            return CertificateVersion::query()
+                ->where('confirmation_number', 'like', "%-{$normalized}-%")
+                ->first();
+        }
+
+        return null;
+    }
+
+    private function normalizeConfirmationInput(string $input): string
+    {
+        $input = strtoupper(trim($input));
+        $input = str_replace(
+            ["\u{2010}", "\u{2011}", "\u{2012}", "\u{2013}", "\u{2014}", "\u{2212}", '−', '–', '—'],
+            '-',
+            $input,
+        );
+        $input = preg_replace('/\s*-\s*/', '-', $input) ?? $input;
+
+        if (preg_match(
+            '/^SICI\s+(BOND|CAR)\s+(\d{4})\s+([A-F0-9]{8})\s+V(\d+)$/',
+            preg_replace('/\s+/', ' ', $input) ?? $input,
+            $matches,
+        )) {
+            return sprintf('SICI-%s-%s-%s-V%s', $matches[1], $matches[2], $matches[3], $matches[4]);
+        }
+
+        $input = preg_replace('/\s+/', '', $input) ?? $input;
+
+        return $input;
     }
 }

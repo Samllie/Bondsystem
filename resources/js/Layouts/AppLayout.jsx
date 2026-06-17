@@ -36,10 +36,16 @@ export default function AppLayout({ title, children, actions }) {
         return { '--motion-scroll-duration': `${scrollMs}ms` };
     }, [dashboardEntering, isLoggingOut]);
 
-    const shellClass = [
-        'app-shell dashboard-shell-bg relative z-[70] min-h-[100dvh]',
+    const motionClass = [
         dashboardEntering ? 'dashboard-enter' : '',
         isLoggingOut ? 'dashboard-exit' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const shellClass = [
+        'app-shell dashboard-shell-bg relative z-[70] min-h-[100dvh]',
+        motionClass,
     ]
         .filter(Boolean)
         .join(' ');
@@ -51,6 +57,8 @@ export default function AppLayout({ title, children, actions }) {
             <Sidebar
                 open={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
+                motionClass={motionClass}
+                motionStyle={motionStyle}
             />
 
             <div className={shellClass} style={motionStyle}>

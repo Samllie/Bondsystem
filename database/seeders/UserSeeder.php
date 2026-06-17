@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Enums\RoleSlug;
+use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -17,13 +19,13 @@ class UserSeeder extends Seeder
             ['name' => 'Bond Requester', 'email' => 'requester@sterling.test', 'role' => RoleSlug::Requester],
             ['name' => 'Data Encoder', 'email' => 'encoder@sterling.test', 'role' => RoleSlug::Encoder],
             ['name' => 'Bond Approver', 'email' => 'approver@sterling.test', 'role' => RoleSlug::Approver],
-            ['name' => 'Notary Officer', 'email' => 'notary@sterling.test', 'role' => RoleSlug::Notary],
+            ['name' => 'Notary Officer', 'email' => 'notary@sterling-insurance.com.ph', 'role' => RoleSlug::Notary],
         ];
 
         foreach ($users as $data) {
             $role = Role::where('slug', $data['role']->value)->first();
 
-            User::updateOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $data['email']],
                 [
                     'name' => $data['name'],
@@ -33,6 +35,24 @@ class UserSeeder extends Seeder
                     'email_verified_at' => now(),
                 ],
             );
+
+            if ($data['role'] === RoleSlug::Notary) {
+                Signatory::updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'name' => $user->name,
+                        'is_active' => true,
+                    ],
+                );
+
+                Notary::updateOrCreate(
+                    ['user_id' => $user->id],
+                    [
+                        'name' => $user->name,
+                        'is_active' => true,
+                    ],
+                );
+            }
         }
     }
 }

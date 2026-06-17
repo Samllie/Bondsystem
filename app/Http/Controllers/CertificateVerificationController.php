@@ -57,7 +57,7 @@ class CertificateVerificationController extends Controller
     public function show(string $verificationToken): Response
     {
         $version = CertificateVersion::query()
-            ->with(['bondRequest.principal'])
+            ->with(['bondRequest' => fn ($query) => $query->withTrashed()->with('principal')])
             ->where('verification_token', $verificationToken)
             ->first();
 
@@ -90,6 +90,21 @@ class CertificateVerificationController extends Controller
         );
 
         $bondRequest = $version->bondRequest;
+
+        if ($bondRequest === null) {
+            AuditLogService::log(
+                user: null,
+                action: 'certificate_verification_failed',
+                entityType: AuditLogService::ENTITY_CERTIFICATE_VERSION,
+                entityId: $version->id,
+                description: 'Public confirmation verification failed because the linked bond request is unavailable.',
+            );
+
+            return Inertia::render('CertificateVerification/Show', [
+                'valid' => false,
+            ]);
+        }
+
         $currentVersionNumber = null;
 
         if (! $version->is_current) {
