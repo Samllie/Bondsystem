@@ -53,6 +53,55 @@ class CertificateTemplateManagementTest extends TestCase
             );
     }
 
+    public function test_activating_uploaded_template_moves_fallback_to_previous_section(): void
+    {
+        $admin = $this->superAdminUser();
+        $uploaded = $this->createStoredTemplate($admin, CertificateTemplateType::Bond, 1);
+
+        $this->actingAs($admin)->patch(route('certificate-templates.activate', $uploaded))->assertRedirect();
+
+        $this->actingAs($admin)
+            ->get(route('certificate-templates.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('inUseTemplates.0.source', 'uploaded')
+                ->where('inUseTemplates.0.template_type', 'bond')
+                ->where('inUseTemplates.1.source', 'fallback')
+                ->where('inUseTemplates.1.template_type', 'car')
+                ->has('previousTemplates', 1)
+                ->where('previousTemplates.0.source', 'fallback')
+                ->where('previousTemplates.0.template_type', 'bond')
+                ->where('previousTemplates.0.is_previous', true)
+            );
+    }
+
+    public function test_reactivating_fallback_deactivates_uploaded_template_and_restores_fallback_in_use(): void
+    {
+        $admin = $this->superAdminUser();
+        $uploaded = $this->createStoredTemplate($admin, CertificateTemplateType::Bond, 1, active: true);
+
+        $this->actingAs($admin)
+            ->patch(route('certificate-templates.activate-fallback', CertificateTemplateType::Bond->value))
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertFalse($uploaded->fresh()->is_active);
+
+        $this->actingAs($admin)
+            ->get(route('certificate-templates.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('inUseTemplates.0.source', 'fallback')
+                ->where('inUseTemplates.0.template_type', 'bond')
+                ->where('previousTemplates', fn ($templates) => collect($templates)->contains(
+                    fn (array $template) => $template['id'] === $uploaded->id && $template['is_previous'] === true,
+                ) && ! collect($templates)->contains(
+                    fn (array $template) => $template['source'] === 'fallback'
+                        && $template['template_type'] === CertificateTemplateType::Bond->value,
+                ))
+            );
+    }
+
     public function test_deactivated_template_appears_in_previous_templates_section(): void
     {
         $admin = $this->superAdminUser();
@@ -65,9 +114,14 @@ class CertificateTemplateManagementTest extends TestCase
             ->get(route('certificate-templates.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->has('previousTemplates', 1)
-                ->where('previousTemplates.0.id', $first->id)
-                ->where('previousTemplates.0.is_previous', true)
+                ->has('previousTemplates', 2)
+                ->where('previousTemplates', fn ($templates) => collect($templates)->contains(
+                    fn (array $template) => $template['id'] === $first->id && $template['is_previous'] === true,
+                ) && collect($templates)->contains(
+                    fn (array $template) => $template['source'] === 'fallback'
+                        && $template['template_type'] === CertificateTemplateType::Bond->value
+                        && $template['is_previous'] === true,
+                ))
             );
     }
 

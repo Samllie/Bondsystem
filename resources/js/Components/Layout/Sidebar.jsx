@@ -164,21 +164,16 @@ function SidebarContent({ onClose }) {
     );
 }
 
-export default function Sidebar({ open, onClose, motionClass = '', motionStyle }) {
+export default function Sidebar({ open, onClose }) {
     return (
-        <div
-            className={`no-print fixed inset-y-0 left-0 z-[80] w-64 ${motionClass}`}
-            style={motionStyle}
+        <aside
+            id="app-sidebar"
+            className={`no-print fixed inset-y-0 left-0 z-[80] w-64 shadow-xl transition-transform duration-300 ease-in-out ${
+                open ? 'translate-x-0' : '-translate-x-full'
+            } ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            aria-hidden={!open}
         >
-            <aside
-                id="app-sidebar"
-                className={`h-full shadow-xl transition-transform duration-300 ease-in-out ${
-                    open ? 'translate-x-0' : '-translate-x-full'
-                }`}
-                aria-hidden={!open}
-            >
-                <SidebarContent onClose={onClose} />
-            </aside>
-        </div>
+            <SidebarContent onClose={onClose} />
+        </aside>
     );
 }

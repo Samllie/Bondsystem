@@ -114,23 +114,7 @@ class CertificateTemplate extends Model
             }
         }
 
-        $filename = self::fallbackFilename($type);
-        $path = self::fallbackPath($type);
-
-        return [
-            'source' => 'fallback',
-            'id' => null,
-            'template_type' => $type->value,
-            'template_name' => 'Built-in Fallback',
-            'version' => null,
-            'original_filename' => $filename,
-            'file_size' => file_exists($path) ? filesize($path) : null,
-            'uploaded_by' => 'System',
-            'created_at' => null,
-            'is_active' => true,
-            'archived_at' => null,
-            'is_in_use' => true,
-        ];
+        return self::fallbackTableRowForType($type, isInUse: true);
     }
 
     /**
@@ -140,6 +124,72 @@ class CertificateTemplate extends Model
     {
         return collect(CertificateTemplateType::cases())
             ->map(fn (CertificateTemplateType $type) => self::inUseSummary($type))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fallbackTableRow(bool $isInUse = false): array
+    {
+        return [
+            'source' => 'fallback',
+            'id' => null,
+            'template_type' => null,
+            'template_name' => 'Built-in Fallback',
+            'version' => null,
+            'original_filename' => null,
+            'file_size' => null,
+            'uploaded_by' => 'System',
+            'created_at' => null,
+            'is_active' => $isInUse,
+            'archived_at' => null,
+            'is_in_use' => $isInUse,
+            'is_previous' => ! $isInUse,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function fallbackTableRowForType(CertificateTemplateType $type, bool $isInUse = false): array
+    {
+        $filename = self::fallbackFilename($type);
+        $path = self::fallbackPath($type);
+
+        return [
+            ...self::fallbackTableRow($isInUse),
+            'template_type' => $type->value,
+            'original_filename' => $filename,
+            'file_size' => file_exists($path) ? filesize($path) : null,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function previousSummaries(): array
+    {
+        $rows = self::query()
+            ->with('uploader:id,name')
+            ->previous()
+            ->latest()
+            ->get()
+            ->map(fn (CertificateTemplate $template) => $template->toTableRow())
+            ->values();
+
+        foreach (CertificateTemplateType::cases() as $type) {
+            if (self::activeForType($type) !== null) {
+                $rows->push(self::fallbackTableRowForType($type));
+            }
+        }
+
+        return $rows
+            ->sortBy([
+                ['template_type', 'asc'],
+                ['created_at', 'desc'],
+            ])
             ->values()
             ->all();
     }

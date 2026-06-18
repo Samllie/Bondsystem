@@ -53,16 +53,13 @@ export default function AppLayout({ title, children, actions }) {
     const mainOffsetClass = sidebarOpen ? 'lg:pl-64' : 'lg:pl-0';
 
     return (
-        <>
+        <div className={shellClass} style={motionStyle}>
             <Sidebar
                 open={sidebarOpen}
                 onClose={() => setSidebarOpen(false)}
-                motionClass={motionClass}
-                motionStyle={motionStyle}
             />
 
-            <div className={shellClass} style={motionStyle}>
-                <div className={`transition-[padding] duration-300 ease-in-out print:pl-0 ${mainOffsetClass}`}>
+            <div className={`transition-[padding] duration-300 ease-in-out print:pl-0 ${mainOffsetClass}`}>
                     <TopNav
                         sidebarOpen={sidebarOpen}
                         onMenuClick={() => setSidebarOpen((open) => !open)}
@@ -83,8 +80,7 @@ export default function AppLayout({ title, children, actions }) {
                         )}
                         {children}
                     </main>
-                </div>
             </div>
-        </>
+        </div>
     );
 }

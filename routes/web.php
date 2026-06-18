@@ -100,6 +100,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::patch('/certificate-templates/{certificate_template}/archive', [CertificateTemplateController::class, 'archive'])->name('certificate-templates.archive');
     Route::get('/certificate-templates/{certificate_template}/download', [CertificateTemplateController::class, 'download'])->name('certificate-templates.download');
     Route::get('/certificate-templates/fallback/{type}/download', [CertificateTemplateController::class, 'downloadFallback'])->name('certificate-templates.download-fallback');
+    Route::patch('/certificate-templates/fallback/{type}/activate', [CertificateTemplateController::class, 'activateFallback'])->name('certificate-templates.activate-fallback');
 
     // Obligees & Principals
     Route::resource('obligees', ObligeeController::class);

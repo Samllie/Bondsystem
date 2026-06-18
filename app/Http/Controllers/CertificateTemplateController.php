@@ -30,14 +30,7 @@ class CertificateTemplateController extends Controller
 
         return Inertia::render('CertificateTemplates/Index', [
             'inUseTemplates' => CertificateTemplate::inUseSummaries(),
-            'previousTemplates' => CertificateTemplate::query()
-                ->with('uploader:id,name')
-                ->previous()
-                ->latest()
-                ->get()
-                ->map(fn (CertificateTemplate $template) => $template->toTableRow())
-                ->values()
-                ->all(),
+            'previousTemplates' => CertificateTemplate::previousSummaries(),
             'archivedTemplates' => $archivedTemplates->through(
                 fn (CertificateTemplate $template) => $template->toTableRow(),
             ),
@@ -132,6 +125,55 @@ class CertificateTemplateController extends Controller
         );
 
         return back()->with('success', 'Confirmation template activated.');
+    }
+
+    public function activateFallback(Request $request, string $type): RedirectResponse
+    {
+        $this->authorize('create', CertificateTemplate::class);
+
+        $templateType = CertificateTemplateType::from($type);
+        $fallbackPath = CertificateTemplate::fallbackPath($templateType);
+
+        abort_unless(file_exists($fallbackPath), 404, 'Fallback template file not found.');
+        abort_if(
+            CertificateTemplate::activeForType($templateType) === null,
+            422,
+            'The built-in fallback template is already in use.',
+        );
+
+        $deactivated = CertificateTemplate::query()
+            ->where('template_type', $templateType)
+            ->where('is_active', true)
+            ->get();
+
+        DB::transaction(function () use ($templateType): void {
+            CertificateTemplate::query()
+                ->where('template_type', $templateType)
+                ->where('is_active', true)
+                ->update(['is_active' => false]);
+        });
+
+        ActivityLogger::log(
+            'template_activated',
+            "Built-in {$templateType->label()} fallback template activated.",
+            null,
+            [
+                'template_type' => $templateType->value,
+                'source' => 'fallback',
+            ],
+        );
+
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'template_fallback_activated',
+            entityType: AuditLogService::ENTITY_CERTIFICATE_TEMPLATE,
+            entityId: $deactivated->first()?->id,
+            oldValues: ['is_active' => true],
+            newValues: ['source' => 'fallback', 'is_active' => true],
+            description: "Built-in {$templateType->label()} fallback template activated.",
+        );
+
+        return back()->with('success', 'Built-in fallback template activated.');
     }
 
     public function archive(Request $request, CertificateTemplate $certificateTemplate): RedirectResponse

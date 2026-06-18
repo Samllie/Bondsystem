@@ -52,7 +52,7 @@ function SectionHeader({ title, description }) {
     );
 }
 
-function TemplateRow({ template, canManage, onActivate, onArchive, highlight = false }) {
+function TemplateRow({ template, canManage, onActivate, onActivateFallback, onArchive, highlight = false }) {
     const downloadHref =
         template.source === 'fallback'
             ? route('certificate-templates.download-fallback', template.template_type)
@@ -94,6 +94,15 @@ function TemplateRow({ template, canManage, onActivate, onArchive, highlight = f
                     >
                         Download
                     </FileDownloadLink>
+                    {canManage && template.source === 'fallback' && template.is_previous && (
+                        <button
+                            type="button"
+                            onClick={() => onActivateFallback(template.template_type)}
+                            className="rounded-lg bg-sterling-gold px-3 py-1.5 text-xs font-semibold text-sterling-green-darker hover:bg-sterling-gold-light"
+                        >
+                            Reactivate
+                        </button>
+                    )}
                     {canManage && template.id && !template.archived_at && !template.is_active && (
                         <button
                             type="button"
@@ -145,6 +154,10 @@ export default function CertificateTemplatesIndex({
 
     const activateTemplate = (id) => {
         router.patch(route('certificate-templates.activate', id), {}, { preserveScroll: true });
+    };
+
+    const activateFallbackTemplate = (type) => {
+        router.patch(route('certificate-templates.activate-fallback', type), {}, { preserveScroll: true });
     };
 
     const archiveTemplate = (id) => {
@@ -237,6 +250,7 @@ export default function CertificateTemplatesIndex({
                                             template={template}
                                             canManage={canManage}
                                             onActivate={activateTemplate}
+                                            onActivateFallback={activateFallbackTemplate}
                                             onArchive={archiveTemplate}
                                             highlight
                                         />
@@ -248,14 +262,15 @@ export default function CertificateTemplatesIndex({
                                 <>
                                     <SectionHeader
                                         title="Previous templates"
-                                        description="Inactive templates available for reactivation. Activating one moves the current template of the same type here."
+                                        description="Inactive templates and the built-in fallback available for reactivation. Activating one moves the current template of the same type here."
                                     />
                                     {previousTemplates.map((template) => (
                                         <TemplateRow
-                                            key={`previous-${template.id}`}
+                                            key={template.id ? `previous-${template.id}` : `previous-fallback-${template.template_type}`}
                                             template={template}
                                             canManage={canManage}
                                             onActivate={activateTemplate}
+                                            onActivateFallback={activateFallbackTemplate}
                                             onArchive={archiveTemplate}
                                         />
                                     ))}
@@ -274,6 +289,7 @@ export default function CertificateTemplatesIndex({
                                             template={template}
                                             canManage={canManage}
                                             onActivate={activateTemplate}
+                                            onActivateFallback={activateFallbackTemplate}
                                             onArchive={archiveTemplate}
                                         />
                                     ))}
