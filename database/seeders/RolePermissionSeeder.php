@@ -113,6 +113,7 @@ class RolePermissionSeeder extends Seeder
                     'dashboard.view',
                     'bond-requests.view',
                     'bond-requests.approve',
+                    'certifications.view-assigned',
                     'obligees.view',
                     'principals.view',
                     'deposits.view',

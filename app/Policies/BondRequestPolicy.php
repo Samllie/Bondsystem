@@ -23,8 +23,9 @@ class BondRequestPolicy
     }
 
     /**
-     * Access to the generated certificate file is branch-scoped for most roles.
-     * Signatory account levels may view any generated certificate.
+     * Access to generated confirmation files.
+     * Users with certifications.view-assigned (notary and approver) may view any generated file.
+     * Other bond-request viewers are limited to their branch unless super admin.
      */
     public function viewCertificate(User $user, BondRequest $bondRequest): bool
     {
@@ -32,12 +33,12 @@ class BondRequestPolicy
             return $bondRequest->certificate_path !== null;
         }
 
-        if (! $user->hasPermission('bond-requests.view')) {
-            return false;
+        if ($user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver)) {
+            return true;
         }
 
-        if ($user->hasRole(RoleSlug::SuperAdmin)) {
-            return true;
+        if (! $user->hasPermission('bond-requests.view')) {
+            return false;
         }
 
         return $bondRequest->creator?->branch_id === $user->branch_id;

@@ -152,6 +152,35 @@ class CertificateAccessTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_approver_can_view_and_download_certificate_from_another_branch(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $approver = $this->approverUser();
+        $approver->update(['branch_id' => $branchA->id, 'branch_code' => $branchA->branch_code]);
+
+        $otherRequester = $this->requesterUser();
+        $otherRequester->update(['branch_id' => $branchB->id, 'branch_code' => $branchB->branch_code]);
+
+        $bondRequest = $this->bondRequestWithCertificate(ownedBy: $otherRequester);
+
+        $this->actingAs($approver)
+            ->get(route('bond-requests.view-certificate', $bondRequest))
+            ->assertOk();
+
+        $this->actingAs($approver)
+            ->get(route('bond-requests.download-certificate', $bondRequest))
+            ->assertOk();
+    }
+
+    public function test_approver_has_certifications_view_assigned_permission(): void
+    {
+        $approver = $this->approverUser();
+
+        $this->assertTrue($approver->hasPermission('certifications.view-assigned'));
+    }
+
     public function test_super_admin_can_download_certificate(): void
     {
         $superAdmin = $this->superAdminUser();

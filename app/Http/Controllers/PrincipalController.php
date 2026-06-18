@@ -26,7 +26,7 @@ class PrincipalController extends Controller
         $user = $request->user();
         $user->loadMissing('branch');
 
-        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+        if ($this->usesGlobalConfirmationRecords($user)) {
             return Inertia::render('Principals/Index', [
                 'principals' => $this->generatedCertificatePrincipalService->paginate($request),
                 'filters' => $request->only(['search']),
@@ -120,6 +120,11 @@ class PrincipalController extends Controller
         ActivityLogger::log('deleted', "Principal {$name} deleted.", $principal);
 
         return redirect()->route('principals.index')->with('success', 'Principal deleted successfully.');
+    }
+
+    private function usesGlobalConfirmationRecords(User $user): bool
+    {
+        return $user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver);
     }
 
     private function usesBranchConfirmationRecords(User $user): bool

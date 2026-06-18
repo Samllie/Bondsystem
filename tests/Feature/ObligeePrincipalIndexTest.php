@@ -6,8 +6,6 @@ use App\Enums\RoleSlug;
 use App\Models\BondRequest;
 use App\Models\CertificateVersion;
 use App\Models\Maintenance\Branch;
-use App\Models\Obligee;
-use App\Models\Principal;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\KycObligeeService;
@@ -112,23 +110,56 @@ class ObligeePrincipalIndexTest extends TestCase
             );
     }
 
-    public function test_approver_obligees_index_uses_local_records(): void
+    public function test_approver_obligees_index_uses_kyc_and_certificate_data_across_branches(): void
     {
-        $approver = $this->userWithRole(RoleSlug::Approver);
+        $branchA = $this->makeBranch('APR');
+        $branchB = $this->makeBranch('APB');
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
+        $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
+        $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
 
-        Obligee::factory()->create([
-            'company_name' => 'Local Obligee Corp',
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('paginate')
+                ->once()
+                ->with(null)
+                ->andReturn(new LengthAwarePaginator([
+                    [
+                        'id' => 101,
+                        'company_name' => 'Department of Public Works',
+                        'label' => 'Department of Public Works',
+                        'contact_person' => 'Jane Doe',
+                        'email' => 'dpwh@example.com',
+                    ],
+                ], 1, 10));
+        });
+
+        $branchABond = BondRequest::factory()->approved()->create([
+            'created_by' => $requesterA->id,
+            'obligee_id' => 501,
+            'obligee_name' => 'Branch A KYC Obligee',
         ]);
+        $branchBBond = BondRequest::factory()->approved()->create([
+            'created_by' => $requesterB->id,
+            'obligee_id' => null,
+            'obligee_name' => 'Branch B Typed Obligee',
+        ]);
+
+        CertificateVersion::factory()->create(['bond_request_id' => $branchABond->id]);
+        CertificateVersion::factory()->create(['bond_request_id' => $branchBBond->id]);
 
         $this->actingAs($approver)
             ->get(route('obligees.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Obligees/Index')
-                ->where('kycView', false)
+                ->where('kycView', true)
                 ->where('branchConfirmationsView', false)
-                ->has('obligees.data', 1)
-                ->where('obligees.data.0.company_name', 'Local Obligee Corp')
+                ->has('kycObligees.data', 1)
+                ->where('kycObligees.data.0.company_name', 'Department of Public Works')
+                ->has('certificateObligeesFromKyc.data', 1)
+                ->where('certificateObligeesFromKyc.data.0.company_name', 'Branch A KYC Obligee')
+                ->has('certificateObligeesTyped.data', 1)
+                ->where('certificateObligeesTyped.data.0.company_name', 'Branch B Typed Obligee')
             );
     }
 
@@ -240,22 +271,36 @@ class ObligeePrincipalIndexTest extends TestCase
             );
     }
 
-    public function test_approver_principals_index_uses_local_records(): void
+    public function test_approver_principals_index_shows_generated_certificate_principals_across_branches(): void
     {
-        $approver = $this->userWithRole(RoleSlug::Approver);
+        $branchA = $this->makeBranch('PAA');
+        $branchB = $this->makeBranch('PAB');
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
+        $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
+        $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
 
-        Principal::factory()->create([
-            'company_name' => 'Local Principal Corp',
+        $branchABond = BondRequest::factory()->approved()->create([
+            'created_by' => $requesterA->id,
+            'principal_name' => 'Branch A Principal Inc.',
         ]);
+        $branchBBond = BondRequest::factory()->approved()->create([
+            'created_by' => $requesterB->id,
+            'principal_name' => 'Branch B Principal Inc.',
+        ]);
+
+        CertificateVersion::factory()->create(['bond_request_id' => $branchABond->id]);
+        CertificateVersion::factory()->create(['bond_request_id' => $branchBBond->id]);
 
         $this->actingAs($approver)
             ->get(route('principals.index'))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Principals/Index')
-                ->where('generatedCertificatesView', false)
-                ->has('principals.data', 1)
-                ->where('principals.data.0.company_name', 'Local Principal Corp')
+                ->where('generatedCertificatesView', true)
+                ->where('branchName', null)
+                ->has('principals.data', 2)
+                ->where('principals.data.0.company_name', 'Branch A Principal Inc.')
+                ->where('principals.data.1.company_name', 'Branch B Principal Inc.')
             );
     }
 

@@ -30,7 +30,7 @@ class ObligeeController extends Controller
         $user = $request->user();
         $user->loadMissing('branch');
 
-        if ($user->hasRole(RoleSlug::SuperAdmin)) {
+        if ($this->usesGlobalConfirmationRecords($user)) {
             return Inertia::render('Obligees/Index', [
                 'kycObligees' => $this->kycObligeeService->paginate($search !== '' ? $search : null),
                 'certificateObligeesFromKyc' => $this->generatedCertificateObligeeService->paginateFromKyc($request),
@@ -129,6 +129,11 @@ class ObligeeController extends Controller
         ActivityLogger::log('deleted', "Obligee {$name} deleted.", $obligee);
 
         return redirect()->route('obligees.index')->with('success', 'Obligee deleted successfully.');
+    }
+
+    private function usesGlobalConfirmationRecords(User $user): bool
+    {
+        return $user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver);
     }
 
     private function usesBranchConfirmationRecords(User $user): bool
