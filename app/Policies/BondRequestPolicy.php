@@ -57,7 +57,7 @@ class BondRequestPolicy
 
         if ($user->hasRole(RoleSlug::Requester)) {
             return $bondRequest->created_by === $user->id
-                && in_array($bondRequest->status->value, ['draft', 'pending'], true);
+                && in_array($bondRequest->status->value, ['draft', 'pending', 'pending_for_changes'], true);
         }
 
         if ($user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver)) {

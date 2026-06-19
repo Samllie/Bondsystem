@@ -54,6 +54,7 @@ class BondRequest extends Model
         'signatory_id',
         'signatory_position',
         'include_signatory_signature',
+        'require_notary',
         'notary_id',
         'doc_no',
         'page_no',
@@ -79,6 +80,7 @@ class BondRequest extends Model
             'party_type' => PartyType::class,
             'include_endorsement_number' => 'boolean',
             'include_signatory_signature' => 'boolean',
+            'require_notary' => 'boolean',
             'supporting_document_paths' => 'array',
         ];
     }

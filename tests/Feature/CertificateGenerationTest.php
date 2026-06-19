@@ -108,7 +108,7 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHasNoErrors();
     }
 
-    public function test_generate_certificate_preserves_details_saved_during_approval_when_form_is_empty(): void
+    public function test_generate_certificate_clears_notary_when_form_submits_blank_notary(): void
     {
         $approver = $this->approverUser();
         $signatory = Signatory::factory()->create(['is_active' => true, 'position' => 'President']);
@@ -156,7 +156,7 @@ class CertificateGenerationTest extends TestCase
         $bondRequest->refresh();
 
         $this->assertSame($signatory->id, $bondRequest->signatory_id);
-        $this->assertSame($notary->id, $bondRequest->notary_id);
+        $this->assertNull($bondRequest->notary_id);
         $this->assertSame('DOC-99', $bondRequest->doc_no);
         $this->assertSame('12', $bondRequest->page_no);
         $this->assertSame('V', $bondRequest->book_no);

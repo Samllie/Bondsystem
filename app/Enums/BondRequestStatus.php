@@ -6,6 +6,7 @@ enum BondRequestStatus: string
 {
     case Draft = 'draft';
     case Pending = 'pending';
+    case PendingForChanges = 'pending_for_changes';
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Notarized = 'notarized';
@@ -17,6 +18,7 @@ enum BondRequestStatus: string
         return match ($this) {
             self::Draft => 'Draft',
             self::Pending => 'Pending Approval',
+            self::PendingForChanges => 'Pending for Changes',
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
             self::Notarized => 'Notarized',
@@ -30,6 +32,7 @@ enum BondRequestStatus: string
         return match ($this) {
             self::Draft => 'gray',
             self::Pending => 'amber',
+            self::PendingForChanges => 'orange',
             self::Approved => 'blue',
             self::Rejected => 'red',
             self::Notarized => 'green',

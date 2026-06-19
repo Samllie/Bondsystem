@@ -811,6 +811,22 @@ class BondRequestFormTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
+    public function test_requester_can_resubmit_bond_request_after_requested_changes(): void
+    {
+        $requester = $this->requesterUser('MKT');
+        $bondRequest = BondRequest::factory()->create([
+            'created_by' => $requester->id,
+            'status' => BondRequestStatus::PendingForChanges,
+        ]);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.resubmit', $bondRequest));
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertSame(BondRequestStatus::Pending, $bondRequest->fresh()->status);
+    }
+
     public function test_approval_persists_include_signatory_signature_only_when_checked(): void
     {
         $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);

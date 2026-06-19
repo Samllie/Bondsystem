@@ -95,7 +95,10 @@ export default function Form({
         supporting_documents: [],
         removed_supporting_documents: [],
         certificate_type: bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate',
-        party_type: bondRequest?.party_type?.value || bondRequest?.party_type || 'private',
+        party_type:
+            (bondRequest?.certificate_type?.value || bondRequest?.certificate_type || 'bond_certificate') === 'car_certificate'
+                ? 'government'
+                : bondRequest?.party_type?.value || bondRequest?.party_type || 'private',
         include_endorsement_number: Boolean(
             bondRequest?.include_endorsement_number ?? bondRequest?.endorsement_number,
         ),
@@ -103,6 +106,7 @@ export default function Form({
         car: bondRequest?.car || buildCarValue(requesterBranchCode),
         authorized_representative: bondRequest?.authorized_representative || '',
         expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
+        require_notary: Boolean(bondRequest?.require_notary ?? false),
     });
 
     const [addressLines, setAddressLines] = useState(() => {
@@ -122,20 +126,6 @@ export default function Form({
     const requestDateInWords = useMemo(() => formatDateInWords(data.request_date), [data.request_date]);
     const dateIssuedInWords = useMemo(() => formatDateInWords(data.date_issued), [data.date_issued]);
     const inceptionDateInWords = useMemo(() => formatDateInWords(data.inception_date), [data.inception_date]);
-
-    useEffect(() => {
-        if (data.certificate_type !== 'car_certificate') {
-            return;
-        }
-
-        if (data.include_endorsement_number || data.endorsement_number) {
-            setData((current) => ({
-                ...current,
-                include_endorsement_number: false,
-                endorsement_number: '',
-            }));
-        }
-    }, [data.certificate_type, data.include_endorsement_number, data.endorsement_number, setData]);
 
     useEffect(() => {
         const joinedAddress = addressLines
@@ -326,8 +316,9 @@ export default function Form({
                     ? buildCarValue(requesterBranchCode)
                     : current.car,
             authorized_representative: value === 'car_certificate' ? current.authorized_representative : '',
-            include_endorsement_number: value === 'car_certificate' ? false : current.include_endorsement_number,
-            endorsement_number: value === 'car_certificate' ? '' : current.endorsement_number,
+            party_type: value === 'car_certificate' ? 'government' : current.party_type,
+            include_endorsement_number: value === 'car_certificate' ? current.include_endorsement_number : current.include_endorsement_number,
+            endorsement_number: current.endorsement_number,
         }));
     };
 
@@ -396,11 +387,11 @@ export default function Form({
                                     {partyTypeOptions.map((option) => (
                                         <label
                                             key={option.value}
-                                            className={`flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 transition ${
+                                            className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition ${
                                                 data.party_type === option.value
                                                     ? 'border-sterling-gold bg-sterling-gold-50 ring-1 ring-sterling-gold'
                                                     : 'border-slate-200 hover:border-slate-300'
-                                            }`}
+                                            } ${isCarCertificate && option.value === 'private' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
                                         >
                                             <input
                                                 type="radio"
@@ -408,6 +399,7 @@ export default function Form({
                                                 value={option.value}
                                                 checked={data.party_type === option.value}
                                                 onChange={() => setData('party_type', option.value)}
+                                                disabled={isCarCertificate && option.value === 'private'}
                                                 className="text-sterling-green focus:ring-sterling-gold"
                                             />
                                             <span className="text-sm font-medium text-slate-800">{option.label}</span>
@@ -418,26 +410,20 @@ export default function Form({
                                     <p className="mt-2 text-sm text-red-600">{errors.party_type}</p>
                                 )}
                             </div>
-                            <div className={isCarCertificate ? 'opacity-60' : undefined}>
+                            <div>
                                 <label
-                                    className={`flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 ${
-                                        isCarCertificate ? 'cursor-not-allowed bg-slate-50' : 'cursor-pointer'
-                                    }`}
+                                    className="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 cursor-pointer"
                                 >
                                     <input
                                         type="checkbox"
                                         checked={Boolean(data.include_endorsement_number)}
                                         onChange={(e) => handleEndorsementToggle(e.target.checked)}
-                                        disabled={isCarCertificate}
                                         className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold disabled:cursor-not-allowed"
                                     />
                                     <span className="text-sm font-medium text-slate-800">Include endorsement number</span>
                                 </label>
-                                {isCarCertificate && (
-                                    <p className="mt-2 text-xs text-slate-500">Not used for CAR confirmations.</p>
-                                )}
                             </div>
-                            {data.include_endorsement_number && !isCarCertificate && (
+                            {data.include_endorsement_number && (
                                 <TextField
                                     label="Endorsement Number"
                                     value={data.endorsement_number}
@@ -447,6 +433,31 @@ export default function Form({
                                     required
                                 />
                             )}
+                            <div className="rounded-lg border border-slate-200 px-4 py-3">
+                                <div className="space-y-3">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={data.require_notary}
+                                            onChange={(e) => setData('require_notary', e.target.checked)}
+                                            className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
+                                        />
+                                        <span className="text-sm font-medium text-slate-800">Require notary in the confirmation</span>
+                                    </label>
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={!data.require_notary}
+                                            onChange={() => setData('require_notary', false)}
+                                            className="rounded border-slate-300 text-sterling-green focus:ring-sterling-gold"
+                                        />
+                                        <span className="text-sm font-medium text-slate-800">Do not include Notary</span>
+                                    </label>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Choose whether the approver should include a notary in the confirmation document.
+                                </p>
+                            </div>
                         </section>
 
                         <section className="space-y-4">

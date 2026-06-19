@@ -74,6 +74,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Bond Requests
     Route::resource('bond-requests', BondRequestController::class);
+    Route::post('bond-requests/{bond_request}/resubmit', [BondRequestController::class, 'resubmit'])->name('bond-requests.resubmit');
     Route::post('bond-requests/{bond_request}/approve', [BondRequestController::class, 'approve'])->name('bond-requests.approve');
     Route::post('bond-requests/{bond_request}/reject', [BondRequestController::class, 'reject'])->name('bond-requests.reject');
     Route::post('bond-requests/{bond_request}/notarize', [BondRequestController::class, 'notarize'])->name('bond-requests.notarize');

@@ -17,6 +17,7 @@ export default function Show({
     bondRequest,
     supportingDocuments = [],
     canUpdate,
+    canResubmit = false,
     canDelete,
     canApprove,
     canNotarize,
@@ -33,6 +34,12 @@ export default function Show({
     const { addToast } = useToast();
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [versionToDelete, setVersionToDelete] = useState(null);
+    const [rejectOpen, setRejectOpen] = useState(false);
+
+    // ── Reject form ───────────────────────────────────────────────────────────
+    const rejectForm = useForm({
+        remarks: '',
+    });
 
     // ── Approve form ──────────────────────────────────────────────────────────
     const [bookNoDraft, setBookNoDraft] = useState('');
@@ -220,6 +227,14 @@ export default function Show({
             title={`Bond ${bondRequest.bond_number}`}
             actions={
                 <div className="flex flex-wrap gap-2">
+                    {canResubmit && (
+                        <PrimaryButton
+                            type="button"
+                            onClick={() => router.post(route('bond-requests.resubmit', bondRequest.id))}
+                        >
+                            Resubmit request
+                        </PrimaryButton>
+                    )}
                     {canUpdate && (
                         <Link href={route('bond-requests.edit', bondRequest.id)}>
                             <SecondaryButton>Edit</SecondaryButton>
@@ -228,9 +243,9 @@ export default function Show({
                     {canApprove && (
                         <SecondaryButton
                             type="button"
-                            onClick={() => router.post(route('bond-requests.reject', bondRequest.id))}
+                            onClick={() => setRejectOpen(true)}
                         >
-                            Reject
+                            Request Changes
                         </SecondaryButton>
                     )}
                     {canNotarize && (
@@ -352,6 +367,10 @@ export default function Show({
                                 capitalize={false}
                             />
                         )}
+                        <Detail 
+                            label="Notary Required" 
+                            value={bondRequest.require_notary ? 'Yes' : 'No'} 
+                        />
                         {hasCertificateDetails && (
                             <>
                                 <Detail label="Signatory" value={bondRequest.signatory?.name || '—'} />
@@ -368,14 +387,37 @@ export default function Show({
                             </>
                         )}
                         <Detail label="Created By" value={bondRequest.creator?.name} />
+                        {bondRequest.remarks && (
+                            <Detail 
+                                label="Remarks / Reason for Changes" 
+                                value={bondRequest.remarks} 
+                                className="sm:col-span-2 p-3 bg-orange-50 rounded border border-orange-200"
+                                capitalize={false}
+                            />
+                        )}
                     </dl>
                 </CardBody>
             </Card>
 
             {canApprove && (
                 <Card className="mt-6">
-                    <CardHeader title="Approver review" />
+                    <CardHeader title="Approver / Super Admin review" />
                     <CardBody>
+                        {bondRequest.require_notary && (
+                            <div className="mb-5 rounded-xl border border-blue-400 bg-gradient-to-r from-blue-50 via-white to-blue-100 p-4 shadow-sm ring-1 ring-blue-200">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex items-center rounded-full bg-blue-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                                        Notary Required
+                                    </span>
+                                    <span className="text-sm font-semibold text-blue-900">
+                                        Do not miss this before approval
+                                    </span>
+                                </div>
+                                <p className="mt-3 text-sm font-medium text-blue-900">
+                                    This confirmation must include a notary. The approver or super admin should select a notary in the review form before generating or finalizing the confirmation.
+                                </p>
+                            </div>
+                        )}
                         <p className="mb-4 text-sm text-slate-600">
                             Confirmation details are optional at approval. Complete them now or when generating the confirmation.
                         </p>
@@ -763,6 +805,60 @@ export default function Show({
                 confirmLabel="Delete"
                 danger
             />
+
+            {/* Reject/Request Changes Modal */}
+            {rejectOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Request Changes</h3>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            rejectForm.post(route('bond-requests.reject', bondRequest.id), {
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    setRejectOpen(false);
+                                    rejectForm.reset();
+                                },
+                            });
+                        }}>
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-slate-700 mb-2">
+                                    Remarks / Reason for Changes <span className="text-red-600">*</span>
+                                </label>
+                                <textarea
+                                    value={rejectForm.data.remarks}
+                                    onChange={(e) => rejectForm.setData('remarks', e.target.value)}
+                                    placeholder="Please explain what changes are needed..."
+                                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:border-sterling-green focus:outline-none focus:ring-1 focus:ring-sterling-green"
+                                    rows="4"
+                                />
+                                {rejectForm.errors.remarks && (
+                                    <p className="mt-1 text-sm text-red-600">{rejectForm.errors.remarks}</p>
+                                )}
+                            </div>
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setRejectOpen(false);
+                                        rejectForm.reset();
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-md hover:bg-slate-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={rejectForm.processing || !rejectForm.data.remarks.trim()}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {rejectForm.processing ? 'Processing...' : 'Request Changes'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </AppLayout>
     );
 }

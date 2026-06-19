@@ -176,11 +176,15 @@ class BondRequestController extends Controller
             || $user->hasPermission('users.view');
         $canDeleteCertificateVersion = $user->hasRole(RoleSlug::SuperAdmin)
             || $user->hasPermission('bond-requests.approve');
+        $canResubmit = $user->hasRole(RoleSlug::Requester)
+            && $bondRequest->created_by === $user->id
+            && $bondRequest->status === BondRequestStatus::PendingForChanges;
 
         return Inertia::render('BondRequests/Show', [
             'bondRequest' => $bondRequest,
             'supportingDocuments' => $this->supportingDocumentService->documentsFor($bondRequest),
             'canUpdate' => request()->user()->can('update', $bondRequest),
+            'canResubmit' => $canResubmit,
             'canDelete' => request()->user()->can('delete', $bondRequest),
             'canApprove' => $canApprove,
             'canNotarize' => request()->user()->hasPermission('bond-requests.notarize')
@@ -268,6 +272,30 @@ class BondRequestController extends Controller
             ->with('success', 'Bond request updated successfully.');
     }
 
+    public function resubmit(Request $request, BondRequest $bondRequest): RedirectResponse
+    {
+        $this->authorize('update', $bondRequest);
+        abort_unless($bondRequest->status === BondRequestStatus::PendingForChanges, 422);
+
+        $bondRequest->update([
+            'status' => BondRequestStatus::Pending,
+        ]);
+
+        ActivityLogger::log('resubmitted', "Bond request {$bondRequest->bond_number} resubmitted.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_resubmitted',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: ['status' => BondRequestStatus::PendingForChanges->value],
+            newValues: ['status' => BondRequestStatus::Pending->value],
+            description: "Bond request {$bondRequest->bond_number} resubmitted after requested changes were addressed.",
+        );
+        $this->notificationService->bondRequestResubmitted($bondRequest);
+
+        return back()->with('success', 'Bond request resubmitted successfully.');
+    }
+
     public function destroy(BondRequest $bondRequest): RedirectResponse
     {
         $this->authorize('delete', $bondRequest);
@@ -329,24 +357,28 @@ class BondRequestController extends Controller
         abort_unless($request->user()->hasPermission('bond-requests.approve'), 403);
         abort_unless($bondRequest->status === BondRequestStatus::Pending, 422);
 
-        $bondRequest->update([
-            'status' => BondRequestStatus::Rejected,
-            'remarks' => $request->input('remarks', $bondRequest->remarks),
+        $validated = $request->validate([
+            'remarks' => ['required', 'string', 'min:10', 'max:500'],
         ]);
 
-        ActivityLogger::log('rejected', "Bond request {$bondRequest->bond_number} rejected.", $bondRequest);
+        $bondRequest->update([
+            'status' => BondRequestStatus::PendingForChanges,
+            'remarks' => $validated['remarks'],
+        ]);
+
+        ActivityLogger::log('pending_for_changes', "Bond request {$bondRequest->bond_number} marked as pending for changes.", $bondRequest);
         AuditLogService::log(
             user: $request->user(),
-            action: 'bond_request_rejected',
+            action: 'bond_request_pending_for_changes',
             entityType: AuditLogService::ENTITY_BOND_REQUEST,
             entityId: $bondRequest->id,
             oldValues: ['status' => BondRequestStatus::Pending->value],
-            newValues: ['status' => BondRequestStatus::Rejected->value],
-            description: "Bond request {$bondRequest->bond_number} rejected.",
+            newValues: ['status' => BondRequestStatus::PendingForChanges->value, 'remarks' => $validated['remarks']],
+            description: "Bond request {$bondRequest->bond_number} marked as pending for changes with remarks: {$validated['remarks']}",
         );
-        $this->notificationService->bondRequestRejected($bondRequest);
+        $this->notificationService->bondRequestPendingForChanges($bondRequest);
 
-        return back()->with('success', 'Bond request rejected.');
+        return back()->with('success', 'Bond request marked as pending for changes.');
     }
 
     public function notarize(Request $request, BondRequest $bondRequest): RedirectResponse
@@ -401,8 +433,8 @@ class BondRequestController extends Controller
                     'signatory_id' => $signatory?->id,
                     'signatory_position' => $signatory?->position ?? $bondRequest->signatory_position,
                     'include_signatory_signature' => $signatory !== null && $includeSignature,
-                    'notary_id' => $request->filled('notary_id')
-                        ? $validated['notary_id']
+                    'notary_id' => $request->exists('notary_id')
+                        ? ($request->filled('notary_id') ? $validated['notary_id'] : null)
                         : $bondRequest->notary_id,
                     'doc_no' => $request->filled('doc_no') ? $validated['doc_no'] : $bondRequest->doc_no,
                     'page_no' => $request->filled('page_no') ? $validated['page_no'] : $bondRequest->page_no,

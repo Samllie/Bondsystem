@@ -47,6 +47,41 @@ class NotificationService
         );
     }
 
+    public function bondRequestPendingForChanges(BondRequest $bondRequest): void
+    {
+        $bondRequest->loadMissing('creator');
+
+        $this->notifyUser(
+            $bondRequest->creator,
+            AppNotification::make(
+                type: 'bond_request.pending_for_changes',
+                title: 'Bond request pending for changes',
+                message: "Your bond request {$bondRequest->bond_number} needs some changes. Please review the remarks.",
+                url: route('bond-requests.show', $bondRequest),
+                subjectType: BondRequest::class,
+                subjectId: $bondRequest->id,
+            ),
+        );
+    }
+
+    public function bondRequestResubmitted(BondRequest $bondRequest): void
+    {
+        $bondRequest->loadMissing('creator');
+
+        $this->notifyUsersWithPermission(
+            'bond-requests.approve',
+            AppNotification::make(
+                type: 'bond_request.resubmitted',
+                title: 'Bond request resubmitted',
+                message: "Bond request {$bondRequest->bond_number} was resubmitted by {$bondRequest->creator->name}.",
+                url: route('bond-requests.show', $bondRequest),
+                subjectType: BondRequest::class,
+                subjectId: $bondRequest->id,
+            ),
+            except: $bondRequest->creator,
+        );
+    }
+
     public function bondRequestRejected(BondRequest $bondRequest): void
     {
         $bondRequest->loadMissing('creator');

@@ -112,6 +112,7 @@ class RolePermissionSeeder extends Seeder
                 'permissions' => Permission::whereIn('slug', [
                     'dashboard.view',
                     'bond-requests.view',
+                    'bond-requests.update',
                     'bond-requests.approve',
                     'certifications.view-assigned',
                     'obligees.view',
