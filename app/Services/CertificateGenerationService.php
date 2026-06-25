@@ -335,12 +335,18 @@ class CertificateGenerationService
 
     private function findLibreOffice(): ?string
     {
+        $configuredPath = config('services.libreoffice.path') ?: env('LIBREOFFICE_PATH');
+
+        if (filled($configuredPath) && file_exists($configuredPath)) {
+            return $configuredPath;
+        }
+
         $candidates = [
             'libreoffice',
             'soffice',
             '/usr/bin/libreoffice',
             '/usr/bin/soffice',
-            '/usr/local/bin/libreoffice',
+            '/snap/bin/libreoffice',
             '/Applications/LibreOffice.app/Contents/MacOS/soffice',
             'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
             'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
