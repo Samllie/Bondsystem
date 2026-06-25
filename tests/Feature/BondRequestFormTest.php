@@ -84,7 +84,7 @@ class BondRequestFormTest extends TestCase
         $this->assertNotNull($bondRequest);
         $this->assertNotNull($bondRequest->supporting_document_paths);
         $this->assertCount(1, $bondRequest->supporting_document_paths);
-        Storage::disk('local')->assertExists($bondRequest->supporting_document_paths[0]);
+        $this->assertTrue(Storage::disk('local')->exists($bondRequest->supporting_document_paths[0]));
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
         $this->assertSame('Retention Money Bond NO. G(42)-MKT-0008384', $bondRequest->bond_label);
@@ -156,7 +156,31 @@ class BondRequestFormTest extends TestCase
         $this->assertDatabaseCount('transactions', 0);
     }
 
-    public function test_bond_request_creation_is_rejected_when_branch_balance_is_below_minimum(): void
+    public function test_bond_request_creation_is_rejected_when_branch_balance_is_below_minimum_for_notary_requests(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 999, minimumBalance: 1000);
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'expiry_date' => '2027-05-24',
+            'require_notary' => true,
+        ]);
+
+        $response->assertSessionHasErrors('branch_balance');
+        $this->assertDatabaseCount('bond_requests', 0);
+    }
+
+    public function test_bond_request_creation_can_succeed_below_minimum_when_notary_is_not_required(): void
     {
         $requester = $this->requesterUser('MKT', balance: 999, minimumBalance: 1000);
         $principal = Principal::factory()->create();
@@ -175,8 +199,8 @@ class BondRequestFormTest extends TestCase
             'expiry_date' => '2027-05-24',
         ]);
 
-        $response->assertSessionHasErrors('branch_balance');
-        $this->assertDatabaseCount('bond_requests', 0);
+        $response->assertRedirect();
+        $this->assertDatabaseCount('bond_requests', 1);
     }
 
     public function test_create_form_includes_branch_fund_requirements(): void
@@ -471,6 +495,66 @@ class BondRequestFormTest extends TestCase
             'created_by' => $requester->id,
             'include_endorsement_number' => true,
             'endorsement_number' => 'END-2026-001',
+        ]);
+    }
+
+    public function test_car_endorsement_requires_extension_start_and_wraps_validity_extension(): void
+    {
+        $this->mock(KycObligeeService::class, function ($mock): void {
+            $mock->shouldReceive('find')->andReturn([
+                'id' => 42,
+                'company_name' => 'Acme Obligee Corp',
+                'label' => 'Acme Obligee Corp',
+            ]);
+        });
+
+        $requester = $this->requesterUser('MKT');
+        $principal = Principal::factory()->create();
+
+        $missingExtensionStart = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Maria Santos',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'government',
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $missingExtensionStart->assertSessionHasErrors('extension_period_start');
+
+        $success = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Maria Santos',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_id' => 42,
+            'obligee_name' => 'Acme Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => 'government',
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+            'extension_period_start' => '2026-06-19',
+            'validity_extension' => 'No. 3',
+            'expiry_date' => '2027-05-24',
+        ]);
+
+        $success->assertRedirect();
+
+        $this->assertDatabaseHas('bond_requests', [
+            'created_by' => $requester->id,
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+            'extension_period_start' => '2026-06-19 00:00:00',
+            'validity_extension' => '(No. 3)',
         ]);
     }
 
@@ -877,7 +961,7 @@ class BondRequestFormTest extends TestCase
         $this->assertCount(5, $bondRequest->supporting_document_paths);
 
         foreach ($bondRequest->supporting_document_paths as $path) {
-            Storage::disk('local')->assertExists($path);
+            $this->assertTrue(Storage::disk('local')->exists($path));
             $this->assertStringStartsWith('supporting-documents/', $path);
         }
     }

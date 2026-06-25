@@ -61,6 +61,12 @@ class StoreBondRequestRequest extends FormRequest
             'amount_in_words' => ['nullable', 'string', 'max:1000'],
             'project_name' => ['nullable', 'string', 'max:255'],
             'date_issued' => ['nullable', 'date'],
+            'extension_period_start' => [
+                Rule::requiredIf(fn (): bool => $this->isCarEndorsementRequest()),
+                'nullable',
+                'date',
+            ],
+            'validity_extension' => ['nullable', 'string', 'max:255'],
             'inception_date' => [
                 Rule::requiredIf(fn (): bool => $this->certificateType() === CertificateType::BondCertificate),
                 'nullable',
@@ -103,14 +109,14 @@ class StoreBondRequestRequest extends FormRequest
                 return;
             }
 
-            if (! $branch->meetsMinimumBalanceForSubmission()) {
+            if ($this->boolean('require_notary') && ! $branch->meetsMinimumBalanceForSubmission()) {
                 $minimum = $branch->minimumBalance();
                 $balance = (float) $branch->balance;
 
                 $validator->errors()->add(
                     'branch_balance',
-                    'Insufficient branch fund. A minimum balance of PHP '.number_format($minimum, 2)
-                    .' is required to submit a request. Current balance: PHP '.number_format($balance, 2).'.',
+                    'Insufficient branch fund for a notary request. A minimum balance of PHP '.number_format($minimum, 2)
+                    .' is required when notary is requested. Current balance: PHP '.number_format($balance, 2).'.',
                 );
             }
         });
@@ -127,6 +133,7 @@ class StoreBondRequestRequest extends FormRequest
             'car.required' => 'The CAR field is required for CAR certificate requests.',
             'authorized_representative.required' => 'The authorized representative is required for CAR certificate requests.',
             'endorsement_number.required' => 'The endorsement number is required when include endorsement number is enabled.',
+            'extension_period_start.required' => 'Extension Period Start is required for CAR endorsements.',
             'party_type.required' => 'Please select Government or Private.',
             'bond_type_id.required' => 'Please select a bond type for bond certificate requests.',
             ...$this->supportingDocumentMessages(),
@@ -135,11 +142,21 @@ class StoreBondRequestRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $shouldDefaultDateIssued = ! $this->isCarEndorsementRequest();
+
         $this->merge([
             'attention' => $this->filled('attention') ? $this->input('attention') : null,
             'obligee_id' => $this->filled('obligee_id') ? $this->input('obligee_id') : null,
             'principal_id' => $this->filled('principal_id') ? $this->input('principal_id') : null,
-            'date_issued' => $this->filled('date_issued') ? $this->input('date_issued') : now()->toDateString(),
+            'date_issued' => $this->filled('date_issued')
+                ? $this->input('date_issued')
+                : ($shouldDefaultDateIssued ? now()->toDateString() : null),
+            'extension_period_start' => $this->filled('extension_period_start')
+                ? $this->input('extension_period_start')
+                : null,
+            'validity_extension' => $this->filled('validity_extension')
+                ? trim((string) $this->input('validity_extension'))
+                : null,
         ]);
     }
 
@@ -148,5 +165,11 @@ class StoreBondRequestRequest extends FormRequest
         $value = $this->input('certificate_type');
 
         return is_string($value) ? CertificateType::tryFrom($value) : null;
+    }
+
+    private function isCarEndorsementRequest(): bool
+    {
+        return $this->certificateType() === CertificateType::CarCertificate
+            && $this->boolean('include_endorsement_number');
     }
 }

@@ -4,7 +4,8 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import Card, { CardBody, CardHeader } from '@/Components/UI/Card';
 import ConfirmModal from '@/Components/UI/ConfirmModal';
 import FileDownloadLink from '@/Components/UI/FileDownloadLink';
-import { SelectField, TextField } from '@/Components/UI/FormField';
+import Modal from '@/Components/Modal';
+import { SelectField, TextAreaField, TextField } from '@/Components/UI/FormField';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import { useToast } from '@/Contexts/ToastContext';
 import AppLayout from '@/Layouts/AppLayout';
@@ -22,6 +23,7 @@ export default function Show({
     canApprove,
     canNotarize,
     canGenerateCertificate,
+    canReturnFund = false,
     hasCertificate,
     hasDocx,
     certificateVersions = [],
@@ -35,6 +37,7 @@ export default function Show({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [versionToDelete, setVersionToDelete] = useState(null);
     const [rejectOpen, setRejectOpen] = useState(false);
+    const [returnFundOpen, setReturnFundOpen] = useState(false);
 
     // ── Reject form ───────────────────────────────────────────────────────────
     const rejectForm = useForm({
@@ -60,6 +63,10 @@ export default function Show({
         formatBookNoDisplay(bondRequest.book_no) || '',
     );
     const generateBookNoRef = useRef(null);
+    const returnFundForm = useForm({
+        remarks: '',
+    });
+
 
     // True when any certificate details were saved during approval.
     const detailsAlreadySaved = Boolean(
@@ -137,6 +144,24 @@ export default function Show({
         }));
     };
 
+    const submitReturnFund = (e) => {
+        e.preventDefault();
+
+        returnFundForm.post(route('bond-requests.return-fund', bondRequest.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setReturnFundOpen(false);
+                returnFundForm.reset();
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+
+                if (firstError) {
+                    addToast(Array.isArray(firstError) ? firstError[0] : firstError, 'error');
+                }
+            },
+        });
+    };
     const handleGenerateSignatoryChange = (event) => {
         const signatoryId = event.target.value;
         generateForm.setData((current) => ({
@@ -218,8 +243,13 @@ export default function Show({
     const firstGenerateError = Object.values(generateForm.errors)[0];
 
     // ── Derived display values ────────────────────────────────────────────────
+    const isCarEndorsementRequest = (bondRequest.certificate_type?.value || bondRequest.certificate_type) === 'car_certificate'
+        && Boolean(bondRequest.include_endorsement_number);
     const addresses = [bondRequest.address_1, bondRequest.address_2, bondRequest.address_3].filter(Boolean);
     const inceptionDate = bondRequest.inception_date ? String(bondRequest.inception_date).substring(0, 10) : null;
+    const extensionPeriodStart = bondRequest.extension_period_start
+        ? String(bondRequest.extension_period_start).substring(0, 10)
+        : null;
     const hasCertificateDetails = bondRequest.signatory_id || bondRequest.notary_id || bondRequest.doc_no;
 
     return (
@@ -264,6 +294,15 @@ export default function Show({
                         >
                             <SecondaryButton type="button">View Confirmation</SecondaryButton>
                         </a>
+                    )}
+                    {canReturnFund && (
+                        <SecondaryButton
+                            type="button"
+                            onClick={() => setReturnFundOpen(true)}
+                            className="!text-red-600"
+                        >
+                            Return Fund
+                        </SecondaryButton>
                     )}
                     {hasCertificate && (
                         <FileDownloadLink href={route('bond-requests.download-certificate', bondRequest.id)}>
@@ -322,14 +361,31 @@ export default function Show({
                             capitalize={false}
                         />
                         <Detail label="Request Date" value={bondRequest.request_date} />
-                        <Detail label="Date issued" value={bondRequest.date_issued || '—'} />
+                        {(!isCarEndorsementRequest || bondRequest.date_issued) && (
+                            <Detail label="Date issued" value={bondRequest.date_issued || '—'} />
+                        )}
+                        {isCarEndorsementRequest && (
+                            <>
+                                <Detail
+                                    label="Extension Period Start"
+                                    value={extensionPeriodStart || '—'}
+                                />
+                                <Detail
+                                    label="Validity Extension"
+                                    value={bondRequest.validity_extension || '—'}
+                                    capitalize={false}
+                                />
+                            </>
+                        )}
                         <Detail label="Inception date" value={inceptionDate || '—'} />
-                        <Detail
-                            label="Inception date in words"
-                            value={inceptionDate ? formatDateInWords(inceptionDate) : '—'}
-                            className="sm:col-span-2"
-                            capitalize={false}
-                        />
+                        {(!isCarEndorsementRequest || inceptionDate) && (
+                            <Detail
+                                label="Inception date in words"
+                                value={inceptionDate ? formatDateInWords(inceptionDate) : '—'}
+                                className="sm:col-span-2"
+                                capitalize={false}
+                            />
+                        )}
                         <Detail label="Attention" value={bondRequest.attention || '—'} capitalize={false} />
                         <Detail label="Confirmation type" value={bondRequest.certificate_type_label || '—'} />
                         <Detail
@@ -859,6 +915,39 @@ export default function Show({
                     </div>
                 </div>
             )}
+            <Modal show={returnFundOpen} onClose={() => setReturnFundOpen(false)} maxWidth="md">
+                <form onSubmit={submitReturnFund} className="p-6">
+                    <h3 className="text-lg font-semibold text-sterling-green">Return Fund</h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                        This will return the full notary fee to the requester&apos;s branch and mark the request as returned.
+                    </p>
+                    <div className="mt-4 space-y-2">
+                        <TextAreaField
+                            label="Remarks / Feedback"
+                            value={returnFundForm.data.remarks}
+                            onChange={(e) => returnFundForm.setData('remarks', e.target.value)}
+                            rows={4}
+                            className="min-h-[120px] resize-y"
+                            error={returnFundForm.errors.remarks}
+                            placeholder="Optional reason or notes for the fund return"
+                        />
+                    </div>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <SecondaryButton
+                            type="button"
+                            onClick={() => {
+                                setReturnFundOpen(false);
+                                returnFundForm.reset();
+                            }}
+                        >
+                            Cancel
+                        </SecondaryButton>
+                        <PrimaryButton type="submit" disabled={returnFundForm.processing}>
+                            {returnFundForm.processing ? 'Processing…' : 'Return Fund'}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
         </AppLayout>
     );
 }

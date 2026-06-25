@@ -79,6 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('bond-requests/{bond_request}/reject', [BondRequestController::class, 'reject'])->name('bond-requests.reject');
     Route::post('bond-requests/{bond_request}/notarize', [BondRequestController::class, 'notarize'])->name('bond-requests.notarize');
     Route::post('bond-requests/{bond_request}/generate-certificate', [BondRequestController::class, 'generateCertificate'])->name('bond-requests.generate-certificate');
+    Route::post('bond-requests/{bond_request}/return-fund', [BondRequestController::class, 'returnFund'])->name('bond-requests.return-fund');
     Route::get('bond-requests/{bond_request}/view-certificate', [BondRequestController::class, 'viewCertificate'])->name('bond-requests.view-certificate');
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
     Route::get('bond-requests/{bond_request}/download-docx', [BondRequestController::class, 'downloadDocx'])->name('bond-requests.download-docx');

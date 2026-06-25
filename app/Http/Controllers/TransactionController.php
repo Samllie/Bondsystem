@@ -19,7 +19,11 @@ class TransactionController extends Controller
         $isAdmin = ! $user->hasRole(RoleSlug::Requester);
         $branchId = $request->integer('branch_id') ?: null;
 
-        $transactions = Transaction::with(['user:id,name', 'branch:id,name'])
+        $transactions = Transaction::with([
+            'user:id,name',
+            'branch:id,name',
+            'bondRequest',
+        ])
             ->when(! $isAdmin, fn ($q) => BranchScope::applyTransactionScope($q, $user, null))
             ->when($isAdmin, fn ($q) => BranchScope::applyTransactionScope($q, $user, $branchId))
             ->when($request->input('type'), fn ($q, $t) => $q->where('type', $t))
@@ -33,6 +37,7 @@ class TransactionController extends Controller
         return Inertia::render('Transactions/Index', [
             'transactions' => $transactions,
             'isAdmin' => $isAdmin,
+            'canReturnFund' => $user->hasRole(RoleSlug::SuperAdmin),
             'filters' => $request->only('type', 'search', 'branch_id'),
             'userBalance' => ! $isAdmin ? $user->branchBalance() : null,
             'branchName' => ! $isAdmin ? $user->branch?->name : null,

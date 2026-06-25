@@ -76,6 +76,7 @@ class CertificateTemplate extends Model
     {
         return match ($type) {
             CertificateTemplateType::Car => 'Sterling_CAR_Template.docx',
+            CertificateTemplateType::CarCertificateEndorsement => 'Sterling_CAR_Endorsement_Template.docx',
             CertificateTemplateType::Bond => 'Sterling_Bond_Template.docx',
         };
     }

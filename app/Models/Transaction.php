@@ -7,6 +7,7 @@ use App\Models\Maintenance\Branch;
 use App\Services\TransactionNumberGenerator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Transaction extends Model
 {
@@ -52,5 +53,15 @@ class Transaction extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function bondRequest(): BelongsTo
+    {
+        return $this->belongsTo(BondRequest::class, 'subject_id', 'id');
+    }
+
+    public function subject(): MorphTo
+    {
+        return $this->morphTo();
     }
 }

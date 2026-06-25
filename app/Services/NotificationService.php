@@ -116,6 +116,23 @@ class NotificationService
         );
     }
 
+    public function bondRequestReturned(BondRequest $bondRequest): void
+    {
+        $bondRequest->loadMissing('creator');
+
+        $this->notifyUser(
+            $bondRequest->creator,
+            AppNotification::make(
+                type: 'bond_request.returned',
+                title: 'Funds returned',
+                message: "The notary fee for bond request {$bondRequest->bond_number} has been returned.",
+                url: route('bond-requests.show', $bondRequest),
+                subjectType: BondRequest::class,
+                subjectId: $bondRequest->id,
+            ),
+        );
+    }
+
     public function certificateGenerated(BondRequest $bondRequest): void
     {
         $bondRequest->loadMissing('creator');
@@ -183,6 +200,44 @@ class NotificationService
                 subjectId: $deposit->id,
             ),
         );
+    }
+
+    public function notaryUsedInCertificate(BondRequest $bondRequest): void
+    {
+        $bondRequest->loadMissing('notary.user', 'creator');
+
+        if ($bondRequest->notary?->user) {
+            $this->notifyUser(
+                $bondRequest->notary->user,
+                AppNotification::make(
+                    type: 'certificate.notary_used',
+                    title: 'Your notary information was used',
+                    message: "Your notary credentials were used in confirmation for bond request {$bondRequest->bond_number} by {$bondRequest->creator->name}.",
+                    url: route('bond-requests.show', $bondRequest),
+                    subjectType: BondRequest::class,
+                    subjectId: $bondRequest->id,
+                ),
+            );
+        }
+    }
+
+    public function signatureUsedInCertificate(BondRequest $bondRequest): void
+    {
+        $bondRequest->loadMissing('signatory.user', 'creator');
+
+        if ($bondRequest->signatory?->user && $bondRequest->include_signatory_signature) {
+            $this->notifyUser(
+                $bondRequest->signatory->user,
+                AppNotification::make(
+                    type: 'certificate.signature_used',
+                    title: 'Your signature was used in a confirmation',
+                    message: "Your signature was used in confirmation for bond request {$bondRequest->bond_number} by {$bondRequest->creator->name}.",
+                    url: route('bond-requests.show', $bondRequest),
+                    subjectType: BondRequest::class,
+                    subjectId: $bondRequest->id,
+                ),
+            );
+        }
     }
 
     public function notifyUser(User $user, AppNotification $notification): void

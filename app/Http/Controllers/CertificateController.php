@@ -19,6 +19,11 @@ class CertificateController extends Controller
     {
         $user = $request->user();
 
+        // Notary accounts see all confirmations like super admin
+        if ($user->hasRole(RoleSlug::Notary)) {
+            return $this->renderIndex($request, scoped: false, attorney: true);
+        }
+
         if ($user->hasPermission('certifications.view-assigned') && ! $user->hasPermission('bond-requests.view')) {
             return $this->renderIndex($request, scoped: false, attorney: true);
         }

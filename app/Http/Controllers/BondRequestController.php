@@ -190,6 +190,10 @@ class BondRequestController extends Controller
             'canNotarize' => request()->user()->hasPermission('bond-requests.notarize')
                 && $bondRequest->status === BondRequestStatus::Approved,
             'canGenerateCertificate' => $canGenerateCertificate,
+            'canReturnFund' => $user->hasRole(RoleSlug::SuperAdmin)
+                && $this->notaryFeeService->hasBeenCharged($bondRequest)
+                && ! $this->notaryFeeService->hasBeenReturned($bondRequest)
+                && $bondRequest->status !== BondRequestStatus::Returned,
             'hasCertificate' => $bondRequest->certificate_path !== null,
             'hasDocx' => $bondRequest->docx_path !== null,
             'canMakeVersionCurrent' => $canMakeVersionCurrent,
@@ -233,6 +237,7 @@ class BondRequestController extends Controller
             'partyTypeOptions' => PartyType::options(),
             'supportingDocuments' => $this->supportingDocumentService->documentsFor($bondRequest),
             'requesterBranchCode' => BondNumberGenerator::branchCodeFor($request->user()->load('branch')),
+            'branchFund' => $this->branchFundProps($request->user()->load('branch')),
         ]);
     }
 
@@ -482,7 +487,61 @@ class BondRequestController extends Controller
 
         $this->notificationService->certificateGenerated($bondRequest);
 
+        if ($bondRequest->notary_id) {
+            $this->notificationService->notaryUsedInCertificate($bondRequest);
+        }
+
+        if ($bondRequest->signatory_id && $bondRequest->include_signatory_signature) {
+            $this->notificationService->signatureUsedInCertificate($bondRequest);
+        }
+
         return back()->with('success', 'Confirmation generated successfully.');
+    }
+
+    public function returnFund(Request $request, BondRequest $bondRequest): RedirectResponse
+    {
+        abort_unless($request->user()->hasRole(RoleSlug::SuperAdmin), 403);
+        abort_unless($bondRequest->status !== BondRequestStatus::Returned, 422, 'This bond request has already been returned.');
+        abort_unless($this->notaryFeeService->hasBeenCharged($bondRequest), 422, 'No notary fee has been charged for this bond request.');
+
+        $oldStatus = $bondRequest->status->value;
+
+        $validated = $request->validate([
+            'remarks' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $transaction = $this->notaryFeeService->returnFund(
+                $request->user(),
+                $bondRequest,
+                $validated['remarks'] ?? null,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['remarks' => $e->getMessage()]);
+        }
+
+        $bondRequest->refresh()->loadMissing(['creator', 'signatory', 'notary', 'principal']);
+
+        ActivityLogger::log('returned', "Funds returned for bond request {$bondRequest->bond_number}.", $bondRequest);
+        AuditLogService::log(
+            user: $request->user(),
+            action: 'bond_request_returned',
+            entityType: AuditLogService::ENTITY_BOND_REQUEST,
+            entityId: $bondRequest->id,
+            oldValues: ['status' => $oldStatus],
+            newValues: [
+                'status' => BondRequestStatus::Returned->value,
+                'remarks' => $bondRequest->remarks,
+                'transaction_amount' => $transaction->amount,
+                'balance_before' => $transaction->balance_before,
+                'balance_after' => $transaction->balance_after,
+            ],
+            description: "Returned notary fee for {$bondRequest->bond_number}.",
+        );
+
+        $this->notificationService->bondRequestReturned($bondRequest);
+
+        return back()->with('success', 'Funds returned successfully.');
     }
 
     public function viewCertificate(Request $request, BondRequest $bondRequest): BinaryFileResponse
@@ -676,6 +735,17 @@ class BondRequestController extends Controller
             ? $request->string('endorsement_number')->trim()->toString()
             : null;
 
+        $isCarEndorsementRequest = $certificateType === CertificateType::CarCertificate
+            && $attributes['include_endorsement_number'];
+
+        $attributes['extension_period_start'] = $isCarEndorsementRequest
+            ? ($request->filled('extension_period_start') ? $request->input('extension_period_start') : null)
+            : null;
+
+        $attributes['validity_extension'] = $isCarEndorsementRequest
+            ? $this->formatValidityExtension($request->input('validity_extension'))
+            : null;
+
         unset($attributes['supporting_documents'], $attributes['removed_supporting_documents']);
 
         if ($bondRequest === null) {
@@ -684,6 +754,27 @@ class BondRequestController extends Controller
         }
 
         return $attributes;
+    }
+
+    private function formatValidityExtension(mixed $value): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        $withoutParentheses = trim($trimmed, "() \t\n\r\0\x0B");
+
+        if ($withoutParentheses === '') {
+            return null;
+        }
+
+        return '('.$withoutParentheses.')';
     }
 
     /**

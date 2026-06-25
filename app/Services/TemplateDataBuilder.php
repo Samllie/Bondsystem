@@ -105,13 +105,16 @@ class TemplateDataBuilder
             Log::warning("Bond request #{$bondRequest->id}: signatory is missing. Signatory and Position will be blank.");
         }
 
+        $isCarEndorsementRequest = $this->isCarEndorsementRequest($bondRequest);
+
         return [
             'text' => [
                 'Date' => DateFormatter::longDate($bondRequest->request_date),
-                'Date issued' => DateFormatter::longDate($bondRequest->date_issued),
+                'Date issued' => $isCarEndorsementRequest ? '' : DateFormatter::longDate($bondRequest->date_issued),
                 'Expiry date' => (string) ($bondRequest->expiry_date ?? ''),
                 'Obligee' => (string) ($bondRequest->obligee_name ?? ''),
-                'Address line 1' => (string) ($bondRequest->address_1 ?? ''),
+                'Address line 1' => $this->resolveAddressLine1($bondRequest),
+                'Address Sentence' => $this->resolveAddressSentence($bondRequest),
                 'Address line 2' => (string) ($bondRequest->address_2 ?? ''),
                 'Address line 3' => (string) ($bondRequest->address_3 ?? ''),
                 'Project name' => (string) ($bondRequest->project_name ?? ''),
@@ -128,7 +131,9 @@ class TemplateDataBuilder
                 'Book No.' => (string) ($bondRequest->book_no ?? ''),
                 'Endorsement No.' => $this->resolveEndorsementNumber($bondRequest),
                 'Date in words' => DateFormatter::inWords($bondRequest->request_date),
-                'Date issued in words' => DateFormatter::inWords($bondRequest->date_issued),
+                'Date issued in words' => $isCarEndorsementRequest ? '' : DateFormatter::inWords($bondRequest->date_issued),
+                'Extension start' => $this->resolveExtensionStart($bondRequest),
+                'Validity Ext' => (string) ($bondRequest->validity_extension ?? ''),
                 'Jurat' => $this->resolveJuratTemplate($bondRequest),
                 'Endorsement' => $this->resolveEndorsementTemplate($bondRequest),
             ],
@@ -200,9 +205,18 @@ class TemplateDataBuilder
     private function buildCarSpecific(BondRequest $bondRequest): array
     {
         $principal = $bondRequest->principal;
+        $images = [];
 
         if ($principal === null) {
             Log::warning("Bond request #{$bondRequest->id}: principal is missing. Principal will be blank.");
+        }
+
+        if ($this->isCarEndorsementRequest($bondRequest) && $bondRequest->include_signatory_signature) {
+            $signatureImage = $this->resolveSignatureImage($bondRequest, $bondRequest->signatory);
+
+            if ($signatureImage !== null) {
+                $images['Signature'] = $signatureImage;
+            }
         }
 
         return [
@@ -214,7 +228,7 @@ class TemplateDataBuilder
                 'Authorized Representative' => (string) ($bondRequest->authorized_representative ?? ''),
                 'Principal' => (string) ($principal?->company_name ?? $bondRequest->principal_name ?? ''),
             ],
-            'images' => [],
+            'images' => $images,
         ];
     }
 
@@ -261,6 +275,58 @@ class TemplateDataBuilder
             ?? '');
     }
 
+    private function resolveAddressLine1(BondRequest $bondRequest): string
+    {
+        return (string) ($bondRequest->address_1 ?? '');
+    }
+
+    private function resolveAddressSentence(BondRequest $bondRequest): string
+    {
+        $addressLines = $this->splitAddressLines($bondRequest->address_1);
+        $ctmLines = $this->splitAddressLines($bondRequest->address_2);
+        $provinceLines = $this->splitAddressLines($bondRequest->address_3);
+
+        $maxRows = max(count($addressLines), count($ctmLines), count($provinceLines));
+
+        if ($maxRows === 0) {
+            return '';
+        }
+
+        $combinedRows = [];
+
+        for ($index = 0; $index < $maxRows; $index++) {
+            $segments = array_values(array_filter([
+                trim((string) ($addressLines[$index] ?? '')),
+                trim((string) ($ctmLines[$index] ?? '')),
+                trim((string) ($provinceLines[$index] ?? '')),
+            ], static fn (string $value): bool => $value !== ''));
+
+            if ($segments !== []) {
+                $combinedRows[] = implode(', ', $segments);
+            }
+        }
+
+        return implode("\n", $combinedRows);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function splitAddressLines(mixed $value): array
+    {
+        if (! is_string($value) || $value === '') {
+            return [];
+        }
+
+        $lines = preg_split('/\R/u', $value);
+
+        if (! is_array($lines)) {
+            return [];
+        }
+
+        return array_map(static fn (string $line): string => trim($line), $lines);
+    }
+
     private function resolveJuratTemplate(BondRequest $bondRequest): string
     {
         if ($bondRequest->party_type !== PartyType::Government) {
@@ -286,6 +352,21 @@ class TemplateDataBuilder
         }
 
         return (string) ($bondRequest->endorsement_number ?? '');
+    }
+
+    private function resolveExtensionStart(BondRequest $bondRequest): string
+    {
+        if (! $this->isCarEndorsementRequest($bondRequest)) {
+            return '';
+        }
+
+        return DateFormatter::longDate($bondRequest->extension_period_start);
+    }
+
+    private function isCarEndorsementRequest(BondRequest $bondRequest): bool
+    {
+        return $bondRequest->certificate_type === CertificateType::CarCertificate
+            && (bool) $bondRequest->include_endorsement_number;
     }
 
     /**

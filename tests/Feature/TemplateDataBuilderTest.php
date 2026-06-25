@@ -59,7 +59,7 @@ class TemplateDataBuilderTest extends TestCase
 
         $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
-            'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
+            'Address Sentence', 'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
             'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
             'Date in words', 'Date issued in words',
             'Bond', 'BOND', 'PRINCIPAL', 'Series year',
@@ -236,6 +236,35 @@ class TemplateDataBuilderTest extends TestCase
 
         $this->assertSame('', $data['text']['Address line 2']);
         $this->assertSame('', $data['text']['Address line 3']);
+    }
+
+    public function test_address_line_1_keeps_the_raw_street_address(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'address_1' => "J.P. Laurel Highway\n2nd Floor",
+            'address_2' => "Batangas City\nLipa City",
+            'address_3' => "Batangas\nBatangas",
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame("J.P. Laurel Highway\n2nd Floor", $data['text']['Address line 1']);
+    }
+
+    public function test_address_sentence_combines_address_city_and_province_rows(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'address_1' => "J.P. Laurel Highway\n2nd Floor",
+            'address_2' => "Batangas City\nLipa City",
+            'address_3' => "Batangas\nBatangas",
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame(
+            "J.P. Laurel Highway, Batangas City, Batangas\n2nd Floor, Lipa City, Batangas",
+            $data['text']['Address Sentence'],
+        );
     }
 
     public function test_bond_signature_goes_into_images_not_text_when_file_exists(): void
@@ -439,6 +468,47 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertArrayNotHasKey('Notary', $data['text']);
         $this->assertArrayNotHasKey('Series year', $data['text']);
         $this->assertArrayNotHasKey('Signature', $data['images']);
+    }
+
+    public function test_car_endorsement_includes_signature_image_when_enabled(): void
+    {
+        $signaturePath = 'signatures/car_endorsement_sig.png';
+        Storage::disk('public')->put($signaturePath, 'fake-png-content');
+
+        $signatory = Signatory::factory()->create([
+            'signature_path' => $signaturePath,
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->carBondRequest([
+            'signatory_id' => $signatory->id,
+            'include_endorsement_number' => true,
+            'include_signatory_signature' => true,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayHasKey('Signature', $data['images']);
+        $this->assertSame(120, $data['images']['Signature']['width']);
+        $this->assertSame(60, $data['images']['Signature']['height']);
+        $this->assertTrue($data['images']['Signature']['ratio']);
+    }
+
+    public function test_car_endorsement_populates_extension_placeholders_and_hides_date_issued_placeholders(): void
+    {
+        $bondRequest = $this->carBondRequest([
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+            'extension_period_start' => '2026-06-19',
+            'validity_extension' => '(No. 3)',
+            'date_issued' => '2026-06-18',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('June 19, 2026', $data['text']['Extension start']);
+        $this->assertSame('(No. 3)', $data['text']['Validity Ext']);
+        $this->assertSame('', $data['text']['Date issued']);
+        $this->assertSame('', $data['text']['Date issued in words']);
     }
 
     // -------------------------------------------------------------------------

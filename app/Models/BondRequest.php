@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\BondRequestStatus;
+use App\Enums\CertificateTemplateType;
 use App\Enums\CertificateType;
 use App\Enums\PartyType;
 use App\Models\Maintenance\BondTypeMaster;
@@ -36,6 +37,8 @@ class BondRequest extends Model
         'amount_in_words',
         'project_name',
         'date_issued',
+        'extension_period_start',
+        'validity_extension',
         'inception_date',
         'attention',
         'supporting_document_paths',
@@ -73,6 +76,7 @@ class BondRequest extends Model
             'amount' => 'decimal:2',
             'request_date' => 'date',
             'date_issued' => 'date',
+            'extension_period_start' => 'date',
             'inception_date' => 'date',
             'approved_at' => 'datetime',
             'status' => BondRequestStatus::class,
@@ -128,6 +132,11 @@ class BondRequest extends Model
     public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function certificateTemplateType(): CertificateTemplateType
+    {
+        return CertificateTemplateType::fromBondRequest($this);
     }
 
     public function paymentHistory(): HasOne

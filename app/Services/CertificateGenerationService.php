@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\CertificateTemplateType;
 use App\Models\BondRequest;
 use App\Models\CertificateTemplate;
 use App\Models\CertificateVersion;
@@ -187,7 +186,7 @@ class CertificateGenerationService
 
     private function templatePath(BondRequest $bondRequest): string
     {
-        $type = CertificateTemplateType::fromCertificateType($bondRequest->certificate_type);
+        $type = $bondRequest->certificateTemplateType();
         $activeTemplate = CertificateTemplate::activeForType($type);
 
         if ($activeTemplate !== null) {
@@ -329,7 +328,7 @@ class CertificateGenerationService
 
     private function resolveTemplateId(BondRequest $bondRequest): ?int
     {
-        $type = CertificateTemplateType::fromCertificateType($bondRequest->certificate_type);
+        $type = $bondRequest->certificateTemplateType();
 
         return CertificateTemplate::activeForType($type)?->id;
     }

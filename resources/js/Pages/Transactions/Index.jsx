@@ -7,12 +7,58 @@ import useDebouncedInertiaSearch from '@/hooks/useDebouncedInertiaSearch';
 import { visitTable } from '@/lib/visitTable';
 import { transactionFilterSummary } from '@/lib/reportPrint';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import Modal from '@/Components/Modal';
+import { TextAreaField } from '@/Components/UI/FormField';
+import PrimaryButton from '@/Components/PrimaryButton';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 const TABLE_PROPS = ['transactions', 'filters'];
 const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
 
-export default function TransactionsIndex({ transactions, isAdmin, filters, userBalance, branchName, branchOptions, showBranchFilter }) {
+export default function TransactionsIndex({
+    transactions,
+    isAdmin,
+    filters,
+    userBalance,
+    branchName,
+    branchOptions,
+    showBranchFilter,
+    canReturnFund,
+}) {
+    const [returnFundOpen, setReturnFundOpen] = useState(false);
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
+    
+    const returnFundForm = useForm({
+        remarks: '',
+    });
+
+    const submitReturnFund = (e) => {
+        e.preventDefault();
+        if (!selectedTransaction?.bondRequest?.id) return;
+
+        returnFundForm.post(route('bond-requests.return-fund', selectedTransaction.bondRequest.id), {
+            onSuccess: () => {
+                setReturnFundOpen(false);
+                returnFundForm.reset();
+                setSelectedTransaction(null);
+            },
+        });
+    };
+
+    const isNotaryFeeDebit = (transaction) => {
+        return (
+            transaction.type === 'debit' &&
+            transaction.description?.includes('Notary fee') &&
+            transaction.bondRequest
+        );
+    };
+
+    const openReturnFundModal = (transaction) => {
+        setSelectedTransaction(transaction);
+        setReturnFundOpen(true);
+    };
     const url = route('payments.transactions.index');
     const filterSummary = transactionFilterSummary(filters, branchOptions);
     const pageTitle = isAdmin ? 'Transactions' : 'My Transactions';
@@ -95,7 +141,16 @@ export default function TransactionsIndex({ transactions, isAdmin, filters, user
                     <table className="dashboard-report-table min-w-full text-sm">
                         <thead className="bg-slate-50">
                             <tr>
-                                {[isAdmin && 'User', 'Transaction #', 'Type', 'Amount', 'Balance After', 'Description', 'Date']
+                                {[
+                                    isAdmin && 'User',
+                                    'Transaction #',
+                                    'Type',
+                                    'Amount',
+                                    'Balance After',
+                                    'Description',
+                                    'Date',
+                                    canReturnFund && 'Actions',
+                                ]
                                     .filter(Boolean)
                                     .map((heading) => (
                                         <th
@@ -138,6 +193,20 @@ export default function TransactionsIndex({ transactions, isAdmin, filters, user
                                     <td className="px-4 py-3 text-slate-500">
                                         {new Date(t.created_at).toLocaleDateString('en-PH')}
                                     </td>
+                                    {canReturnFund && isNotaryFeeDebit(t) && (
+                                        <td className="no-print px-4 py-3 text-sm">
+                                            <button
+                                                type="button"
+                                                onClick={() => openReturnFundModal(t)}
+                                                className="text-sterling-green hover:text-sterling-green-darker font-medium"
+                                            >
+                                                Return Fund
+                                            </button>
+                                        </td>
+                                    )}
+                                    {canReturnFund && !isNotaryFeeDebit(t) && (
+                                        <td className="no-print px-4 py-3" />
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
@@ -151,6 +220,46 @@ export default function TransactionsIndex({ transactions, isAdmin, filters, user
                     <Pagination links={transactions.links} meta={transactions.meta} />
                 </div>
             </div>
+
+            <Modal show={returnFundOpen} onClose={() => setReturnFundOpen(false)} maxWidth="md">
+                <form onSubmit={submitReturnFund} className="p-6">
+                    <h3 className="text-lg font-semibold text-sterling-green">Return Fund</h3>
+                    <p className="mt-2 text-sm text-slate-600">
+                        This will return the full notary fee to the requester&apos;s branch and mark the request as returned.
+                    </p>
+                    {selectedTransaction && (
+                        <p className="mt-2 text-sm text-slate-600">
+                            <strong>Bond Request:</strong> {selectedTransaction.bondRequest?.bond_number}
+                        </p>
+                    )}
+                    <div className="mt-4 space-y-2">
+                        <TextAreaField
+                            label="Remarks / Feedback"
+                            value={returnFundForm.data.remarks}
+                            onChange={(e) => returnFundForm.setData('remarks', e.target.value)}
+                            rows={4}
+                            className="min-h-[120px] resize-y"
+                            error={returnFundForm.errors.remarks}
+                            placeholder="Optional reason or notes for the fund return"
+                        />
+                    </div>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <SecondaryButton
+                            type="button"
+                            onClick={() => {
+                                setReturnFundOpen(false);
+                                returnFundForm.reset();
+                                setSelectedTransaction(null);
+                            }}
+                        >
+                            Cancel
+                        </SecondaryButton>
+                        <PrimaryButton type="submit" disabled={returnFundForm.processing}>
+                            {returnFundForm.processing ? 'Processing…' : 'Return Fund'}
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </Modal>
         </AppLayout>
     );
 }

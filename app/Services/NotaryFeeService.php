@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\BondRequestStatus;
 use App\Enums\TransactionType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\Branch;
@@ -34,6 +35,15 @@ class NotaryFeeService
             ->where('subject_type', BondRequest::class)
             ->where('subject_id', $bondRequest->id)
             ->where('type', TransactionType::Debit->value)
+            ->exists();
+    }
+
+    public function hasBeenReturned(BondRequest $bondRequest): bool
+    {
+        return Transaction::query()
+            ->where('subject_type', BondRequest::class)
+            ->where('subject_id', $bondRequest->id)
+            ->where('type', TransactionType::Credit->value)
             ->exists();
     }
 
@@ -111,6 +121,71 @@ class NotaryFeeService
             );
 
             return $transaction;
+        });
+    }
+
+    public function returnFund(User $user, BondRequest $bondRequest, ?string $remarks = null): Transaction
+    {
+        return DB::transaction(function () use ($bondRequest, $remarks) {
+            $requester = User::query()
+                ->whereKey($bondRequest->created_by)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $requester->loadMissing('branch');
+
+            if ($requester->branch_id === null) {
+                throw new InvalidArgumentException('Requester must belong to a branch.');
+            }
+
+            $branch = Branch::query()
+                ->whereKey($requester->branch_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $chargedTransaction = Transaction::query()
+                ->where('subject_type', BondRequest::class)
+                ->where('subject_id', $bondRequest->id)
+                ->where('type', TransactionType::Debit->value)
+                ->lockForUpdate()
+                ->latest('id')
+                ->first();
+
+            if ($chargedTransaction === null) {
+                throw new InvalidArgumentException('No notary fee was charged for this bond request.');
+            }
+
+            if ($this->hasBeenReturned($bondRequest)) {
+                throw new InvalidArgumentException('The notary fee for this bond request has already been returned.');
+            }
+
+            $amount = (float) $chargedTransaction->amount;
+            $balanceBefore = (float) $branch->balance;
+            $balanceAfter = $balanceBefore + $amount;
+
+            $branch->update([
+                'balance' => number_format($balanceAfter, 2, '.', ''),
+            ]);
+
+            $transaction = Transaction::create([
+                'user_id' => $requester->id,
+                'branch_id' => $branch->id,
+                'type' => TransactionType::Credit->value,
+                'amount' => $amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference' => $chargedTransaction->reference,
+                'description' => "Return fund — {$branch->name} — Bond request {$chargedTransaction->reference}",
+                'subject_type' => BondRequest::class,
+                'subject_id' => $bondRequest->id,
+            ]);
+
+            $bondRequest->update([
+                'status' => BondRequestStatus::Returned,
+                'remarks' => $remarks,
+            ]);
+
+            return $transaction->fresh();
         });
     }
 

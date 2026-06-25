@@ -10,6 +10,7 @@ enum BondRequestStatus: string
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Notarized = 'notarized';
+    case Returned = 'returned';
     case Expired = 'expired';
     case Cancelled = 'cancelled';
 
@@ -22,6 +23,7 @@ enum BondRequestStatus: string
             self::Approved => 'Approved',
             self::Rejected => 'Rejected',
             self::Notarized => 'Notarized',
+            self::Returned => 'Returned',
             self::Expired => 'Expired',
             self::Cancelled => 'Cancelled',
         };
@@ -36,6 +38,7 @@ enum BondRequestStatus: string
             self::Approved => 'blue',
             self::Rejected => 'red',
             self::Notarized => 'green',
+            self::Returned => 'teal',
             self::Expired => 'slate',
             self::Cancelled => 'gray',
         };

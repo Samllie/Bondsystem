@@ -38,7 +38,13 @@ function formatDate(isoString) {
 }
 
 function typeLabel(type) {
-    return type === 'car' ? 'CAR' : 'Bond';
+    const labelsByType = {
+        bond: 'Bond',
+        car: 'CAR',
+        car_certificate_endorsement: 'CAR Confirmation with Endorsement',
+    };
+
+    return labelsByType[type] ?? type;
 }
 
 function SectionHeader({ title, description }) {
@@ -179,7 +185,7 @@ export default function CertificateTemplatesIndex({
                         <h2 className="text-lg font-semibold text-sterling-green">Upload Template</h2>
                         <p className="mt-1 text-sm text-slate-500">
                             Upload a DOCX template (max 10 MB). New uploads are inactive until activated. Only one Bond
-                            and one CAR template can be active at a time.
+                            , one CAR, and one CAR with Endorsement template can be active at a time.
                         </p>
 
                         <form onSubmit={submitUpload} encType="multipart/form-data" className="mt-5 space-y-4">
@@ -242,7 +248,7 @@ export default function CertificateTemplatesIndex({
                                 <>
                                     <SectionHeader
                                         title="Currently in use for confirmation generation"
-                                        description="One Bond template and one CAR template are used when generating confirmations."
+                                        description="One active template per type (Bond, CAR, CAR with Endorsement) is used when generating confirmations."
                                     />
                                     {inUseTemplates.map((template) => (
                                         <TemplateRow

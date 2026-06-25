@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\BondRequestStatus;
 use App\Enums\CertificateType;
 use App\Enums\RoleSlug;
+use App\Enums\TransactionType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\Branch;
 use App\Models\Maintenance\Notary;
@@ -16,6 +17,7 @@ use App\Services\AmountToWordsService;
 use App\Services\CertificateGenerationService;
 use App\Services\ConfirmationNumberService;
 use App\Services\DocxEndorsementSpacingNormalizer;
+use App\Services\NotificationService;
 use App\Services\PlaceholderRenderer;
 use App\Services\QRCodeGenerationService;
 use App\Services\TemplateDataBuilder;
@@ -281,6 +283,73 @@ class CertificateGenerationTest extends TestCase
         );
     }
 
+    public function test_show_page_includes_return_fund_flag_for_super_admin_when_fee_was_charged(): void
+    {
+        $superAdmin = $this->superAdminUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 9500,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'created_by' => $requester->id,
+        ]);
+
+        Transaction::create([
+            'user_id' => $requester->id,
+            'branch_id' => $branch->id,
+            'type' => TransactionType::Debit->value,
+            'amount' => 500,
+            'balance_before' => 10000,
+            'balance_after' => 9500,
+            'reference' => $bondRequest->bond_number,
+            'description' => 'Notary fee charge',
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
+
+        $response = $this->actingAs($superAdmin)
+            ->get(route('bond-requests.show', $bondRequest));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('BondRequests/Show')
+            ->where('canReturnFund', true)
+        );
+    }
+
+    public function test_show_page_includes_car_endorsement_extension_fields(): void
+    {
+        $approver = $this->approverUser();
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'bond_type_id' => null,
+            'car' => 'CAR-MKT-0072056',
+            'created_by' => User::factory()->create()->id,
+            'include_endorsement_number' => true,
+            'endorsement_number' => 'END-2026-001',
+            'extension_period_start' => '2026-06-19',
+            'validity_extension' => '(No. 3)',
+            'date_issued' => null,
+        ]);
+
+        $response = $this->actingAs($approver)
+            ->get(route('bond-requests.show', $bondRequest));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('BondRequests/Show')
+            ->where('bondRequest.extension_period_start', '2026-06-19T00:00:00.000000Z')
+            ->where('bondRequest.validity_extension', '(No. 3)')
+            ->where('bondRequest.include_endorsement_number', true)
+        );
+    }
+
     public function test_generation_failure_redirects_with_error_message(): void
     {
         $approver = $this->approverUser();
@@ -454,6 +523,64 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHasErrors('notary_id');
         $this->assertEquals(100, (float) $branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_super_admin_can_return_notary_fee_for_bond_request(): void
+    {
+        $superAdmin = $this->superAdminUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 9500,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'created_by' => $requester->id,
+            'remarks' => null,
+        ]);
+
+        Transaction::create([
+            'user_id' => $requester->id,
+            'branch_id' => $branch->id,
+            'type' => TransactionType::Debit->value,
+            'amount' => 500,
+            'balance_before' => 10000,
+            'balance_after' => 9500,
+            'reference' => $bondRequest->bond_number,
+            'description' => 'Notary fee charge',
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
+
+        $this->mock(NotificationService::class, function ($mock): void {
+            $mock->shouldReceive('bondRequestReturned')->once();
+        });
+
+        $response = $this->actingAs($superAdmin)
+            ->post(route('bond-requests.return-fund', $bondRequest), [
+                'remarks' => 'Duplicate notary charge',
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $bondRequest->refresh();
+
+        $this->assertSame(BondRequestStatus::Returned, $bondRequest->status);
+        $this->assertSame('Duplicate notary charge', $bondRequest->remarks);
+        $this->assertEquals(10000, (float) $branch->fresh()->balance);
+        $this->assertDatabaseCount('transactions', 2);
+        $this->assertDatabaseHas('transactions', [
+            'branch_id' => $branch->id,
+            'type' => TransactionType::Credit->value,
+            'amount' => 500,
+            'subject_type' => BondRequest::class,
+            'subject_id' => $bondRequest->id,
+        ]);
     }
 
     public function test_regenerate_certificate_preserves_signatory_when_compact_form_omits_signatory_id(): void
