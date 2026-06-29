@@ -1,9 +1,9 @@
-export function buildBondValue(bondTypeLabel, branchCode, bondNumber, serial) {
-    if (!bondTypeLabel || !bondNumber || !branchCode || !serial) {
+export function buildBondValue(bondTypeLabel, branchCode, bondNumber) {
+    if (!bondTypeLabel || !bondNumber || !branchCode) {
         return '';
     }
 
-    return `${bondTypeLabel} NO. ${bondNumber}-${String(branchCode).toUpperCase()}-${serial}`;
+    return `${bondTypeLabel} NO. ${bondNumber}-${String(branchCode).toUpperCase()}-`;
 }
 
 export function buildCarValue(branchCode, serial = '0072056') {

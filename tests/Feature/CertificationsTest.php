@@ -13,6 +13,7 @@ use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\File;
 use Tests\TestCase;
 
 class CertificationsTest extends TestCase
@@ -113,6 +114,68 @@ class CertificationsTest extends TestCase
             ->has('certificates.data', 1)
             ->where('certificates.data.0.id', $certA->id)
         );
+    }
+
+    public function test_encoder_sees_branch_scoped_confirmations_on_user_route_like_requester(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+        $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
+        $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
+
+        $certA = $this->certificateFor($requesterA);
+        $this->certificateFor($requesterB);
+
+        $response = $this->actingAs($encoder)->get(route('certifications.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Certifications/Index')
+            ->where('context', 'user')
+            ->where('canViewAllBranches', false)
+            ->where('showBranchFilter', false)
+            ->has('certificates.data', 1)
+            ->where('certificates.data.0.id', $certA->id)
+        );
+    }
+
+    public function test_encoder_can_view_and_download_confirmation_from_own_branch_like_requester(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+        $requesterA = $this->userWithRole(RoleSlug::Requester, $branchA);
+        $certificate = $this->certificateFor($requesterA);
+        $absolutePath = storage_path('app/'.$certificate->certificate_path);
+        File::ensureDirectoryExists(dirname($absolutePath));
+        file_put_contents($absolutePath, '%PDF-1.4 test');
+
+        $this->actingAs($encoder)
+            ->get(route('bond-requests.view-certificate', $certificate))
+            ->assertOk();
+
+        $this->actingAs($encoder)
+            ->get(route('bond-requests.download-certificate', $certificate))
+            ->assertOk();
+    }
+
+    public function test_encoder_cannot_view_or_download_confirmation_from_other_branch(): void
+    {
+        $branchA = $this->makeBranch('AAA');
+        $branchB = $this->makeBranch('BBB');
+
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+        $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
+        $certificate = $this->certificateFor($requesterB);
+
+        $this->actingAs($encoder)
+            ->get(route('bond-requests.view-certificate', $certificate))
+            ->assertForbidden();
+
+        $this->actingAs($encoder)
+            ->get(route('bond-requests.download-certificate', $certificate))
+            ->assertForbidden();
     }
 
     public function test_requests_without_a_generated_certificate_are_excluded(): void

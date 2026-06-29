@@ -30,7 +30,11 @@ class CertificateController extends Controller
 
         abort_unless($user->hasPermission('bond-requests.view'), 403);
 
-        return $this->renderIndex($request, scoped: true);
+if ($user->hasRole(RoleSlug::Encoder)) {
+    return $this->renderIndex($request, scoped: false);
+}
+
+return $this->renderIndex($request, scoped: true);
     }
 
     /**

@@ -23,6 +23,7 @@ use App\Services\KycObligeeService;
 use App\Services\NotaryFeeService;
 use App\Services\NotificationService;
 use App\Support\AmountInWords;
+use App\Support\BondFormat;
 use App\Support\BondNumberGenerator;
 use App\Support\BranchScope;
 use Illuminate\Http\RedirectResponse;
@@ -649,12 +650,11 @@ class BondRequestController extends Controller
         return BondTypeMaster::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code', 'bond_serial'])
+            ->get(['id', 'name', 'code'])
             ->map(fn (BondTypeMaster $type) => [
                 'value' => $type->id,
                 'label' => $type->name,
                 'code' => $type->code,
-                'bond_serial' => $type->bond_serial,
             ])
             ->all();
     }
@@ -723,8 +723,21 @@ class BondRequestController extends Controller
             $attributes['authorized_representative'] = $request->string('authorized_representative')->trim()->toString();
         } else {
             $bondType = BondTypeMaster::query()->findOrFail($request->integer('bond_type_id'));
+            $userBranchCode = BondNumberGenerator::branchCodeFor($request->user());
+            $submittedBranchCode = strtoupper($request->string('branch_code')->trim()->toString());
+            $branchCode = $request->user()->hasRole(RoleSlug::Requester)
+                ? ($userBranchCode ?? '')
+                : ($submittedBranchCode !== '' ? $submittedBranchCode : ($userBranchCode ?? ''));
+            $submittedBondNumber = $request->string('bond_number')->trim()->toString();
+
             $attributes['bond_type'] = $bondType->name;
-            $attributes['bond_number'] = BondNumberGenerator::fromBondType($bondType);
+            $attributes['bond_number'] = $submittedBondNumber !== ''
+                ? $submittedBondNumber
+                : BondFormat::buildValue(
+                    $bondType->name,
+                    $branchCode,
+                    BondNumberGenerator::fromBondType($bondType),
+                );
             $attributes['car'] = null;
             $attributes['authorized_representative'] = null;
         }

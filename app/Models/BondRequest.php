@@ -180,6 +180,10 @@ class BondRequest extends Model
             return $this->car ?? '';
         }
 
+        if (filled($this->bond_number) && str_contains((string) $this->bond_number, ' NO. ')) {
+            return (string) $this->bond_number;
+        }
+
         $creator = $this->creator;
         if ($creator && ! $creator->relationLoaded('branch')) {
             $creator->load('branch');
@@ -189,7 +193,6 @@ class BondRequest extends Model
             $this->bond_type_label,
             $creator ? BondNumberGenerator::branchCodeFor($creator) : null,
             $this->bondTypeMaster?->code ?? $this->bond_number,
-            $this->bondTypeMaster?->bond_serial,
         );
     }
 }

@@ -26,7 +26,6 @@ class BondTypeManagementTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('maintenance.bond-types.store'), [
             'code' => 'G(42)',
-            'bond_serial' => '0008384',
             'name' => 'Retention Money Bond',
             'description' => 'Retention money guarantee bond',
             'is_active' => true,
@@ -36,26 +35,24 @@ class BondTypeManagementTest extends TestCase
 
         $this->assertDatabaseHas('bond_type_masters', [
             'code' => 'G(42)',
-            'bond_serial' => '0008384',
             'name' => 'Retention Money Bond',
             'description' => 'Retention money guarantee bond',
             'is_active' => true,
         ]);
     }
 
-    public function test_bond_type_requires_bond_serial_and_allows_empty_description(): void
+    public function test_bond_type_allows_empty_description_without_bond_serial(): void
     {
         $admin = $this->adminUser();
 
         $response = $this->actingAs($admin)->post(route('maintenance.bond-types.store'), [
             'code' => 'ABC123',
-            'bond_serial' => 'ABC123',
             'name' => 'Bid Bond',
             'description' => '',
             'is_active' => true,
         ]);
 
-        $response->assertSessionHasErrors(['bond_serial']);
+        $response->assertRedirect(route('maintenance.bond-types.index'));
         $response->assertSessionDoesntHaveErrors(['code', 'description']);
     }
 

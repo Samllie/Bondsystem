@@ -38,12 +38,6 @@ class BondTypeMasterController extends MaintenanceController
                 'max:50',
                 Rule::unique('bond_type_masters', 'code')->ignore($record?->id),
             ],
-            'bond_serial' => [
-                'required',
-                'string',
-                'size:7',
-                'regex:/^\d{7}$/',
-            ],
             'description' => ['nullable', 'string'],
             'is_active' => ['boolean'],
         ];

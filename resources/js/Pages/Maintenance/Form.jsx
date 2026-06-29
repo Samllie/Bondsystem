@@ -20,7 +20,6 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
         commission_number: record?.commission_number ?? '',
         expiry_date: record?.expiry_date ?? '',
         code: record?.code ?? '',
-        bond_serial: record?.bond_serial ?? '',
         branch_code: record?.branch_code ?? '',
         branch_city: record?.branch_city ?? '',
         notary_price: record?.notary_price ?? '',
@@ -85,19 +84,6 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
                                 maxLength={3}
                                 placeholder="CEB"
                                 error={errors.branch_code}
-                            />
-                        )}
-
-                        {showCode && isBondTypeForm && (
-                            <TextField
-                                label="Bond Serial"
-                                required
-                                value={data.bond_serial}
-                                onChange={(e) => setData('bond_serial', e.target.value.replace(/\D/g, '').slice(0, 7))}
-                                inputMode="numeric"
-                                maxLength={7}
-                                placeholder="0000001"
-                                error={errors.bond_serial}
                             />
                         )}
 

@@ -33,7 +33,11 @@ class BondRequestPolicy
             return $bondRequest->certificate_path !== null;
         }
 
-        if ($user->hasRole(RoleSlug::SuperAdmin) || $user->hasRole(RoleSlug::Approver)) {
+        if (
+            $user->hasRole(RoleSlug::SuperAdmin) ||
+            $user->hasRole(RoleSlug::Approver) ||
+            $user->hasRole(RoleSlug::Encoder)
+        ) {
             return true;
         }
 

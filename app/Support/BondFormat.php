@@ -8,18 +8,16 @@ class BondFormat
         string $bondTypeLabel,
         ?string $branchCode,
         ?string $bondNumber,
-        ?string $serial,
     ): string {
-        if ($bondTypeLabel === '' || $bondNumber === null || $bondNumber === '' || $branchCode === null || $branchCode === '' || $serial === null || $serial === '') {
+        if ($bondTypeLabel === '' || $bondNumber === null || $bondNumber === '' || $branchCode === null || $branchCode === '') {
             return '';
         }
 
         return sprintf(
-            '%s NO. %s-%s-%s',
+            '%s NO. %s-%s-',
             $bondTypeLabel,
             $bondNumber,
             strtoupper($branchCode),
-            $serial,
         );
     }
 

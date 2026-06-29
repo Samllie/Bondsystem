@@ -55,7 +55,6 @@ class BondRequestFormTest extends TestCase
         $bondType = BondTypeMaster::factory()->create([
             'name' => 'Retention Money Bond',
             'code' => 'G(42)',
-            'bond_serial' => '0008384',
         ]);
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
@@ -80,18 +79,18 @@ class BondRequestFormTest extends TestCase
 
         $response->assertRedirect();
 
-        $bondRequest = BondRequest::query()->where('bond_number', 'G(42)')->first();
+        $bondRequest = BondRequest::query()->where('created_by', $requester->id)->latest('id')->first();
         $this->assertNotNull($bondRequest);
         $this->assertNotNull($bondRequest->supporting_document_paths);
         $this->assertCount(1, $bondRequest->supporting_document_paths);
         $this->assertTrue(Storage::disk('local')->exists($bondRequest->supporting_document_paths[0]));
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
-        $this->assertSame('Retention Money Bond NO. G(42)-MKT-0008384', $bondRequest->bond_label);
+        $this->assertSame('Retention Money Bond NO. G(42)-MKT-', $bondRequest->bond_label);
         $this->assertNull($bondRequest->tin);
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'G(42)',
+            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
             'bond_type_id' => $bondType->id,
             'bond_type' => 'Retention Money Bond',
             'principal_id' => $principal->id,
@@ -113,7 +112,7 @@ class BondRequestFormTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'G(42)',
+            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
             'amount_in_words' => 'One Thousand Five Hundred Pesos and Seventy Five Centavos Only',
         ]);
 
@@ -614,7 +613,6 @@ class BondRequestFormTest extends TestCase
         $bondType = BondTypeMaster::factory()->create([
             'name' => 'Performance Bond',
             'code' => '0123456',
-            'bond_serial' => '0000009',
         ]);
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
@@ -635,7 +633,7 @@ class BondRequestFormTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => '0123456',
+            'bond_number' => 'Performance Bond NO. 0123456-CEB-',
             'bond_type_id' => $bondType->id,
         ]);
     }
@@ -723,7 +721,6 @@ class BondRequestFormTest extends TestCase
         $bondType = BondTypeMaster::factory()->create([
             'name' => 'Retention Money Bond',
             'code' => 'G(42)',
-            'bond_serial' => '0008384',
         ]);
 
         $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
@@ -742,7 +739,7 @@ class BondRequestFormTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'G(42)',
+            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
             'principal_id' => null,
             'principal_name' => 'Custom Principal Corp',
             'obligee_id' => null,

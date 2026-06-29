@@ -19,7 +19,7 @@ export default function GuestLayout({ children, unified = false }) {
                     >
                         <SterlingLogo size="lg" className="mx-auto" />
                         <p className="mt-2 text-[0.65rem] font-medium uppercase leading-snug tracking-wide text-sterling-green/80 sm:mt-3 sm:text-xs">
-                            Bond Notarization & Confirmation Management
+                            Confirmation Management System
                         </p>
                     </div>
                     <div
@@ -37,7 +37,7 @@ export default function GuestLayout({ children, unified = false }) {
             <div className="mb-6 max-w-md text-center sm:mb-8">
                 <SterlingLogo size="xl" className="mx-auto" />
                 <p className="mt-3 text-xs text-white/70 sm:mt-4 sm:text-sm">
-                    Bond Notarization & Confirmation Management
+                    Confirmation Management System
                 </p>
             </div>
             <div className="w-full max-w-md overflow-hidden rounded-xl bg-white p-6 shadow-xl ring-1 ring-sterling-gold/20 sm:p-8">

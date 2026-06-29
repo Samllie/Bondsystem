@@ -92,6 +92,7 @@ class RolePermissionSeeder extends Seeder
                     'bond-requests.view',
                     'bond-requests.create',
                     'bond-requests.update',
+                    'certifications.view-assigned',
                     'obligees.view',
                     'obligees.create',
                     'obligees.update',

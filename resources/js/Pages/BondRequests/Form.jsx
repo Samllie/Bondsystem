@@ -10,7 +10,7 @@ import { amountInWords } from '@/lib/amountInWords';
 import { buildBondValue, buildCarValue } from '@/lib/bondFormat';
 import { formatDateInWords } from '@/lib/formatDateInWords';
 import { formatAmountDisplay, parseAmountInput } from '@/lib/formatAmount';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
 function formatDate(value) {
@@ -67,6 +67,8 @@ export default function Form({
     branchFund = null,
 }) {
     const isEdit = Boolean(bondRequest?.id);
+    const authUser = usePage().props?.auth?.user;
+    const isRequesterRole = authUser?.role?.slug === 'requester';
     const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
     const hasInsufficientBranchFund = !isEdit && branchFund && !branchFund.canSubmit;
     const [removedSupportingDocuments, setRemovedSupportingDocuments] = useState([]);
@@ -103,6 +105,8 @@ export default function Form({
             bondRequest?.include_endorsement_number ?? bondRequest?.endorsement_number,
         ),
         endorsement_number: bondRequest?.endorsement_number || '',
+        branch_code: requesterBranchCode || '',
+        bond_number: bondRequest?.bond_number || '',
         car: bondRequest?.car || buildCarValue(requesterBranchCode),
         authorized_representative: bondRequest?.authorized_representative || '',
         expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
@@ -154,11 +158,13 @@ export default function Form({
         const selectedBondType = bondTypeOptions.find(
             (option) => option.label.toLowerCase() === nextBondTypeLabel.toLowerCase(),
         );
+        const nextBondTypeNumber = selectedBondType?.code || '';
 
         setData((current) => ({
             ...current,
             bond_type_id: selectedBondType?.value || '',
             bond_type_label: nextBondTypeLabel,
+            bond_number: buildBondValue(nextBondTypeLabel, current.branch_code, nextBondTypeNumber),
         }));
     };
 
@@ -287,23 +293,6 @@ export default function Form({
 
         return '';
     }, [bondRequest, selectedBondType]);
-
-    const bondTypeSerial = useMemo(() => {
-        if (selectedBondType?.bond_serial) {
-            return selectedBondType.bond_serial;
-        }
-
-        if (bondRequest?.bondTypeMaster?.bond_serial) {
-            return bondRequest.bondTypeMaster.bond_serial;
-        }
-
-        return '';
-    }, [bondRequest, selectedBondType]);
-
-    const bondDisplay = useMemo(
-        () => buildBondValue(selectedBondTypeLabel, requesterBranchCode, bondTypeBondNumber, bondTypeSerial),
-        [bondTypeBondNumber, bondTypeSerial, requesterBranchCode, selectedBondTypeLabel],
-    );
 
     const isCarCertificate = data.certificate_type === 'car_certificate';
 
@@ -569,7 +558,6 @@ export default function Form({
                                             id: option.value,
                                             label: option.label,
                                             code: option.code,
-                                            bond_serial: option.bond_serial,
                                         }))}
                                         placeholder="Type or select bond type…"
                                         error={errors.bond_type_id}
@@ -577,9 +565,21 @@ export default function Form({
                                     />
                                     <TextField
                                         label="Branch Code"
-                                        value={requesterBranchCode || ''}
-                                        readOnly
-                                        className="bg-slate-50 uppercase"
+                                        value={data.branch_code}
+                                        onChange={(e) => {
+                                            const nextBranchCode = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+                                            setData((current) => ({
+                                                ...current,
+                                                branch_code: nextBranchCode,
+                                                bond_number: buildBondValue(
+                                                    selectedBondTypeLabel,
+                                                    nextBranchCode,
+                                                    bondTypeBondNumber,
+                                                ),
+                                            }));
+                                        }}
+                                        readOnly={isRequesterRole}
+                                        className={`uppercase ${isRequesterRole ? 'bg-slate-50' : ''}`}
                                     />
                                     <TextField
                                         label="Bond Number"
@@ -592,10 +592,11 @@ export default function Form({
                                     <div className="sm:col-span-2">
                                         <TextAreaField
                                             label="Bond"
-                                            value={bondDisplay}
-                                            readOnly
-                                            rows={2}
-                                            className="min-h-[44px] resize-y bg-slate-50 py-2.5 text-sm font-medium tracking-wide text-slate-700"
+                                            value={data.bond_number}
+                                            onChange={(e) => setData('bond_number', e.target.value)}
+                                            placeholder="[[Bond Type]] NO. [[Bond Number]]-[[Branch Code]]-"
+                                            rows={3}
+                                            className="min-h-[96px] resize-y text-sm font-medium tracking-wide text-slate-700"
                                         />
                                     </div>
                                 </>
