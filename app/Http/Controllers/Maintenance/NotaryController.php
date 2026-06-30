@@ -39,7 +39,7 @@ class NotaryController extends MaintenanceController
         return [
             'name' => ['required', 'string', 'max:255'],
             'commission_number' => ['required', 'string', 'max:100'],
-            'tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-0000$/'],
+            'tin' => ['required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-\d{4}$/'],
             'signature' => [
                 $isUpdate ? 'nullable' : 'required',
                 File::types(['png'])->max(10 * 1024),

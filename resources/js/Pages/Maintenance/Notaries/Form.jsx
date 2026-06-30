@@ -7,21 +7,38 @@ import { Head, Link, useForm } from '@inertiajs/react';
 export default function NotaryForm({ notary }) {
     const isEditing = Boolean(notary?.id);
 
-    const { data, setData, post, put, processing, errors } = useForm({
-        name: notary?.name ?? '',
-        commission_number: notary?.commission_number ?? '',
-        tin: notary?.tin ?? '',
+    const { data, setData, post, processing, errors } = useForm({
+        name: notary?.name || '',
+        commission_number: notary?.commission_number || '',
+        tin: notary?.tin || '',
         signature: null,
+        _method: isEditing ? 'PUT' : undefined,
     });
 
     const submit = (e) => {
         e.preventDefault();
 
-        if (isEditing) {
-            put(route('maintenance.notaries.update', notary.id), { forceFormData: true });
-        } else {
-            post(route('maintenance.notaries.store'), { forceFormData: true });
-        }
+        const url = isEditing
+            ? route('maintenance.notaries.update', notary.id)
+            : route('maintenance.notaries.store');
+
+        post(url, {
+            forceFormData: true,
+            preserveScroll: true,
+            transform: (formData) => {
+                const payload = { ...formData };
+
+                if (isEditing) {
+                    payload._method = 'PUT';
+                }
+
+                if (!payload.signature) {
+                    delete payload.signature;
+                }
+
+                return payload;
+            },
+        });
     };
 
     return (

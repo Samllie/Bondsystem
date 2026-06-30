@@ -1,26 +1,44 @@
 import { FormField, TextField } from '@/Components/UI/FormField';
 import BackLink from '@/Components/UI/BackLink';
+import TinField from '@/Components/UI/TinField';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
 export default function SignatoryForm({ signatory }) {
     const isEditing = Boolean(signatory?.id);
 
-    const { data, setData, post, put, processing, errors } = useForm({
-        name: signatory?.name ?? '',
-        position: signatory?.position ?? '',
-        tin: signatory?.tin ?? '',
+    const { data, setData, post, processing, errors } = useForm({
+        name: signatory?.name || '',
+        position: signatory?.position || '',
+        tin: signatory?.tin || '',
         signature: null,
+        _method: isEditing ? 'PUT' : undefined,
     });
 
     const submit = (e) => {
         e.preventDefault();
 
-        if (isEditing) {
-            put(route('maintenance.signatories.update', signatory.id), { forceFormData: true });
-        } else {
-            post(route('maintenance.signatories.store'), { forceFormData: true });
-        }
+        const url = isEditing
+            ? route('maintenance.signatories.update', signatory.id)
+            : route('maintenance.signatories.store');
+
+        post(url, {
+            forceFormData: true,
+            preserveScroll: true,
+            transform: (formData) => {
+                const payload = { ...formData };
+
+                if (isEditing) {
+                    payload._method = 'PUT';
+                }
+
+                if (!payload.signature) {
+                    delete payload.signature;
+                }
+
+                return payload;
+            },
+        });
     };
 
     return (
@@ -46,15 +64,15 @@ export default function SignatoryForm({ signatory }) {
                             onChange={(e) => setData('position', e.target.value)}
                             error={errors.position}
                         />
-                        <TextField
+                        <TinField
                             label="TIN"
                             required
                             value={data.tin}
-                            onChange={(e) => setData('tin', e.target.value)}
+                            onChange={(value) => setData('tin', value)}
                             error={errors.tin}
                         />
 
-                        <FormField label={isEditing ? 'Signature (PNG)' : 'Signature (PNG)'} error={errors.signature} required={!isEditing}>
+                        <FormField label="Signature (PNG)" error={errors.signature} required={!isEditing}>
                             {isEditing && signatory?.signature_url && (
                                 <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                     <p className="mb-2 text-xs text-slate-500">Current signature</p>
