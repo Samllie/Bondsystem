@@ -74,11 +74,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Bond Requests
     Route::resource('bond-requests', BondRequestController::class);
+    Route::post('bond-requests/{bond_request}', [BondRequestController::class, 'update'])->name('bond-requests.update.post');
     Route::post('bond-requests/{bond_request}/resubmit', [BondRequestController::class, 'resubmit'])->name('bond-requests.resubmit');
     Route::post('bond-requests/{bond_request}/approve', [BondRequestController::class, 'approve'])->name('bond-requests.approve');
     Route::post('bond-requests/{bond_request}/reject', [BondRequestController::class, 'reject'])->name('bond-requests.reject');
     Route::post('bond-requests/{bond_request}/notarize', [BondRequestController::class, 'notarize'])->name('bond-requests.notarize');
     Route::post('bond-requests/{bond_request}/generate-certificate', [BondRequestController::class, 'generateCertificate'])->name('bond-requests.generate-certificate');
+    Route::post('bond-requests/{bond_request}/save-certificate-details', [BondRequestController::class, 'saveCertificateDetails'])->name('bond-requests.save-certificate-details');
     Route::post('bond-requests/{bond_request}/return-fund', [BondRequestController::class, 'returnFund'])->name('bond-requests.return-fund');
     Route::get('bond-requests/{bond_request}/view-certificate', [BondRequestController::class, 'viewCertificate'])->name('bond-requests.view-certificate');
     Route::get('bond-requests/{bond_request}/download-certificate', [BondRequestController::class, 'downloadCertificate'])->name('bond-requests.download-certificate');
@@ -123,7 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     // Users (admin)
-    Route::resource('users', UserController::class)->only(['index', 'create', 'store']);
+    Route::resource('users', UserController::class)->only(['index', 'create', 'store', 'edit', 'update']);
 
     // Audit Logs (super admin only)
     Route::get('/audit-logs', [AuditLogController::class, 'index'])

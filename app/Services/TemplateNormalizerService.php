@@ -53,6 +53,7 @@ class TemplateNormalizerService
             }
 
             $normalized = $this->normalizeSplitRuns($content);
+            $normalized = $this->removeTrailingPeriodAfterYearPlaceholder($normalized);
             $zip->addFromString($xmlFile, $normalized);
         }
 
@@ -158,6 +159,15 @@ class TemplateNormalizerService
     private function convertBrackets(string $xml): string
     {
         return (string) preg_replace('/\[\[([^\[\]<>]+)\]\]/', '${$1}', $xml);
+    }
+
+    /**
+     * CAR templates place a literal period immediately after the Year placeholder
+     * (e.g. [[Year]].). Remove it so series-year wording does not end with a period.
+     */
+    private function removeTrailingPeriodAfterYearPlaceholder(string $xml): string
+    {
+        return str_replace(['[[Year]].', '${Year}.'], ['[[Year]]', '${Year}'], $xml);
     }
 
     /**

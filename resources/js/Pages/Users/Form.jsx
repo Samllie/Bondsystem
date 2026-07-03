@@ -8,7 +8,9 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
-export default function Form({ roleOptions, branchOptions }) {
+export default function Form({ user = null, roleOptions, branchOptions }) {
+    const isEditing = Boolean(user?.id);
+
     const roleSelectOptions = useMemo(
         () => [{ value: '', label: 'Select account level…' }, ...roleOptions],
         [roleOptions],
@@ -25,25 +27,25 @@ export default function Form({ roleOptions, branchOptions }) {
         [branchOptions],
     );
 
-    const [branchLabel, setBranchLabel] = useState('');
+    const [branchLabel, setBranchLabel] = useState(user?.branch?.name ?? '');
 
-    const { data, setData, post, processing, errors, reset } = useForm({
-        name: '',
-        email: '',
-        phone: '',
+    const { data, setData, post, put, processing, errors, reset } = useForm({
+        name: user?.name ?? '',
+        email: user?.email ?? '',
+        phone: user?.phone ?? '',
         password: '',
         password_confirmation: '',
-        role_id: '',
-        branch_id: '',
-        branch_code: '',
-        branch_city: '',
-        is_active: true,
+        role_id: user?.role_id ? String(user.role_id) : '',
+        branch_id: user?.branch_id ? String(user.branch_id) : '',
+        branch_code: user?.branch_code ?? '',
+        branch_city: user?.branch_city ?? '',
+        is_active: user?.is_active ?? true,
     });
 
     const handleBranchSelect = (option) => {
         setData((current) => ({
             ...current,
-            branch_id: option.id,
+            branch_id: String(option.id),
             branch_code: option.branch_code ?? current.branch_code,
             branch_city: option.city ?? '',
         }));
@@ -53,14 +55,20 @@ export default function Form({ roleOptions, branchOptions }) {
     const submit = (e) => {
         e.preventDefault();
 
-        post(route('users.store'), {
+        const options = {
             onFinish: () => reset('password', 'password_confirmation'),
-        });
+        };
+
+        if (isEditing) {
+            put(route('users.update', user.id), options);
+        } else {
+            post(route('users.store'), options);
+        }
     };
 
     return (
-        <AppLayout title="Add User">
-            <Head title="Add User" />
+        <AppLayout title={isEditing ? 'Edit User' : 'Add User'}>
+            <Head title={isEditing ? 'Edit User' : 'Add User'} />
 
             <BackLink href={route('users.index')}>Back to Users</BackLink>
 
@@ -93,22 +101,22 @@ export default function Form({ roleOptions, branchOptions }) {
                         />
 
                         <TextField
-                            label="Password"
+                            label={isEditing ? 'New Password' : 'Password'}
                             type="password"
                             value={data.password}
                             onChange={(e) => setData('password', e.target.value)}
                             error={errors.password}
-                            required
+                            required={!isEditing}
                             autoComplete="new-password"
                         />
 
                         <TextField
-                            label="Confirm Password"
+                            label={isEditing ? 'Confirm New Password' : 'Confirm Password'}
                             type="password"
                             value={data.password_confirmation}
                             onChange={(e) => setData('password_confirmation', e.target.value)}
                             error={errors.password_confirmation}
-                            required
+                            required={!isEditing}
                             autoComplete="new-password"
                         />
 
@@ -166,7 +174,9 @@ export default function Form({ roleOptions, branchOptions }) {
                         </div>
 
                         <div className="flex gap-3">
-                            <PrimaryButton disabled={processing}>Create User</PrimaryButton>
+                            <PrimaryButton disabled={processing}>
+                                {isEditing ? 'Save Changes' : 'Create User'}
+                            </PrimaryButton>
                             <Link href={route('users.index')}>
                                 <SecondaryButton type="button">Cancel</SecondaryButton>
                             </Link>

@@ -49,7 +49,7 @@ class AmountInWords
             }
         }
 
-        return $words.' Only';
+        return strtoupper($words.' Only');
     }
 
     /**

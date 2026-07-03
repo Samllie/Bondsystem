@@ -333,10 +333,10 @@ class BondRequestController extends Controller
                 'signatory_position' => $signatory?->position,
                 'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
                 'notary_id' => $request->filled('notary_id') ? $request->integer('notary_id') : null,
-                'doc_no' => $request->input('doc_no'),
-                'page_no' => $request->input('page_no'),
-                'book_no' => $request->input('book_no'),
-                'series_year' => $request->input('series_year'),
+                'doc_no' => $request->filled('doc_no') ? $request->input('doc_no') : null,
+                'page_no' => $request->filled('page_no') ? $request->input('page_no') : null,
+                'book_no' => $request->filled('book_no') ? $request->input('book_no') : null,
+                'series_year' => $this->nullableSeriesYear($request),
                 'tin' => $signatory?->tin,
             ]);
 
@@ -400,6 +400,32 @@ class BondRequestController extends Controller
         return back()->with('success', 'Bond request marked as notarized.');
     }
 
+    public function saveCertificateDetails(Request $request, BondRequest $bondRequest): RedirectResponse
+    {
+        abort_unless($request->user()->hasPermission('bond-requests.approve'), 403);
+        abort_unless(
+            in_array($bondRequest->status->value, [BondRequestStatus::Approved->value, BondRequestStatus::Notarized->value], true),
+            422,
+            'Confirmation details can only be saved for approved or notarized bond requests.',
+        );
+
+        $validated = $this->validateCertificateDetails($request);
+
+        try {
+            $this->applySavedCertificateDetails($request, $bondRequest, $validated);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['notary_id' => $e->getMessage()]);
+        }
+
+        ActivityLogger::log(
+            'updated',
+            "Confirmation details saved for bond request {$bondRequest->bond_number}.",
+            $bondRequest,
+        );
+
+        return back()->with('success', 'Confirmation details saved.');
+    }
+
     public function generateCertificate(Request $request, BondRequest $bondRequest): RedirectResponse
     {
         abort_unless($request->user()->hasPermission('bond-requests.approve'), 403);
@@ -415,39 +441,35 @@ class BondRequestController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
-            'include_signatory_signature' => ['sometimes', 'boolean'],
-            'notary_id' => ['nullable', 'integer', 'exists:notaries,id'],
-            'doc_no' => ['nullable', 'string', 'max:50'],
-            'page_no' => ['nullable', 'string', 'max:50'],
-            'book_no' => ['nullable', 'string', 'max:50'],
-            'series_year' => ['nullable', 'string', 'size:4'],
-        ]);
+        $validated = $this->validateCertificateDetails($request);
 
-        $signatory = $request->filled('signatory_id')
-            ? Signatory::findOrFail($validated['signatory_id'])
+        $signatory = $request->exists('signatory_id')
+            ? ($request->filled('signatory_id') ? Signatory::findOrFail($validated['signatory_id']) : null)
             : ($bondRequest->signatory_id ? $bondRequest->signatory : null);
 
         try {
             DB::transaction(function () use ($request, $bondRequest, $validated, $signatory): void {
-                $includeSignature = $request->filled('signatory_id')
-                    ? $request->boolean('include_signatory_signature')
-                    : (bool) $bondRequest->include_signatory_signature;
+                if ($this->requestHasCertificateDetailFields($request)) {
+                    $includeSignature = $request->exists('signatory_id')
+                        ? ($signatory !== null && $request->boolean('include_signatory_signature'))
+                        : (bool) $bondRequest->include_signatory_signature;
 
-                $bondRequest->update([
-                    'signatory_id' => $signatory?->id,
-                    'signatory_position' => $signatory?->position ?? $bondRequest->signatory_position,
-                    'include_signatory_signature' => $signatory !== null && $includeSignature,
-                    'notary_id' => $request->exists('notary_id')
-                        ? ($request->filled('notary_id') ? $validated['notary_id'] : null)
-                        : $bondRequest->notary_id,
-                    'doc_no' => $request->filled('doc_no') ? $validated['doc_no'] : $bondRequest->doc_no,
-                    'page_no' => $request->filled('page_no') ? $validated['page_no'] : $bondRequest->page_no,
-                    'book_no' => $request->filled('book_no') ? $validated['book_no'] : $bondRequest->book_no,
-                    'series_year' => $request->filled('series_year') ? $validated['series_year'] : $bondRequest->series_year,
-                    'tin' => $signatory?->tin ?? $bondRequest->tin,
-                ]);
+                    $bondRequest->update([
+                        'signatory_id' => $signatory?->id,
+                        'signatory_position' => $signatory?->position ?? ($request->exists('signatory_id') ? null : $bondRequest->signatory_position),
+                        'include_signatory_signature' => $signatory !== null && $includeSignature,
+                        'notary_id' => $request->exists('notary_id')
+                            ? ($request->filled('notary_id') ? $validated['notary_id'] : null)
+                            : $bondRequest->notary_id,
+                        'doc_no' => $this->resolveOptionalCertificateTextField($request, 'doc_no', $bondRequest->doc_no, $validated),
+                        'page_no' => $this->resolveOptionalCertificateTextField($request, 'page_no', $bondRequest->page_no, $validated),
+                        'book_no' => $this->resolveOptionalCertificateTextField($request, 'book_no', $bondRequest->book_no, $validated),
+                        'series_year' => $request->exists('series_year')
+                            ? $this->nullableSeriesYear($request)
+                            : $bondRequest->series_year,
+                        'tin' => $signatory?->tin ?? ($request->exists('signatory_id') ? null : $bondRequest->tin),
+                    ]);
+                }
 
                 $bondRequest->refresh()->loadMissing(['creator', 'signatory', 'notary', 'principal']);
 
@@ -743,6 +765,7 @@ class BondRequestController extends Controller
         }
 
         $attributes['party_type'] = $request->enum('party_type', PartyType::class) ?? PartyType::Private;
+        $attributes['require_notary'] = $request->boolean('require_notary');
         $attributes['include_endorsement_number'] = $request->boolean('include_endorsement_number');
         $attributes['endorsement_number'] = $request->boolean('include_endorsement_number')
             ? $request->string('endorsement_number')->trim()->toString()
@@ -788,6 +811,78 @@ class BondRequestController extends Controller
         }
 
         return '('.$withoutParentheses.')';
+    }
+
+    private function nullableSeriesYear(Request $request): ?string
+    {
+        if (! $request->exists('series_year')) {
+            return null;
+        }
+
+        $value = trim((string) $request->input('series_year', ''));
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateCertificateDetails(Request $request): array
+    {
+        return $request->validate([
+            'signatory_id' => ['nullable', 'integer', 'exists:signatories,id'],
+            'include_signatory_signature' => ['sometimes', 'boolean'],
+            'notary_id' => ['nullable', 'integer', 'exists:notaries,id'],
+            'doc_no' => ['nullable', 'string', 'max:50'],
+            'page_no' => ['nullable', 'string', 'max:50'],
+            'book_no' => ['nullable', 'string', 'max:50'],
+            'series_year' => ['nullable', 'string', 'max:4'],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function applySavedCertificateDetails(Request $request, BondRequest $bondRequest, array $validated): void
+    {
+        $signatory = $request->filled('signatory_id')
+            ? Signatory::findOrFail($validated['signatory_id'])
+            : null;
+
+        $bondRequest->update([
+            'signatory_id' => $signatory?->id,
+            'signatory_position' => $signatory?->position,
+            'include_signatory_signature' => $signatory !== null && $request->boolean('include_signatory_signature'),
+            'notary_id' => $request->filled('notary_id') ? $validated['notary_id'] : null,
+            'doc_no' => blank($request->input('doc_no')) ? null : $validated['doc_no'],
+            'page_no' => blank($request->input('page_no')) ? null : $validated['page_no'],
+            'book_no' => blank($request->input('book_no')) ? null : $validated['book_no'],
+            'series_year' => $this->nullableSeriesYear($request),
+            'tin' => $signatory?->tin,
+        ]);
+    }
+
+    private function requestHasCertificateDetailFields(Request $request): bool
+    {
+        return $request->exists('signatory_id')
+            || $request->exists('include_signatory_signature')
+            || $request->exists('notary_id')
+            || $request->exists('doc_no')
+            || $request->exists('page_no')
+            || $request->exists('book_no')
+            || $request->exists('series_year');
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolveOptionalCertificateTextField(Request $request, string $key, mixed $current, array $validated): mixed
+    {
+        if (! $request->exists($key)) {
+            return $current;
+        }
+
+        return blank($request->input($key)) ? null : $validated[$key];
     }
 
     /**

@@ -168,4 +168,17 @@ class TemplateNormalizerServiceTest extends TestCase
         $this->assertStringNotContainsString('[[', $result);
         $this->assertStringNotContainsString(']]', $result);
     }
+
+    public function test_normalize_removes_trailing_period_after_year_placeholder(): void
+    {
+        $method = new \ReflectionMethod(TemplateNormalizerService::class, 'removeTrailingPeriodAfterYearPlaceholder');
+        $method->setAccessible(true);
+
+        $result = $method->invoke(
+            $this->service,
+            '<w:t>[[Year]].</w:t><w:t>${Year}.</w:t>',
+        );
+
+        $this->assertSame('<w:t>[[Year]]</w:t><w:t>${Year}</w:t>', $result);
+    }
 }

@@ -13,7 +13,8 @@ return [
     */
 
     'jurat_templates' => [
-        'government' => 'SUBSCRIBED AND SWORN to before me this [[Date in words]] at [[Branch city]], affiant exhibited to me his/her Taxpayer’s Identification No. [[Tin]].',
+        'government_bold' => 'SUBSCRIBED AND SWORN',
+        'government_rest' => 'to before me this [[Date in words]] at Makati city, affiant exhibited to me his/her Taxpayer’s Identification No. [[Tin]].',
     ],
 
     'endorsement_template' => 'W/ENDT.NO. [[Endorsement No.]]',

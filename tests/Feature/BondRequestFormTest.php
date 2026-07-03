@@ -179,6 +179,125 @@ class BondRequestFormTest extends TestCase
         $this->assertDatabaseCount('bond_requests', 0);
     }
 
+    public function test_require_notary_flag_is_persisted_on_create(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 5000, minimumBalance: 1000);
+        $principal = Principal::factory()->create();
+        $bondType = BondTypeMaster::factory()->create(['code' => 'G(42)', 'bond_serial' => '0008384']);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.store'), [
+            'bond_type_id' => $bondType->id,
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Typed Obligee Corp',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'inception_date' => '2026-05-01',
+            'certificate_type' => CertificateType::BondCertificate->value,
+            'party_type' => 'private',
+            'expiry_date' => '2027-05-24',
+            'require_notary' => true,
+        ]);
+
+        $response->assertRedirect();
+
+        $this->assertDatabaseHas('bond_requests', [
+            'created_by' => $requester->id,
+            'require_notary' => true,
+        ]);
+    }
+
+    public function test_car_bond_request_update_persists_require_notary_flag(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 5000, minimumBalance: 1000);
+        $principal = Principal::factory()->create();
+        $bondRequest = BondRequest::factory()->create([
+            'status' => BondRequestStatus::PendingForChanges->value,
+            'created_by' => $requester->id,
+            'certificate_type' => CertificateType::CarCertificate,
+            'car' => 'CAR-MKT-0072056',
+            'bond_number' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Juan Dela Cruz',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Sample Obligee',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'expiry_date' => '2027-05-24',
+            'party_type' => PartyType::Government,
+            'require_notary' => false,
+        ]);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.update.post', $bondRequest), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Juan Dela Cruz',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Sample Obligee',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => PartyType::Government->value,
+            'expiry_date' => '2027-05-24',
+            'require_notary' => 1,
+        ]);
+
+        $response->assertRedirect(route('bond-requests.show', $bondRequest));
+
+        $this->assertTrue($bondRequest->fresh()->require_notary);
+    }
+
+    public function test_car_endorsement_update_persists_require_notary_with_extension_fields(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 5000, minimumBalance: 1000);
+        $principal = Principal::factory()->create();
+        $bondRequest = BondRequest::factory()->create([
+            'status' => BondRequestStatus::PendingForChanges->value,
+            'created_by' => $requester->id,
+            'certificate_type' => CertificateType::CarCertificate,
+            'car' => 'CAR-MKT-0072056',
+            'bond_number' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Juan Dela Cruz',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Sample Obligee',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'expiry_date' => '2027-05-24',
+            'party_type' => PartyType::Government,
+            'include_endorsement_number' => true,
+            'endorsement_number' => '3',
+            'extension_period_start' => '2026-06-19',
+            'validity_extension' => '(No. 3)',
+            'require_notary' => false,
+        ]);
+
+        $response = $this->actingAs($requester)->post(route('bond-requests.update.post', $bondRequest), [
+            'car' => 'CAR-MKT-0072056',
+            'authorized_representative' => 'Juan Dela Cruz',
+            'principal_id' => $principal->id,
+            'principal_name' => $principal->company_name,
+            'obligee_name' => 'Sample Obligee',
+            'amount' => 1500.75,
+            'request_date' => '2026-05-24',
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'party_type' => PartyType::Government->value,
+            'include_endorsement_number' => 1,
+            'endorsement_number' => '3',
+            'extension_period_start' => '2026-06-19',
+            'validity_extension' => 'No. 3',
+            'expiry_date' => '2027-05-24',
+            'require_notary' => 1,
+        ]);
+
+        $response->assertRedirect(route('bond-requests.show', $bondRequest));
+
+        $bondRequest->refresh();
+
+        $this->assertTrue($bondRequest->require_notary);
+        $this->assertSame('2026-06-19', $bondRequest->extension_period_start?->format('Y-m-d'));
+    }
+
     public function test_bond_request_creation_can_succeed_below_minimum_when_notary_is_not_required(): void
     {
         $requester = $this->requesterUser('MKT', balance: 999, minimumBalance: 1000);

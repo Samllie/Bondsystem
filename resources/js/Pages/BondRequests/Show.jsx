@@ -6,6 +6,8 @@ import ConfirmModal from '@/Components/UI/ConfirmModal';
 import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import Modal from '@/Components/Modal';
 import { SelectField, TextAreaField, TextField } from '@/Components/UI/FormField';
+import InputLabel from '@/Components/InputLabel';
+import TextInput from '@/Components/TextInput';
 import StatusBadge from '@/Components/UI/StatusBadge';
 import { useToast } from '@/Contexts/ToastContext';
 import AppLayout from '@/Layouts/AppLayout';
@@ -13,6 +15,25 @@ import { formatDateInWords } from '@/lib/formatDateInWords';
 import { formatBookNoDisplay, formatBookNoInput } from '@/lib/romanNumerals';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+
+function SeriesYearField({ value, onChange, error, id }) {
+    return (
+        <div>
+            <InputLabel value="Series of (optional)" htmlFor={id} />
+            <div className="mt-1 flex items-center gap-1">
+                <span className="text-sm font-medium text-slate-700 whitespace-nowrap">Series of </span>
+                <TextInput
+                    id={id}
+                    value={value}
+                    onChange={onChange}
+                    maxLength={4}
+                    className="block w-full max-w-[8rem]"
+                />
+            </div>
+            {error && <InputError message={error} className="mt-1" />}
+        </div>
+    );
+}
 
 export default function Show({
     bondRequest,
@@ -55,7 +76,7 @@ export default function Show({
         doc_no: '',
         page_no: '',
         book_no: '',
-        series_year: bondRequest.series_year || String(new Date().getFullYear()),
+        series_year: bondRequest.series_year ?? '',
     });
 
     // ── Generate Certificate form ─────────────────────────────────────────────
@@ -90,10 +111,10 @@ export default function Show({
         doc_no: bondRequest.doc_no || '',
         page_no: bondRequest.page_no || '',
         book_no: bondRequest.book_no || '',
-        series_year: bondRequest.series_year || String(new Date().getFullYear()),
+        series_year: bondRequest.series_year ?? '',
     });
 
-    useEffect(() => {
+    const syncGenerateFormFromBondRequest = () => {
         generateForm.setData({
             signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
             include_signatory_signature: Boolean(bondRequest.include_signatory_signature),
@@ -101,19 +122,14 @@ export default function Show({
             doc_no: bondRequest.doc_no || '',
             page_no: bondRequest.page_no || '',
             book_no: bondRequest.book_no || '',
-            series_year: bondRequest.series_year || String(new Date().getFullYear()),
+            series_year: bondRequest.series_year ?? '',
         });
         setGenerateBookNoDraft(formatBookNoDisplay(bondRequest.book_no) || '');
-    }, [
-        bondRequest.id,
-        bondRequest.signatory_id,
-        bondRequest.include_signatory_signature,
-        bondRequest.notary_id,
-        bondRequest.doc_no,
-        bondRequest.page_no,
-        bondRequest.book_no,
-        bondRequest.series_year,
-    ]);
+    };
+
+    useEffect(() => {
+        syncGenerateFormFromBondRequest();
+    }, [bondRequest.id]);
 
     const displayTin = bondRequest.signatory?.tin || bondRequest.tin || '—';
 
@@ -213,6 +229,7 @@ export default function Show({
     const handleGenerateBookNoChange = (event) => {
         const value = event.target.value;
         setGenerateBookNoDraft(value);
+        generateForm.setData('book_no', value);
         clearTimeout(generateBookNoRef.current);
         generateBookNoRef.current = setTimeout(() => {
             const formatted = formatBookNoInput(value);
@@ -221,12 +238,54 @@ export default function Show({
         }, 750);
     };
 
-    const submitGenerate = (e) => {
+    const buildCertificateDetailsPayload = (bookNoValue) => ({
+        signatory_id: generateForm.data.signatory_id ?? '',
+        include_signatory_signature: Boolean(generateForm.data.include_signatory_signature),
+        notary_id: generateForm.data.notary_id ?? '',
+        doc_no: generateForm.data.doc_no ?? '',
+        page_no: generateForm.data.page_no ?? '',
+        book_no: bookNoValue,
+        series_year: generateForm.data.series_year ?? '',
+    });
+
+    const toggleGenerateDetailsEditor = () => {
+        setForceEditGenerateDetails((currentlyEditing) => {
+            if (!currentlyEditing) {
+                syncGenerateFormFromBondRequest();
+            }
+
+            return !currentlyEditing;
+        });
+    };
+
+    const submitSaveDetails = (e) => {
         e.preventDefault();
         clearTimeout(generateBookNoRef.current);
         const formatted = formatBookNoInput(generateBookNoDraft);
         setGenerateBookNoDraft(formatted);
-        generateForm.transform((current) => ({ ...current, book_no: formatted }));
+        generateForm.setData('book_no', formatted);
+        generateForm.transform(() => buildCertificateDetailsPayload(formatted));
+
+        generateForm.post(route('bond-requests.save-certificate-details', bondRequest.id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                setForceEditGenerateDetails(false);
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                if (firstError) {
+                    addToast(Array.isArray(firstError) ? firstError[0] : firstError, 'error');
+                } else {
+                    addToast('Unable to save confirmation details.', 'error');
+                }
+            },
+        });
+    };
+
+    const submitGenerate = (e) => {
+        e.preventDefault();
+        generateForm.transform(() => ({}));
+
         generateForm.post(route('bond-requests.generate-certificate', bondRequest.id), {
             preserveScroll: true,
             onError: (errors) => {
@@ -540,12 +599,11 @@ export default function Show({
                                 placeholder="e.g. V"
                                 error={approveForm.errors.book_no}
                             />
-                            <TextField
-                                label="Series year (optional)"
+                            <SeriesYearField
+                                id="approve-series-year"
                                 value={approveForm.data.series_year}
                                 onChange={(e) => approveForm.setData('series_year', e.target.value)}
                                 error={approveForm.errors.series_year}
-                                maxLength={4}
                             />
                             <div className="flex gap-3 sm:col-span-2">
                                 <PrimaryButton disabled={approveForm.processing}>
@@ -590,7 +648,7 @@ export default function Show({
                             detailsAlreadySaved && (
                                 <button
                                     type="button"
-                                    onClick={() => setForceEditGenerateDetails((v) => !v)}
+                                    onClick={toggleGenerateDetailsEditor}
                                     className="text-sm text-sterling-green hover:underline"
                                 >
                                     {forceEditGenerateDetails ? 'Hide details' : 'Edit details'}
@@ -659,7 +717,7 @@ export default function Show({
                             </div>
                         ) : (
                             /* ── Full editable form ── */
-                            <form onSubmit={submitGenerate} className="grid gap-4 sm:grid-cols-2">
+                            <form onSubmit={submitSaveDetails} className="grid gap-4 sm:grid-cols-2">
                                 <SelectField
                                     label="Signatory (optional)"
                                     value={generateForm.data.signatory_id}
@@ -722,17 +780,22 @@ export default function Show({
                                     placeholder="e.g. V"
                                     error={generateForm.errors.book_no}
                                 />
-                                <TextField
-                                    label="Series year (optional)"
+                                <SeriesYearField
+                                    id="generate-series-year"
                                     value={generateForm.data.series_year}
                                     onChange={(e) => generateForm.setData('series_year', e.target.value)}
                                     error={generateForm.errors.series_year}
-                                    maxLength={4}
                                 />
-                                <div className="flex flex-col gap-2 sm:col-span-2">
+                                <div className="flex flex-wrap gap-3 sm:col-span-2">
                                     <PrimaryButton disabled={generateForm.processing}>
-                                        {generateForm.processing ? 'Generating…' : hasCertificate ? 'Regenerate Confirmation' : 'Generate Confirmation'}
+                                        {generateForm.processing ? 'Saving…' : 'Save details'}
                                     </PrimaryButton>
+                                    <SecondaryButton
+                                        type="button"
+                                        onClick={() => setForceEditGenerateDetails(false)}
+                                    >
+                                        Cancel
+                                    </SecondaryButton>
                                 </div>
                             </form>
                         )}

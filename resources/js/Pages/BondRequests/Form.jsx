@@ -55,6 +55,14 @@ function emptyAddressLine() {
     return { address: '', ctm: '', province: '' };
 }
 
+function formatValidityExtensionForForm(value) {
+    if (!value) {
+        return '';
+    }
+
+    return String(value).trim().replace(/^\(+|\)+$/g, '').trim();
+}
+
 export default function Form({
     bondRequest,
     selectedPrincipal,
@@ -70,7 +78,6 @@ export default function Form({
     const authUser = usePage().props?.auth?.user;
     const isRequesterRole = authUser?.role?.slug === 'requester';
     const php = (v) => Number(v).toLocaleString('en-PH', { style: 'currency', currency: 'PHP' });
-    const hasInsufficientBranchFund = !isEdit && branchFund && !branchFund.canSubmit;
     const [removedSupportingDocuments, setRemovedSupportingDocuments] = useState([]);
 
     const remainingSupportingDocumentSlots = Math.max(
@@ -105,6 +112,8 @@ export default function Form({
             bondRequest?.include_endorsement_number ?? bondRequest?.endorsement_number,
         ),
         endorsement_number: bondRequest?.endorsement_number || '',
+        extension_period_start: formatDate(bondRequest?.extension_period_start) || '',
+        validity_extension: formatValidityExtensionForForm(bondRequest?.validity_extension),
         branch_code: requesterBranchCode || '',
         bond_number: bondRequest?.bond_number || '',
         car: bondRequest?.car || buildCarValue(requesterBranchCode),
@@ -112,6 +121,8 @@ export default function Form({
         expiry_date: formatExpiryForForm(bondRequest?.expiry_date),
         require_notary: Boolean(bondRequest?.require_notary ?? false),
     });
+
+    const hasInsufficientBranchFund = branchFund && data.require_notary && !branchFund.canSubmit;
 
     const [addressLines, setAddressLines] = useState(() => {
         const addressEntries = splitAddressLines(bondRequest?.address_1);
@@ -224,13 +235,13 @@ export default function Form({
         const appendRemovedDocuments = (current) => ({
             ...current,
             removed_supporting_documents: removedSupportingDocuments,
+            require_notary: current.require_notary ? 1 : 0,
+            include_endorsement_number: current.include_endorsement_number ? 1 : 0,
         });
 
         if (isEdit) {
-            // PHP can't parse multipart/form-data on PUT requests, so spoof the
-            // method by POSTing with a _method field.
-            transform((current) => ({ ...appendRemovedDocuments(current), _method: 'put' }));
-            post(route('bond-requests.update', bondRequest.id), options);
+            transform((current) => appendRemovedDocuments(current));
+            post(route('bond-requests.update.post', bondRequest.id), options);
         } else {
             transform((current) => appendRemovedDocuments(current));
             post(route('bond-requests.store'), options);
@@ -316,8 +327,14 @@ export default function Form({
             ...current,
             include_endorsement_number: checked,
             endorsement_number: checked ? current.endorsement_number : '',
+            extension_period_start: checked ? current.extension_period_start : '',
+            validity_extension: checked ? current.validity_extension : '',
         }));
     };
+
+    const formErrorMessages = Object.entries(errors).filter(
+        ([key, message]) => message && !['obligee_id', 'obligee_name', 'principal_id', 'principal_name'].includes(key),
+    );
 
     return (
         <AppLayout title={isEdit ? 'Edit Bond Request' : 'New Bond Request'}>
@@ -337,8 +354,20 @@ export default function Form({
                             <p className="mt-1">
                                 {branchFund.branchName ? `${branchFund.branchName} fund` : 'Your branch fund'} is{' '}
                                 {php(branchFund.balance)}. A minimum balance of {php(branchFund.minimumBalance)} is required
-                                to submit a request. Please submit a deposit before creating a new request.
+                                when notary is requested.
+                                {!isEdit && ' Please submit a deposit before creating a new request.'}
                             </p>
+                        </div>
+                    )}
+
+                    {formErrorMessages.length > 0 && (
+                        <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                            <p className="font-semibold">Please fix the following before saving:</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {formErrorMessages.map(([key, message]) => (
+                                    <li key={key}>{Array.isArray(message) ? message[0] : message}</li>
+                                ))}
+                            </ul>
                         </div>
                     )}
 
@@ -413,14 +442,31 @@ export default function Form({
                                 </label>
                             </div>
                             {data.include_endorsement_number && (
-                                <TextField
-                                    label="Endorsement Number"
-                                    value={data.endorsement_number}
-                                    onChange={(e) => setData('endorsement_number', e.target.value)}
-                                    placeholder="For [[Endorsement No.]] in the confirmation template"
-                                    error={errors.endorsement_number}
-                                    required
-                                />
+                                <>
+                                    <TextField
+                                        label="Endorsement Number"
+                                        value={data.endorsement_number}
+                                        onChange={(e) => setData('endorsement_number', e.target.value)}
+                                        placeholder="For [[Endorsement No.]] in the confirmation template"
+                                        error={errors.endorsement_number}
+                                        required
+                                    />
+                                    <TextField
+                                        label="Extension Period Start"
+                                        type="date"
+                                        value={data.extension_period_start}
+                                        onChange={(e) => setData('extension_period_start', e.target.value)}
+                                        error={errors.extension_period_start}
+                                        required
+                                    />
+                                    <TextField
+                                        label="Validity Extension"
+                                        value={data.validity_extension}
+                                        onChange={(e) => setData('validity_extension', e.target.value)}
+                                        placeholder="e.g. No. 3"
+                                        error={errors.validity_extension}
+                                    />
+                                </>
                             )}
                             <div className="rounded-lg border border-slate-200 px-4 py-3">
                                 <div className="space-y-3">
@@ -446,6 +492,7 @@ export default function Form({
                                 <p className="mt-2 text-xs text-slate-500">
                                     Choose whether the approver should include a notary in the confirmation document.
                                 </p>
+                                <InputError message={errors.branch_balance} className="mt-2" />
                             </div>
                         </section>
 

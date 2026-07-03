@@ -58,6 +58,9 @@ export default function Index({ users, filters, canManage }) {
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Branch</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Branch City</th>
                                 <th className="px-4 py-3 text-left text-xs font-medium text-slate-500">Status</th>
+                                {canManage && (
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-slate-500">Actions</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -79,6 +82,16 @@ export default function Index({ users, filters, canManage }) {
                                             {user.is_active ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
+                                    {canManage && (
+                                        <td className="px-4 py-3 text-right">
+                                            <Link
+                                                href={route('users.edit', user.id)}
+                                                className="text-sm font-medium text-sterling-green hover:underline"
+                                            >
+                                                Edit
+                                            </Link>
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>

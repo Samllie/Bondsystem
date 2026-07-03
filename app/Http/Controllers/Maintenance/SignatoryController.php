@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Maintenance;
 
 use App\Models\Maintenance\Signatory;
+use App\Services\AttorneyProfileSyncService;
 use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class SignatoryController extends MaintenanceController
 {
+    public function __construct(private readonly AttorneyProfileSyncService $attorneyProfileSyncService) {}
+
     protected function modelClass(): string
     {
         return Signatory::class;
@@ -143,6 +146,9 @@ class SignatoryController extends MaintenanceController
         }
 
         $signatory->update($data);
+
+        $this->attorneyProfileSyncService->syncTinForLinkedAccount($signatory, $validated['tin']);
+        $this->attorneyProfileSyncService->syncNameForLinkedAccount($signatory, $validated['name']);
 
         AuditLogService::log(
             user: $request->user(),

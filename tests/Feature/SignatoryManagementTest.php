@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\RoleSlug;
+use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
 use App\Models\Role;
 use App\Models\User;
@@ -90,6 +91,43 @@ class SignatoryManagementTest extends TestCase
         $this->assertSame('Vice President', $signatory->position);
         $this->assertSame('465-214-874-0000', $signatory->tin);
         $this->assertSame($originalSignaturePath, $signatory->signature_path);
+    }
+
+    public function test_updating_signatory_tin_syncs_linked_notary_record(): void
+    {
+        $admin = $this->adminUser();
+        $notaryRole = Role::where('slug', RoleSlug::Notary->value)->firstOrFail();
+        $user = User::factory()->create([
+            'role_id' => $notaryRole->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $signatory = Signatory::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'position' => 'Attorney',
+            'tin' => '111-222-333-0000',
+            'is_active' => true,
+        ]);
+
+        $notary = Notary::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'commission_number' => '2024-001',
+            'tin' => '111-222-333-0000',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->post(route('maintenance.signatories.update', $signatory), [
+            '_method' => 'PUT',
+            'name' => $signatory->name,
+            'position' => $signatory->position,
+            'tin' => '999-888-777-0000',
+        ])->assertRedirect(route('maintenance.signatories.index'));
+
+        $this->assertSame('999-888-777-0000', $signatory->fresh()->tin);
+        $this->assertSame('999-888-777-0000', $notary->fresh()->tin);
     }
 
     private function adminUser(): User

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\RoleSlug;
 use App\Models\Maintenance\Notary;
+use App\Models\Maintenance\Signatory;
 use App\Models\Role;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -92,6 +93,43 @@ class NotaryManagementTest extends TestCase
         $this->assertSame('2024-002-NCR', $notary->commission_number);
         $this->assertSame('465-214-874-0000', $notary->tin);
         $this->assertSame($originalSignaturePath, $notary->signature_path);
+    }
+
+    public function test_updating_notary_tin_syncs_linked_signatory_record(): void
+    {
+        $admin = $this->adminUser();
+        $notaryRole = Role::where('slug', RoleSlug::Notary->value)->firstOrFail();
+        $user = User::factory()->create([
+            'role_id' => $notaryRole->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $signatory = Signatory::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'position' => 'Attorney',
+            'tin' => '111-222-333-0000',
+            'is_active' => true,
+        ]);
+
+        $notary = Notary::create([
+            'user_id' => $user->id,
+            'name' => $user->name,
+            'commission_number' => '2024-001',
+            'tin' => '111-222-333-0000',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($admin)->post(route('maintenance.notaries.update', $notary), [
+            '_method' => 'PUT',
+            'name' => $notary->name,
+            'commission_number' => $notary->commission_number,
+            'tin' => '444-555-666-0000',
+        ])->assertRedirect(route('maintenance.notaries.index'));
+
+        $this->assertSame('444-555-666-0000', $notary->fresh()->tin);
+        $this->assertSame('444-555-666-0000', $signatory->fresh()->tin);
     }
 
     public function test_notary_seal_may_not_exceed_ten_megabytes(): void

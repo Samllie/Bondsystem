@@ -102,5 +102,5 @@ export function amountInWords(amount) {
         words += ` and ${convertNumberFromBigInt(BigInt(centavos))} Centavo${centavos === 1 ? '' : 's'}`;
     }
 
-    return `${words} Only`;
+    return `${words} Only`.toUpperCase();
 }

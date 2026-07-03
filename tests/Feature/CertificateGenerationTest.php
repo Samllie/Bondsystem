@@ -110,7 +110,7 @@ class CertificateGenerationTest extends TestCase
         $response->assertSessionHasNoErrors();
     }
 
-    public function test_generate_certificate_clears_notary_when_form_submits_blank_notary(): void
+    public function test_save_certificate_details_clears_fields_when_erased(): void
     {
         $approver = $this->approverUser();
         $signatory = Signatory::factory()->create(['is_active' => true, 'position' => 'President']);
@@ -139,12 +139,8 @@ class CertificateGenerationTest extends TestCase
             'series_year' => '2026',
         ])->assertRedirect();
 
-        $this->mock(CertificateGenerationService::class, function ($mock): void {
-            $mock->shouldReceive('generate')->once();
-        });
-
         $this->actingAs($approver)
-            ->post(route('bond-requests.generate-certificate', $bondRequest), [
+            ->post(route('bond-requests.save-certificate-details', $bondRequest), [
                 'signatory_id' => '',
                 'notary_id' => '',
                 'doc_no' => '',
@@ -157,13 +153,13 @@ class CertificateGenerationTest extends TestCase
 
         $bondRequest->refresh();
 
-        $this->assertSame($signatory->id, $bondRequest->signatory_id);
+        $this->assertNull($bondRequest->signatory_id);
         $this->assertNull($bondRequest->notary_id);
-        $this->assertSame('DOC-99', $bondRequest->doc_no);
-        $this->assertSame('12', $bondRequest->page_no);
-        $this->assertSame('V', $bondRequest->book_no);
-        $this->assertSame('2026', $bondRequest->series_year);
-        $this->assertTrue($bondRequest->include_signatory_signature);
+        $this->assertNull($bondRequest->doc_no);
+        $this->assertNull($bondRequest->page_no);
+        $this->assertNull($bondRequest->book_no);
+        $this->assertNull($bondRequest->series_year);
+        $this->assertFalse($bondRequest->include_signatory_signature);
     }
 
     public function test_car_certificate_can_generate_without_notary(): void
@@ -665,6 +661,87 @@ class CertificateGenerationTest extends TestCase
             ->assertSessionHas('success');
 
         $this->assertNull($bondRequest->fresh()->notary_id);
+    }
+
+    public function test_save_certificate_details_clears_doc_fields_when_erased(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true, 'position' => 'AVP']);
+        $notary = Notary::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'doc_no' => '45',
+            'page_no' => '87',
+            'book_no' => 'XLI',
+            'series_year' => '2026',
+            'created_by' => $requester->id,
+        ]);
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.save-certificate-details', $bondRequest), [
+                'signatory_id' => (string) $signatory->id,
+                'notary_id' => (string) $notary->id,
+                'doc_no' => '',
+                'page_no' => '',
+                'book_no' => '',
+                'series_year' => '',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $bondRequest->refresh();
+
+        $this->assertSame($signatory->id, $bondRequest->signatory_id);
+        $this->assertSame($notary->id, $bondRequest->notary_id);
+        $this->assertNull($bondRequest->doc_no);
+        $this->assertNull($bondRequest->page_no);
+        $this->assertNull($bondRequest->book_no);
+        $this->assertNull($bondRequest->series_year);
+    }
+
+    public function test_compact_generate_preserves_saved_notary_when_details_are_not_resent(): void
+    {
+        $approver = $this->approverUser();
+        $branch = Branch::query()->create([
+            'name' => 'MKT Branch',
+            'branch_code' => 'MKT',
+            'branch_city' => 'Makati',
+            'notary_price' => 500,
+            'balance' => 10000,
+            'is_active' => true,
+        ]);
+        $requester = User::factory()->create(['branch_id' => $branch->id]);
+        $signatory = Signatory::factory()->create(['is_active' => true]);
+        $notary = Notary::factory()->create(['is_active' => true]);
+        $bondRequest = BondRequest::factory()->approved()->create([
+            'certificate_type' => CertificateType::CarCertificate->value,
+            'car' => 'CAR-MKT-0072056',
+            'bond_number' => 'CAR-MKT-0072056',
+            'signatory_id' => $signatory->id,
+            'notary_id' => $notary->id,
+            'created_by' => $requester->id,
+        ]);
+
+        $this->mock(CertificateGenerationService::class, function ($mock): void {
+            $mock->shouldReceive('generate')->once();
+        });
+
+        $this->actingAs($approver)
+            ->post(route('bond-requests.generate-certificate', $bondRequest), [])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame($notary->id, $bondRequest->fresh()->notary_id);
     }
 
     // -------------------------------------------------------------------------

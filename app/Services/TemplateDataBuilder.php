@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Enums\CertificateType;
-use App\Enums\PartyType;
 use App\Models\BondRequest;
 use App\Support\DateFormatter;
 use Illuminate\Support\Facades\Log;
@@ -120,21 +119,22 @@ class TemplateDataBuilder
                 'Project name' => (string) ($bondRequest->project_name ?? ''),
                 'Amount' => $this->formatAmount($bondRequest->amount),
                 'Amount in words' => $amount,
-                'Tin' => (string) ($signatory?->tin ?? $bondRequest->tin ?? ''),
+                'Tin' => $this->resolveTin($bondRequest, $signatory),
                 'Branch city' => $this->resolveBranchCity($bondRequest),
                 'Signatory' => (string) ($signatory?->name ?? ''),
                 'Position' => (string) (filled($signatory?->position)
                     ? $signatory->position
                     : ($bondRequest->signatory_position ?? '')),
-                'Doc. No.' => (string) ($bondRequest->doc_no ?? ''),
-                'Page No.' => (string) ($bondRequest->page_no ?? ''),
-                'Book No.' => (string) ($bondRequest->book_no ?? ''),
+                'Doc. No.' => $this->resolveLabeledDocField($bondRequest, 'Doc. No.', $bondRequest->doc_no),
+                'Page No.' => $this->resolveLabeledDocField($bondRequest, 'Page No.', $bondRequest->page_no),
+                'Book No.' => $this->resolveLabeledDocField($bondRequest, 'Book No.', $bondRequest->book_no),
                 'Endorsement No.' => $this->resolveEndorsementNumber($bondRequest),
                 'Date in words' => DateFormatter::inWords($bondRequest->request_date),
                 'Date issued in words' => $isCarEndorsementRequest ? '' : DateFormatter::inWords($bondRequest->date_issued),
                 'Extension start' => $this->resolveExtensionStart($bondRequest),
                 'Validity Ext' => (string) ($bondRequest->validity_extension ?? ''),
-                'Jurat' => $this->resolveJuratTemplate($bondRequest),
+                'Jurat bold' => $this->resolveJuratBoldTemplate($bondRequest),
+                'Jurat rest' => $this->resolveJuratRestTemplate($bondRequest),
                 'Endorsement' => $this->resolveEndorsementTemplate($bondRequest),
             ],
             'images' => [],
@@ -169,7 +169,7 @@ class TemplateDataBuilder
             'Bond' => $bondLabel,
             'BOND' => strtoupper($bondLabel),
             'PRINCIPAL' => strtoupper($principalName),
-            'Series year' => (string) ($bondRequest->series_year ?? ''),
+            'Series year' => $this->resolveSeriesYearField($bondRequest, $bondRequest->series_year),
         ];
 
         $images = [];
@@ -184,7 +184,9 @@ class TemplateDataBuilder
             $text['Signature'] = '';
         }
 
-        $notarySealImage = $this->resolveNotarySealImage($bondRequest, $notary);
+        $notarySealImage = $bondRequest->require_notary
+            ? $this->resolveNotarySealImage($bondRequest, $notary)
+            : null;
 
         if ($notarySealImage !== null) {
             $images['Notary'] = $notarySealImage;
@@ -205,10 +207,16 @@ class TemplateDataBuilder
     private function buildCarSpecific(BondRequest $bondRequest): array
     {
         $principal = $bondRequest->principal;
+        $notary = $bondRequest->notary;
         $images = [];
+        $text = [];
 
         if ($principal === null) {
             Log::warning("Bond request #{$bondRequest->id}: principal is missing. Principal will be blank.");
+        }
+
+        if ($bondRequest->require_notary && $notary === null) {
+            Log::warning("Bond request #{$bondRequest->id}: notary is missing. Notary will be blank.");
         }
 
         if ($this->isCarEndorsementRequest($bondRequest) && $bondRequest->include_signatory_signature) {
@@ -219,15 +227,25 @@ class TemplateDataBuilder
             }
         }
 
+        $notarySealImage = $bondRequest->require_notary
+            ? $this->resolveNotarySealImage($bondRequest, $notary)
+            : null;
+
+        if ($notarySealImage !== null) {
+            $images['Notary'] = $notarySealImage;
+        } else {
+            $text['Notary'] = '';
+        }
+
         return [
-            'text' => [
+            'text' => array_merge([
                 'CAR' => (string) ($bondRequest->car ?? ''),
                 'Branch' => $this->resolveBranchName($bondRequest),
-                'Year' => (string) ($bondRequest->series_year ?? ''),
+                'Year' => $this->resolveSeriesYearField($bondRequest, $bondRequest->series_year),
                 'Attention' => (string) ($bondRequest->attention ?? ''),
                 'Authorized Representative' => (string) ($bondRequest->authorized_representative ?? ''),
                 'Principal' => (string) ($principal?->company_name ?? $bondRequest->principal_name ?? ''),
-            ],
+            ], $text),
             'images' => $images,
         ];
     }
@@ -236,16 +254,25 @@ class TemplateDataBuilder
     // Value resolvers
     // -------------------------------------------------------------------------
 
+    private function resolveTin(BondRequest $bondRequest, mixed $signatory): string
+    {
+        if (! $bondRequest->require_notary) {
+            return '';
+        }
+
+        return (string) ($signatory?->tin ?? $bondRequest->tin ?? '');
+    }
+
     private function resolveAmountInWords(BondRequest $bondRequest): string
     {
         $stored = (string) ($bondRequest->amount_in_words ?? '');
 
         if ($stored !== '') {
-            return $stored;
+            return strtoupper($stored);
         }
 
         if ($bondRequest->amount !== null && $bondRequest->amount !== '') {
-            return $this->amountToWords->convert($bondRequest->amount);
+            return strtoupper($this->amountToWords->convert($bondRequest->amount));
         }
 
         Log::warning("Bond request #{$bondRequest->id}: amount_in_words is empty and amount is null. Amount in words will be blank.");
@@ -327,13 +354,44 @@ class TemplateDataBuilder
         return array_map(static fn (string $line): string => trim($line), $lines);
     }
 
-    private function resolveJuratTemplate(BondRequest $bondRequest): string
+    private function resolveJuratBoldTemplate(BondRequest $bondRequest): string
     {
-        if ($bondRequest->party_type !== PartyType::Government) {
+        if (! $bondRequest->require_notary) {
             return '';
         }
 
-        return (string) config('certificates.jurat_templates.government', '');
+        return (string) config('certificates.jurat_templates.government_bold', '');
+    }
+
+    private function resolveJuratRestTemplate(BondRequest $bondRequest): string
+    {
+        if (! $bondRequest->require_notary) {
+            return '';
+        }
+
+        return (string) config('certificates.jurat_templates.government_rest', '');
+    }
+
+    private function resolveLabeledDocField(BondRequest $bondRequest, string $label, mixed $value): string
+    {
+        if (! $bondRequest->require_notary) {
+            return '';
+        }
+
+        $formattedValue = trim((string) ($value ?? ''));
+
+        return $formattedValue === '' ? $label : "{$label} {$formattedValue}";
+    }
+
+    private function resolveSeriesYearField(BondRequest $bondRequest, mixed $value): string
+    {
+        if (! $bondRequest->require_notary) {
+            return '';
+        }
+
+        $formattedValue = trim((string) ($value ?? ''));
+
+        return $formattedValue === '' ? 'Series of ' : "Series of {$formattedValue}";
     }
 
     private function resolveEndorsementTemplate(BondRequest $bondRequest): string

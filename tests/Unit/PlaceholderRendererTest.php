@@ -31,12 +31,18 @@ class PlaceholderRendererTest extends TestCase
             'Date in words' => 'Twelfth day of June 2026',
             'Branch city' => 'Makati City',
             'Tin' => '123-456-789',
-            'Jurat' => 'SUBSCRIBED AND SWORN to before me this [[Date in words]] at [[Branch city]], affiant exhibited to me his/her Taxpayer’s Identification No. [[Tin]].',
+            'Jurat bold' => 'SUBSCRIBED AND SWORN',
+            'Jurat rest' => 'to before me this [[Date in words]] at [[Branch city]], affiant exhibited to me his/her Taxpayer’s Identification No. [[Tin]].',
         ]);
 
         $this->assertSame(
-            'SUBSCRIBED AND SWORN to before me this Twelfth day of June 2026 at Makati City, affiant exhibited to me his/her Taxpayer’s Identification No. 123-456-789.',
-            $result['Jurat'],
+            'SUBSCRIBED AND SWORN',
+            $result['Jurat bold'],
+        );
+
+        $this->assertSame(
+            'to before me this Twelfth day of June 2026 at Makati City, affiant exhibited to me his/her Taxpayer’s Identification No. 123-456-789.',
+            $result['Jurat rest'],
         );
     }
 

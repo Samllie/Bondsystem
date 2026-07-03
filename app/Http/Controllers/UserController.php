@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\RoleSlug;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\Maintenance\Branch;
 use App\Models\Maintenance\Notary;
 use App\Models\Maintenance\Signatory;
@@ -82,6 +83,37 @@ class UserController extends Controller
         return redirect()
             ->route('users.index')
             ->with('success', 'User created successfully.');
+    }
+
+    public function edit(Request $request, User $user): Response
+    {
+        $this->authorize('update', $user);
+
+        $user->load(['role:id,name,slug', 'branch:id,name,branch_code,branch_city']);
+
+        return Inertia::render('Users/Form', [
+            'user' => $user,
+            'roleOptions' => $this->roleOptions(),
+            'branchOptions' => Branch::activeOptions(),
+        ]);
+    }
+
+    public function update(UpdateUserRequest $request, User $user): RedirectResponse
+    {
+        $attributes = $request->safe()->except(['password', 'password_confirmation']);
+
+        if ($request->filled('password')) {
+            $attributes['password'] = Hash::make($request->string('password')->toString());
+        }
+
+        $user->update([
+            ...$attributes,
+            'is_active' => $request->boolean('is_active', true),
+        ]);
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'User updated successfully.');
     }
 
     /**

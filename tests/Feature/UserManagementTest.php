@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\BranchSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class UserManagementTest extends TestCase
@@ -103,6 +104,79 @@ class UserManagementTest extends TestCase
             'role_id' => $requesterRole->id,
             'is_active' => true,
         ])->assertSessionHasErrors('email');
+    }
+
+    public function test_super_admin_can_view_user_edit_form(): void
+    {
+        $admin = $this->superAdmin();
+        $user = User::factory()->create([
+            'role_id' => Role::where('slug', RoleSlug::Requester->value)->firstOrFail()->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('users.edit', $user))
+            ->assertOk();
+    }
+
+    public function test_super_admin_can_update_user_details(): void
+    {
+        $admin = $this->superAdmin();
+        $requesterRole = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
+        $branch = Branch::where('name', 'Cebu Branch')->firstOrFail();
+        $user = User::factory()->create([
+            'name' => 'Old Name',
+            'email' => 'olduser@sterling-insurance.com.ph',
+            'role_id' => $requesterRole->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $response = $this->actingAs($admin)->put(route('users.update', $user), [
+            'name' => 'Updated Name',
+            'email' => 'updated@sterling-insurance.com.ph',
+            'role_id' => $requesterRole->id,
+            'branch_id' => $branch->id,
+            'branch_city' => 'Cebu',
+            'is_active' => false,
+        ]);
+
+        $response->assertRedirect(route('users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'name' => 'Updated Name',
+            'email' => 'updated@sterling-insurance.com.ph',
+            'branch_id' => $branch->id,
+            'branch_city' => 'Cebu',
+            'is_active' => false,
+        ]);
+    }
+
+    public function test_super_admin_can_update_user_password(): void
+    {
+        $admin = $this->superAdmin();
+        $requesterRole = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'passworduser@sterling-insurance.com.ph',
+            'role_id' => $requesterRole->id,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->put(route('users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+            'role_id' => $requesterRole->id,
+            'is_active' => true,
+        ])->assertRedirect(route('users.index'));
+
+        $user->refresh();
+
+        $this->assertTrue(Hash::check('new-password-123', $user->password));
     }
 
     private function superAdmin(): User

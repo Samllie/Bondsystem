@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Maintenance;
 
 use App\Models\Maintenance\Notary;
+use App\Services\AttorneyProfileSyncService;
 use App\Services\AuditLogService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +15,8 @@ use Inertia\Response;
 
 class NotaryController extends MaintenanceController
 {
+    public function __construct(private readonly AttorneyProfileSyncService $attorneyProfileSyncService) {}
+
     protected function modelClass(): string
     {
         return Notary::class;
@@ -153,6 +156,9 @@ class NotaryController extends MaintenanceController
         }
 
         $notary->update($data);
+
+        $this->attorneyProfileSyncService->syncTinForLinkedAccount($notary, $validated['tin']);
+        $this->attorneyProfileSyncService->syncNameForLinkedAccount($notary, $validated['name']);
 
         AuditLogService::log(
             user: $request->user(),

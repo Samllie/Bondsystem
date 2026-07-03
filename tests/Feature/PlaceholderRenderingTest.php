@@ -36,29 +36,32 @@ class PlaceholderRenderingTest extends TestCase
         $this->renderer = new PlaceholderRenderer;
     }
 
-    public function test_government_party_type_builds_jurat_template_with_nested_placeholders(): void
+    public function test_require_notary_builds_jurat_template_with_nested_placeholders(): void
     {
         $bondRequest = $this->bondRequest([
-            'party_type' => PartyType::Government,
+            'require_notary' => true,
             'request_date' => '2026-06-12',
         ]);
 
         $raw = $this->builder->build($bondRequest)['text'];
         $rendered = $this->renderer->render($raw);
 
-        $this->assertStringContainsString('SUBSCRIBED AND SWORN to before me this', $rendered['Jurat']);
-        $this->assertStringNotContainsString('[[', $rendered['Jurat']);
+        $this->assertSame('SUBSCRIBED AND SWORN', $rendered['Jurat bold']);
+        $this->assertStringContainsString('to before me this', $rendered['Jurat rest']);
+        $this->assertStringNotContainsString('[[', $rendered['Jurat rest']);
     }
 
-    public function test_private_party_type_builds_blank_jurat(): void
+    public function test_notary_not_required_builds_blank_jurat(): void
     {
         $bondRequest = $this->bondRequest([
-            'party_type' => PartyType::Private,
+            'require_notary' => false,
+            'party_type' => PartyType::Government,
         ]);
 
         $raw = $this->builder->build($bondRequest)['text'];
 
-        $this->assertSame('', $raw['Jurat']);
+        $this->assertSame('', $raw['Jurat bold']);
+        $this->assertSame('', $raw['Jurat rest']);
     }
 
     public function test_include_endorsement_number_builds_nested_endorsement_template(): void

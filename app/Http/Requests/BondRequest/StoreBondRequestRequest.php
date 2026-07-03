@@ -79,6 +79,7 @@ class StoreBondRequestRequest extends FormRequest
             'expiry_date' => ['required', 'string', 'max:500'],
             'description' => ['nullable', 'string'],
             'remarks' => ['nullable', 'string'],
+            'require_notary' => ['boolean'],
         ];
     }
 
@@ -148,6 +149,8 @@ class StoreBondRequestRequest extends FormRequest
             'attention' => $this->filled('attention') ? $this->input('attention') : null,
             'obligee_id' => $this->filled('obligee_id') ? $this->input('obligee_id') : null,
             'principal_id' => $this->filled('principal_id') ? $this->input('principal_id') : null,
+            'require_notary' => $this->boolean('require_notary'),
+            'include_endorsement_number' => $this->boolean('include_endorsement_number'),
             'date_issued' => $this->filled('date_issued')
                 ? $this->input('date_issued')
                 : ($shouldDefaultDateIssued ? now()->toDateString() : null),

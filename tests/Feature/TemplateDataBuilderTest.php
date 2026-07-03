@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\CertificateType;
+use App\Enums\PartyType;
 use App\Models\BondRequest;
 use App\Models\Maintenance\Branch;
 use App\Models\Maintenance\Notary;
@@ -60,7 +61,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address Sentence', 'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat rest', 'Endorsement',
             'Date in words', 'Date issued in words',
             'Bond', 'BOND', 'PRINCIPAL', 'Series year',
         ];
@@ -121,7 +122,7 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $this->assertSame('Five Hundred Thousand Pesos Only', $data['text']['Amount in words']);
+        $this->assertSame('FIVE HUNDRED THOUSAND PESOS ONLY', $data['text']['Amount in words']);
     }
 
     public function test_bond_generates_amount_in_words_when_stored_value_is_empty(): void
@@ -133,8 +134,8 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $this->assertStringContainsString('Million', $data['text']['Amount in words']);
-        $this->assertStringContainsString('Pesos Only', $data['text']['Amount in words']);
+        $this->assertStringContainsString('MILLION', $data['text']['Amount in words']);
+        $this->assertStringContainsString('PESOS ONLY', $data['text']['Amount in words']);
     }
 
     public function test_bond_amount_is_formatted_as_php_currency(): void
@@ -152,6 +153,7 @@ class TemplateDataBuilderTest extends TestCase
         $bondRequest = $this->bondRequest([
             'signatory_id' => $signatory->id,
             'tin' => '111-222-333-0000',
+            'require_notary' => true,
         ]);
 
         $data = $this->builder->build($bondRequest);
@@ -335,14 +337,14 @@ class TemplateDataBuilderTest extends TestCase
             'signature_path' => $sealPath,
             'is_active' => true,
         ]);
-        $bondRequest = $this->bondRequest(['notary_id' => $notary->id]);
+        $bondRequest = $this->bondRequest(['notary_id' => $notary->id, 'require_notary' => true]);
 
         $data = $this->builder->build($bondRequest);
 
         $this->assertArrayHasKey('Notary', $data['images']);
         $this->assertArrayNotHasKey('Notary', $data['text']);
-        $this->assertSame(100, $data['images']['Notary']['width']);
-        $this->assertSame(100, $data['images']['Notary']['height']);
+        $this->assertSame(250, $data['images']['Notary']['width']);
+        $this->assertSame(250, $data['images']['Notary']['height']);
         $this->assertTrue($data['images']['Notary']['ratio']);
     }
 
@@ -352,7 +354,7 @@ class TemplateDataBuilderTest extends TestCase
             'signature_path' => null,
             'is_active' => true,
         ]);
-        $bondRequest = $this->bondRequest(['notary_id' => $notary->id]);
+        $bondRequest = $this->bondRequest(['notary_id' => $notary->id, 'require_notary' => true]);
 
         $data = $this->builder->build($bondRequest);
 
@@ -384,7 +386,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat', 'Endorsement',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat rest', 'Endorsement',
             'Date in words', 'Date issued in words',
             'CAR', 'Branch', 'Year', 'Attention', 'Authorized Representative', 'Principal',
         ];
@@ -420,13 +422,28 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('Cebu Branch', $data['text']['Branch']);
     }
 
-    public function test_car_year_comes_from_series_year(): void
+    public function test_car_year_comes_from_series_year_when_notary_is_required(): void
     {
-        $bondRequest = $this->carBondRequest(['series_year' => '2026']);
+        $bondRequest = $this->carBondRequest([
+            'series_year' => '2026',
+            'require_notary' => true,
+        ]);
 
         $data = $this->builder->build($bondRequest);
 
-        $this->assertSame('2026', $data['text']['Year']);
+        $this->assertSame('Series of 2026', $data['text']['Year']);
+    }
+
+    public function test_car_year_uses_series_of_label_when_require_notary_and_empty(): void
+    {
+        $bondRequest = $this->carBondRequest([
+            'require_notary' => true,
+            'series_year' => null,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('Series of ', $data['text']['Year']);
     }
 
     public function test_car_certificate_includes_date_in_words_from_request_date(): void
@@ -465,9 +482,170 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertArrayNotHasKey('Bond', $data['text']);
         $this->assertArrayNotHasKey('BOND', $data['text']);
         $this->assertArrayNotHasKey('PRINCIPAL', $data['text']);
-        $this->assertArrayNotHasKey('Notary', $data['text']);
+        $this->assertArrayHasKey('Notary', $data['text']);
+        $this->assertSame('', $data['text']['Notary']);
+        $this->assertArrayNotHasKey('Notary', $data['images']);
         $this->assertArrayNotHasKey('Series year', $data['text']);
         $this->assertArrayNotHasKey('Signature', $data['images']);
+    }
+
+    public function test_car_includes_notary_image_when_notary_is_selected(): void
+    {
+        $sealPath = 'notary-seals/car-notary-seal.png';
+        Storage::disk('public')->put($sealPath, 'fake-png-content');
+
+        $notary = Notary::factory()->create([
+            'signature_path' => $sealPath,
+            'is_active' => true,
+        ]);
+
+        $bondRequest = $this->carBondRequest([
+            'notary_id' => $notary->id,
+            'require_notary' => true,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayHasKey('Notary', $data['images']);
+        $this->assertArrayNotHasKey('Notary', $data['text']);
+    }
+
+    public function test_car_endorsement_includes_notary_image_when_notary_is_selected(): void
+    {
+        $sealPath = 'notary-seals/car-endorsement-notary-seal.png';
+        Storage::disk('public')->put($sealPath, 'fake-png-content');
+
+        $notary = Notary::factory()->create([
+            'signature_path' => $sealPath,
+            'is_active' => true,
+        ]);
+
+        $bondRequest = $this->carBondRequest([
+            'notary_id' => $notary->id,
+            'require_notary' => true,
+            'include_endorsement_number' => true,
+            'endorsement_number' => '001',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayHasKey('Notary', $data['images']);
+        $this->assertArrayNotHasKey('Notary', $data['text']);
+    }
+
+    public function test_require_notary_builds_labeled_doc_fields_even_when_values_are_empty(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'require_notary' => true,
+            'doc_no' => null,
+            'page_no' => null,
+            'book_no' => null,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('Doc. No.', $data['text']['Doc. No.']);
+        $this->assertSame('Page No.', $data['text']['Page No.']);
+        $this->assertSame('Book No.', $data['text']['Book No.']);
+    }
+
+    public function test_require_notary_builds_series_of_label_when_series_year_is_empty(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'require_notary' => true,
+            'series_year' => null,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('Series of ', $data['text']['Series year']);
+    }
+
+    public function test_require_notary_builds_series_of_with_year_when_series_year_is_set(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'require_notary' => true,
+            'series_year' => '2026',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('Series of 2026', $data['text']['Series year']);
+    }
+
+    public function test_require_notary_builds_jurat_templates(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'require_notary' => true,
+            'party_type' => PartyType::Private,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertNotSame('', $data['text']['Jurat bold']);
+        $this->assertNotSame('', $data['text']['Jurat rest']);
+    }
+
+    public function test_notary_not_required_omits_saved_notary_details_from_confirmation(): void
+    {
+        $sealPath = 'notary-seals/hidden-when-not-required.png';
+        Storage::disk('public')->put($sealPath, 'fake-png-content');
+
+        $notary = Notary::factory()->create([
+            'signature_path' => $sealPath,
+            'is_active' => true,
+        ]);
+
+        $bondRequest = $this->bondRequest([
+            'require_notary' => false,
+            'notary_id' => $notary->id,
+            'doc_no' => '12',
+            'page_no' => '54',
+            'book_no' => 'XXXV',
+            'series_year' => '2025',
+            'tin' => '123-456-789-0000',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('', $data['text']['Doc. No.']);
+        $this->assertSame('', $data['text']['Page No.']);
+        $this->assertSame('', $data['text']['Book No.']);
+        $this->assertSame('', $data['text']['Series year']);
+        $this->assertSame('', $data['text']['Tin']);
+        $this->assertSame('', $data['text']['Jurat bold']);
+        $this->assertSame('', $data['text']['Jurat rest']);
+        $this->assertArrayNotHasKey('Notary', $data['images']);
+        $this->assertSame('', $data['text']['Notary']);
+    }
+
+    public function test_car_notary_not_required_omits_saved_notary_details_from_confirmation(): void
+    {
+        $sealPath = 'notary-seals/car-hidden-when-not-required.png';
+        Storage::disk('public')->put($sealPath, 'fake-png-content');
+
+        $notary = Notary::factory()->create([
+            'signature_path' => $sealPath,
+            'is_active' => true,
+        ]);
+
+        $bondRequest = $this->carBondRequest([
+            'require_notary' => false,
+            'notary_id' => $notary->id,
+            'doc_no' => '12',
+            'page_no' => '54',
+            'book_no' => 'XXXV',
+            'series_year' => '2025',
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('', $data['text']['Doc. No.']);
+        $this->assertSame('', $data['text']['Page No.']);
+        $this->assertSame('', $data['text']['Book No.']);
+        $this->assertSame('', $data['text']['Year']);
+        $this->assertArrayNotHasKey('Notary', $data['images']);
+        $this->assertSame('', $data['text']['Notary']);
     }
 
     public function test_car_endorsement_includes_signature_image_when_enabled(): void

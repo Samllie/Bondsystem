@@ -9,23 +9,23 @@ class AmountInWordsTest extends TestCase
 {
     public function test_formats_whole_pesos(): void
     {
-        $this->assertSame('One Thousand Pesos Only', AmountInWords::format(1000));
+        $this->assertSame('ONE THOUSAND PESOS ONLY', AmountInWords::format(1000));
     }
 
     public function test_formats_pesos_with_centavos(): void
     {
-        $this->assertSame('One Hundred Pesos and Fifty Centavos Only', AmountInWords::format(100.5));
+        $this->assertSame('ONE HUNDRED PESOS AND FIFTY CENTAVOS ONLY', AmountInWords::format(100.5));
     }
 
     public function test_formats_zero(): void
     {
-        $this->assertSame('Zero Pesos Only', AmountInWords::format(0));
+        $this->assertSame('ZERO PESOS ONLY', AmountInWords::format(0));
     }
 
     public function test_formats_billions(): void
     {
         $this->assertSame(
-            'Two Billion Five Hundred Million Pesos Only',
+            'TWO BILLION FIVE HUNDRED MILLION PESOS ONLY',
             AmountInWords::format(2_500_000_000)
         );
     }
@@ -33,7 +33,7 @@ class AmountInWordsTest extends TestCase
     public function test_formats_trillions_with_centavos(): void
     {
         $this->assertSame(
-            'One Trillion Two Hundred Thirty Four Billion Five Hundred Sixty Seven Million Eight Hundred Ninety Thousand One Hundred Twenty Three Pesos and Forty Five Centavos Only',
+            'ONE TRILLION TWO HUNDRED THIRTY FOUR BILLION FIVE HUNDRED SIXTY SEVEN MILLION EIGHT HUNDRED NINETY THOUSAND ONE HUNDRED TWENTY THREE PESOS AND FORTY FIVE CENTAVOS ONLY',
             AmountInWords::format('1234567890123.45')
         );
     }
@@ -41,7 +41,7 @@ class AmountInWordsTest extends TestCase
     public function test_formats_quadrillions(): void
     {
         $this->assertSame(
-            'Three Quadrillion Two Hundred Trillion Pesos Only',
+            'THREE QUADRILLION TWO HUNDRED TRILLION PESOS ONLY',
             AmountInWords::format('3200000000000000')
         );
     }
