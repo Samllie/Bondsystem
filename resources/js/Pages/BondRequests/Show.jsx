@@ -89,8 +89,7 @@ export default function Show({
     });
 
 
-    // True when any certificate details were saved during approval.
-    const detailsAlreadySaved = Boolean(
+    const hasAnyCertificateDetail = Boolean(
         bondRequest.signatory_id ||
             bondRequest.notary_id ||
             bondRequest.doc_no ||
@@ -99,10 +98,15 @@ export default function Show({
             bondRequest.series_year,
     );
 
+    // Whether the user has completed the details step (approval, save, or prior generation).
+    const [certificateDetailsConfigured, setCertificateDetailsConfigured] = useState(
+        () => hasAnyCertificateDetail || hasCertificate,
+    );
+
     // The approver opted to edit the saved details. Defaults to false so that an
     // approved request lands directly on the generate-ready (compact) view.
     const [forceEditGenerateDetails, setForceEditGenerateDetails] = useState(false);
-    const showGenerateForm = !detailsAlreadySaved || forceEditGenerateDetails;
+    const showGenerateForm = forceEditGenerateDetails || !certificateDetailsConfigured;
 
     const generateForm = useForm({
         signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
@@ -129,6 +133,8 @@ export default function Show({
 
     useEffect(() => {
         syncGenerateFormFromBondRequest();
+        setCertificateDetailsConfigured(hasAnyCertificateDetail || hasCertificate);
+        setForceEditGenerateDetails(false);
     }, [bondRequest.id]);
 
     const displayTin = bondRequest.signatory?.tin || bondRequest.tin || '—';
@@ -269,6 +275,7 @@ export default function Show({
         generateForm.post(route('bond-requests.save-certificate-details', bondRequest.id), {
             preserveScroll: true,
             onSuccess: () => {
+                setCertificateDetailsConfigured(true);
                 setForceEditGenerateDetails(false);
             },
             onError: (errors) => {
@@ -645,7 +652,7 @@ export default function Show({
                     <CardHeader
                         title="Generate Confirmation"
                         action={
-                            detailsAlreadySaved && (
+                            certificateDetailsConfigured && (
                                 <button
                                     type="button"
                                     onClick={toggleGenerateDetailsEditor}
