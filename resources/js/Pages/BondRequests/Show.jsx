@@ -143,7 +143,22 @@ export default function Show({
     });
 
 
+<<<<<<< HEAD
     const hasAnyCertificateDetail = bondRequestHasCertificateDetails(bondRequest);
+
+    // Whether the user has completed the details step (approval, save, or prior generation).
+    const [certificateDetailsConfigured, setCertificateDetailsConfigured] = useState(
+        () => hasAnyCertificateDetail || hasCertificate,
+=======
+    const hasAnyCertificateDetail = Boolean(
+        bondRequest.signatory_id ||
+            bondRequest.notary_id ||
+            bondRequest.doc_no ||
+            bondRequest.page_no ||
+            bondRequest.book_no ||
+            bondRequest.series_year,
+>>>>>>> 0cde49b358161e397a1a7f995e97d96551f09df7
+    );
 
     // Whether the user has completed the details step (approval, save, or prior generation).
     const [certificateDetailsConfigured, setCertificateDetailsConfigured] = useState(
@@ -183,12 +198,18 @@ export default function Show({
     const loadedBondRequestIdRef = useRef(null);
 
     useEffect(() => {
+<<<<<<< HEAD
         if (loadedBondRequestIdRef.current === bondRequest.id) {
             return;
         }
 
         loadedBondRequestIdRef.current = bondRequest.id;
         applyCertificateDetailsState(bondRequest);
+=======
+        syncGenerateFormFromBondRequest();
+        setCertificateDetailsConfigured(hasAnyCertificateDetail || hasCertificate);
+        setForceEditGenerateDetails(false);
+>>>>>>> 0cde49b358161e397a1a7f995e97d96551f09df7
     }, [bondRequest.id]);
 
     useEffect(() => {
@@ -377,11 +398,16 @@ export default function Show({
         generateForm.post(route('bond-requests.save-certificate-details', bondRequest.id), {
             preserveScroll: true,
             onSuccess: () => {
+<<<<<<< HEAD
                 applyCertificateDetailsState(
                     mergeCertificateDetailsFromForm(bondRequest, buildCertificateDetailsPayload(formatted)),
                     true,
                 );
                 reloadBondRequestProps();
+=======
+                setCertificateDetailsConfigured(true);
+                setForceEditGenerateDetails(false);
+>>>>>>> 0cde49b358161e397a1a7f995e97d96551f09df7
             },
             onError: (errors) => {
                 const firstError = Object.values(errors)[0];
