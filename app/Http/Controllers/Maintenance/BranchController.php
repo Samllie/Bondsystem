@@ -34,7 +34,7 @@ class BranchController extends MaintenanceController
             'branch_code' => [
                 'required',
                 'string',
-                'size:3',
+                'max:255',
                 'alpha',
                 'uppercase',
                 Rule::unique('branches', 'branch_code')->ignore($record?->id),

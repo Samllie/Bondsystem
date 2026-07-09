@@ -3,7 +3,7 @@ export function buildBondValue(bondTypeLabel, branchCode, bondNumber) {
         return '';
     }
 
-    return `${bondTypeLabel} NO. ${bondNumber}-${String(branchCode).toUpperCase()}-`;
+    return `${bondTypeLabel} NO. ${bondNumber}-${String(branchCode).toUpperCase()}-`.toUpperCase();
 }
 
 export function buildCarValue(branchCode, serial = '0072056') {

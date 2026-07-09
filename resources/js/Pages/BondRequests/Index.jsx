@@ -1,4 +1,5 @@
 import PrimaryButton from '@/Components/PrimaryButton';
+import FileDownloadLink from '@/Components/UI/FileDownloadLink';
 import BranchFilter from '@/Components/Report/BranchFilter';
 import PrintReportButton from '@/Components/Report/PrintReportButton';
 import ReportPrintHeader from '@/Components/Report/ReportPrintHeader';
@@ -194,12 +195,22 @@ export default function Index({ bondRequests, filters, statusOptions, bondTypeOp
                                                 />
                                             </td>
                                             <td className="print-hide-actions-col px-4 py-3 text-right">
-                                                <Link
-                                                    href={route('bond-requests.show', bond.id)}
-                                                    className="text-sterling-green hover:underline"
-                                                >
-                                                    View
-                                                </Link>
+                                                <div className="flex flex-wrap items-center justify-end gap-3">
+                                                    <Link
+                                                        href={route('bond-requests.show', bond.id)}
+                                                        className="text-sterling-green hover:underline"
+                                                    >
+                                                        View
+                                                    </Link>
+                                                    {bond.has_docx && (
+                                                        <FileDownloadLink
+                                                            href={route('bond-requests.download-docx', bond.id)}
+                                                            className="text-slate-500 hover:underline"
+                                                        >
+                                                            DOCX
+                                                        </FileDownloadLink>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
                                     );

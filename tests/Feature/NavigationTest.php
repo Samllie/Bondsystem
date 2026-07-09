@@ -46,6 +46,30 @@ class NavigationTest extends TestCase
         $this->assertSame(route('certificate-verification.search'), $verifyLink['href']);
     }
 
+    public function test_encoder_navigation_excludes_maintenance_section(): void
+    {
+        $encoder = $this->userWithRole(RoleSlug::Encoder);
+
+        $response = $this->actingAs($encoder)->get(route('dashboard'));
+
+        $navigation = $response->original->getData()['page']['props']['navigation'];
+        $maintenanceGroup = collect($navigation)->firstWhere('name', 'Maintenance');
+
+        $this->assertNull($maintenanceGroup);
+    }
+
+    public function test_approver_navigation_includes_maintenance_section(): void
+    {
+        $approver = $this->userWithRole(RoleSlug::Approver);
+
+        $response = $this->actingAs($approver)->get(route('dashboard'));
+
+        $navigation = $response->original->getData()['page']['props']['navigation'];
+        $maintenanceGroup = collect($navigation)->firstWhere('name', 'Maintenance');
+
+        $this->assertNotNull($maintenanceGroup);
+    }
+
     public function test_notary_home_route_points_to_confirmations(): void
     {
         $notary = $this->userWithRole(RoleSlug::Notary);

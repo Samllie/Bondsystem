@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\SterlingInsuranceEmail;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
@@ -29,11 +30,10 @@ class UpdateAttorneyProfileRequest extends FormRequest
             'email' => [
                 'required',
                 'string',
-                'lowercase',
                 'email',
                 'max:255',
                 Rule::unique(User::class)->ignore($user?->id),
-                'regex:/^[a-z0-9._%+-]+@sterling-insurance\.com\.ph$/',
+                new SterlingInsuranceEmail,
             ],
             'signatory_position' => ['required', 'string', 'max:255'],
             'signatory_tin' => ['nullable', 'string', 'max:50'],
@@ -50,7 +50,6 @@ class UpdateAttorneyProfileRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.regex' => 'The email must use the @sterling-insurance.com.ph domain.',
             'notary_tin.regex' => 'Enter a valid TIN in the format 000-000-000-0000.',
             'notary_signature.max' => 'The notary seal may not be larger than 10 MB.',
         ];

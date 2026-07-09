@@ -13,12 +13,12 @@ class BondFormat
             return '';
         }
 
-        return sprintf(
+        return strtoupper(sprintf(
             '%s NO. %s-%s-',
             $bondTypeLabel,
             $bondNumber,
-            strtoupper($branchCode),
-        );
+            $branchCode,
+        ));
     }
 
     public static function buildCarValue(?string $branchCode, string $serial = '0072056'): string

@@ -61,7 +61,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedTextKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address Sentence', 'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat rest', 'Endorsement',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat before date', 'Jurat before city', 'City of Makati', 'Jurat before tin', 'Jurat after tin', 'Endorsement',
             'Date in words', 'Date issued in words',
             'Bond', 'BOND', 'PRINCIPAL', 'Series year',
         ];
@@ -95,13 +95,28 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('March 15, 2026', $data['text']['Date issued']);
     }
 
-    public function test_bond_date_in_words_uses_request_date(): void
+    public function test_bond_date_in_words_uses_request_date_when_notary_is_required(): void
     {
-        $bondRequest = $this->bondRequest(['request_date' => '2026-06-07']);
+        $bondRequest = $this->bondRequest([
+            'request_date' => '2026-06-07',
+            'require_notary' => true,
+        ]);
 
         $data = $this->builder->build($bondRequest);
 
         $this->assertSame('7th day of June, 2026', $data['text']['Date in words']);
+    }
+
+    public function test_bond_date_in_words_is_blank_when_notary_is_not_required(): void
+    {
+        $bondRequest = $this->bondRequest([
+            'request_date' => '2026-06-07',
+            'require_notary' => false,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertSame('', $data['text']['Date in words']);
     }
 
     public function test_bond_date_issued_in_words_uses_date_issued(): void
@@ -135,7 +150,7 @@ class TemplateDataBuilderTest extends TestCase
         $data = $this->builder->build($bondRequest);
 
         $this->assertStringContainsString('MILLION', $data['text']['Amount in words']);
-        $this->assertStringContainsString('PESOS ONLY', $data['text']['Amount in words']);
+        $this->assertStringContainsString('& 00/100 ONLY', $data['text']['Amount in words']);
     }
 
     public function test_bond_amount_is_formatted_as_php_currency(): void
@@ -189,9 +204,9 @@ class TemplateDataBuilderTest extends TestCase
 
         $data = $this->builder->build($bondRequest);
 
-        $bondLabel = $bondRequest->bond_label;
+        $bondLabel = strtoupper($bondRequest->bond_label);
         $this->assertSame($bondLabel, $data['text']['Bond']);
-        $this->assertSame(strtoupper($bondLabel), $data['text']['BOND']);
+        $this->assertSame($bondLabel, $data['text']['BOND']);
     }
 
     public function test_bond_position_comes_from_signatory_position_not_bond_request(): void
@@ -386,7 +401,7 @@ class TemplateDataBuilderTest extends TestCase
         $expectedKeys = [
             'Date', 'Date issued', 'Expiry date', 'Obligee', 'Address line 1',
             'Address line 2', 'Address line 3', 'Project name', 'Amount', 'Amount in words',
-            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat rest', 'Endorsement',
+            'Tin', 'Branch city', 'Signatory', 'Position', 'Doc. No.', 'Page No.', 'Book No.', 'Endorsement No.', 'Jurat bold', 'Jurat before date', 'Jurat before city', 'City of Makati', 'Jurat before tin', 'Jurat after tin', 'Endorsement',
             'Date in words', 'Date issued in words',
             'CAR', 'Branch', 'Year', 'Attention', 'Authorized Representative', 'Principal',
         ];
@@ -446,9 +461,12 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('Series of ', $data['text']['Year']);
     }
 
-    public function test_car_certificate_includes_date_in_words_from_request_date(): void
+    public function test_car_certificate_includes_date_in_words_from_request_date_when_notary_is_required(): void
     {
-        $bondRequest = $this->carBondRequest(['request_date' => '2026-06-12']);
+        $bondRequest = $this->carBondRequest([
+            'request_date' => '2026-06-12',
+            'require_notary' => true,
+        ]);
 
         $data = $this->builder->build($bondRequest);
 
@@ -487,6 +505,7 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertArrayNotHasKey('Notary', $data['images']);
         $this->assertArrayNotHasKey('Series year', $data['text']);
         $this->assertArrayNotHasKey('Signature', $data['images']);
+        $this->assertSame('', $data['text']['Signature']);
     }
 
     public function test_car_includes_notary_image_when_notary_is_selected(): void
@@ -583,7 +602,11 @@ class TemplateDataBuilderTest extends TestCase
         $data = $this->builder->build($bondRequest);
 
         $this->assertNotSame('', $data['text']['Jurat bold']);
-        $this->assertNotSame('', $data['text']['Jurat rest']);
+        $this->assertSame('to before me this ', $data['text']['Jurat before date']);
+        $this->assertSame(' at the ', $data['text']['Jurat before city']);
+        $this->assertSame('City of Makati', $data['text']['City of Makati']);
+        $this->assertStringStartsWith(', affiant exhibited', $data['text']['Jurat before tin']);
+        $this->assertSame('.', $data['text']['Jurat after tin']);
     }
 
     public function test_notary_not_required_omits_saved_notary_details_from_confirmation(): void
@@ -614,9 +637,49 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('', $data['text']['Series year']);
         $this->assertSame('', $data['text']['Tin']);
         $this->assertSame('', $data['text']['Jurat bold']);
-        $this->assertSame('', $data['text']['Jurat rest']);
+        $this->assertSame('', $data['text']['Jurat before date']);
+        $this->assertSame('', $data['text']['Jurat before city']);
+        $this->assertSame('', $data['text']['City of Makati']);
+        $this->assertSame('', $data['text']['Jurat before tin']);
+        $this->assertSame('', $data['text']['Jurat after tin']);
+        $this->assertSame('', $data['text']['Date in words']);
         $this->assertArrayNotHasKey('Notary', $data['images']);
         $this->assertSame('', $data['text']['Notary']);
+    }
+
+    public function test_car_certificate_includes_signature_image_when_enabled(): void
+    {
+        $signaturePath = 'signatures/car_sig.png';
+        Storage::disk('public')->put($signaturePath, 'fake-png-content');
+
+        $signatory = Signatory::factory()->create([
+            'signature_path' => $signaturePath,
+            'is_active' => true,
+        ]);
+        $bondRequest = $this->carBondRequest([
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => true,
+            'include_endorsement_number' => false,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayHasKey('Signature', $data['images']);
+        $this->assertSame(120, $data['images']['Signature']['width']);
+        $this->assertSame(60, $data['images']['Signature']['height']);
+        $this->assertTrue($data['images']['Signature']['ratio']);
+    }
+
+    public function test_car_certificate_clears_signature_placeholder_when_signature_is_disabled(): void
+    {
+        $bondRequest = $this->carBondRequest([
+            'include_signatory_signature' => false,
+        ]);
+
+        $data = $this->builder->build($bondRequest);
+
+        $this->assertArrayNotHasKey('Signature', $data['images']);
+        $this->assertSame('', $data['text']['Signature']);
     }
 
     public function test_car_notary_not_required_omits_saved_notary_details_from_confirmation(): void
@@ -646,6 +709,7 @@ class TemplateDataBuilderTest extends TestCase
         $this->assertSame('', $data['text']['Year']);
         $this->assertArrayNotHasKey('Notary', $data['images']);
         $this->assertSame('', $data['text']['Notary']);
+        $this->assertSame('', $data['text']['Date in words']);
     }
 
     public function test_car_endorsement_includes_signature_image_when_enabled(): void

@@ -145,9 +145,8 @@ export default function Form({ user = null, roleOptions, branchOptions }) {
                             label="Branch Code"
                             value={data.branch_code}
                             onChange={(e) =>
-                                setData('branch_code', e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3))
+                                setData('branch_code', e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))
                             }
-                            maxLength={3}
                             placeholder="e.g. MKT"
                             error={errors.branch_code}
                             className="uppercase"

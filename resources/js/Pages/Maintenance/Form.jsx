@@ -80,8 +80,7 @@ export default function MaintenanceForm({ record, routePrefix, label }) {
                                 label="Branch Code"
                                 required
                                 value={data.branch_code}
-                                onChange={(e) => setData('branch_code', e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3))}
-                                maxLength={3}
+                                onChange={(e) => setData('branch_code', e.target.value.toUpperCase().replace(/[^A-Z]/g, ''))}
                                 placeholder="CEB"
                                 error={errors.branch_code}
                             />

@@ -7,7 +7,7 @@ use App\Support\AmountInWords;
 /**
  * Service wrapper around AmountInWords for dependency injection.
  *
- * Output example: "One Million Five Hundred Thousand Pesos Only"
+ * Output example: "ONE MILLION FIVE HUNDRED THOUSAND & 00/100 ONLY"
  */
 class AmountToWordsService
 {

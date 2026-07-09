@@ -21,13 +21,12 @@ class ProfileUpdateRequest extends FormRequest
             'email' => [
                 'required',
                 'string',
-                'lowercase',
                 'email',
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
-            'branch_code' => ['nullable', 'string', 'size:3', 'alpha', 'uppercase'],
+            'branch_code' => ['nullable', 'string', 'max:255', 'alpha', 'uppercase'],
             'branch_city' => ['nullable', 'string', 'max:255'],
         ];
     }

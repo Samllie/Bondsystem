@@ -7,7 +7,20 @@ import { useState } from 'react';
 
 const TABLE_PROPS = ['records', 'filters'];
 
+function pluralizeLabel(label) {
+    if (label.endsWith('ch') || label.endsWith('sh') || label.endsWith('x') || label.endsWith('z')) {
+        return `${label}es`;
+    }
+
+    if (label.endsWith('s')) {
+        return label;
+    }
+
+    return `${label}s`;
+}
+
 export default function MaintenanceIndex({ records, filters, canManage, routePrefix, label }) {
+    const pluralLabel = pluralizeLabel(label);
     const [deleteId, setDeleteId] = useState(null);
     const { delete: destroy, processing } = useForm();
     const url = route(`${routePrefix}.index`);
@@ -28,7 +41,7 @@ export default function MaintenanceIndex({ records, filters, canManage, routePre
 
     return (
         <AppLayout
-            title={label + 's'}
+            title={pluralLabel}
             actions={
                 canManage && (
                     <Link
@@ -40,14 +53,14 @@ export default function MaintenanceIndex({ records, filters, canManage, routePre
                 )
             }
         >
-            <Head title={label + 's'} />
+            <Head title={pluralLabel} />
 
             <TableSearchInput
                 inputRef={inputRef}
                 defaultSearch={defaultSearch}
                 onInput={onInput}
                 isSearching={isSearching}
-                placeholder={`Search ${label}s…`}
+                placeholder={`Search ${pluralLabel}…`}
                 wrapperClassName="relative mb-4 w-full max-w-md"
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-sterling-gold focus:outline-none"
             />
@@ -87,7 +100,7 @@ export default function MaintenanceIndex({ records, filters, canManage, routePre
                     </tbody>
                 </table>
                 {records.data.length === 0 && (
-                    <p className="px-6 py-8 text-center text-sm text-slate-500">No {label.toLowerCase()}s found.</p>
+                    <p className="px-6 py-8 text-center text-sm text-slate-500">No {pluralLabel.toLowerCase()} found.</p>
                 )}
             </div>
 

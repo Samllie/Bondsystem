@@ -70,7 +70,7 @@ class CertificationsTest extends TestCase
             ->component('Certifications/Index')
             ->where('context', 'user')
             ->where('canViewAllBranches', true)
-            ->where('showBranchFilter', false)
+            ->where('showBranchFilter', true)
             ->has('certificates.data', 2)
         );
     }
@@ -116,7 +116,7 @@ class CertificationsTest extends TestCase
         );
     }
 
-    public function test_encoder_sees_branch_scoped_confirmations_on_user_route_like_requester(): void
+    public function test_encoder_sees_confirmations_across_all_branches_by_default(): void
     {
         $branchA = $this->makeBranch('AAA');
         $branchB = $this->makeBranch('BBB');
@@ -134,14 +134,13 @@ class CertificationsTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Certifications/Index')
             ->where('context', 'user')
-            ->where('canViewAllBranches', false)
-            ->where('showBranchFilter', false)
-            ->has('certificates.data', 1)
-            ->where('certificates.data.0.id', $certA->id)
+            ->where('canViewAllBranches', true)
+            ->where('showBranchFilter', true)
+            ->has('certificates.data', 2)
         );
     }
 
-    public function test_encoder_can_view_and_download_confirmation_from_own_branch_like_requester(): void
+    public function test_encoder_can_view_and_download_confirmation_from_own_branch(): void
     {
         $branchA = $this->makeBranch('AAA');
         $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
@@ -160,7 +159,7 @@ class CertificationsTest extends TestCase
             ->assertOk();
     }
 
-    public function test_encoder_cannot_view_or_download_confirmation_from_other_branch(): void
+    public function test_encoder_can_view_and_download_confirmation_from_other_branch(): void
     {
         $branchA = $this->makeBranch('AAA');
         $branchB = $this->makeBranch('BBB');
@@ -168,14 +167,17 @@ class CertificationsTest extends TestCase
         $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
         $requesterB = $this->userWithRole(RoleSlug::Requester, $branchB);
         $certificate = $this->certificateFor($requesterB);
+        $absolutePath = storage_path('app/'.$certificate->certificate_path);
+        File::ensureDirectoryExists(dirname($absolutePath));
+        file_put_contents($absolutePath, '%PDF-1.4 test');
 
         $this->actingAs($encoder)
             ->get(route('bond-requests.view-certificate', $certificate))
-            ->assertForbidden();
+            ->assertOk();
 
         $this->actingAs($encoder)
             ->get(route('bond-requests.download-certificate', $certificate))
-            ->assertForbidden();
+            ->assertOk();
     }
 
     public function test_requests_without_a_generated_certificate_are_excluded(): void
@@ -200,6 +202,24 @@ class CertificationsTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_encoder_cannot_access_maintenance_certification_registry(): void
+    {
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $this->makeBranch('AAA'));
+
+        $this->actingAs($encoder)
+            ->get(route('maintenance.certifications.index'))
+            ->assertForbidden();
+    }
+
+    public function test_encoder_cannot_access_maintenance_signatories(): void
+    {
+        $encoder = $this->userWithRole(RoleSlug::Encoder, $this->makeBranch('AAA'));
+
+        $this->actingAs($encoder)
+            ->get(route('maintenance.signatories.index'))
+            ->assertForbidden();
+    }
+
     public function test_maintenance_registry_shows_all_branch_certificates(): void
     {
         $branchA = $this->makeBranch('AAA');
@@ -208,9 +228,9 @@ class CertificationsTest extends TestCase
         $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchA));
         $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchB));
 
-        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
 
-        $response = $this->actingAs($encoder)->get(route('maintenance.certifications.index'));
+        $response = $this->actingAs($approver)->get(route('maintenance.certifications.index'));
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
@@ -229,9 +249,9 @@ class CertificationsTest extends TestCase
         $certA = $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchA));
         $this->certificateFor($this->userWithRole(RoleSlug::Requester, $branchB));
 
-        $encoder = $this->userWithRole(RoleSlug::Encoder, $branchA);
+        $approver = $this->userWithRole(RoleSlug::Approver, $branchA);
 
-        $response = $this->actingAs($encoder)->get(route('maintenance.certifications.index', [
+        $response = $this->actingAs($approver)->get(route('maintenance.certifications.index', [
             'branch_id' => $branchA->id,
         ]));
 

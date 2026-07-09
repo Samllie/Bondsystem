@@ -106,6 +106,47 @@ class UserManagementTest extends TestCase
         ])->assertSessionHasErrors('email');
     }
 
+    public function test_user_email_accepts_uppercase_characters(): void
+    {
+        $admin = $this->superAdmin();
+        $requesterRole = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
+
+        $this->actingAs($admin)->post(route('users.store'), [
+            'name' => 'Head Office - Makati',
+            'email' => 'homSA@sterling-insurance.com.ph',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role_id' => $requesterRole->id,
+            'is_active' => true,
+        ])->assertRedirect(route('users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'homSA@sterling-insurance.com.ph',
+            'name' => 'Head Office - Makati',
+        ]);
+    }
+
+    public function test_user_can_be_created_with_long_branch_code(): void
+    {
+        $admin = $this->superAdmin();
+        $requesterRole = Role::where('slug', RoleSlug::Requester->value)->firstOrFail();
+
+        $this->actingAs($admin)->post(route('users.store'), [
+            'name' => 'Branch User',
+            'email' => 'branchuser@sterling-insurance.com.ph',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role_id' => $requesterRole->id,
+            'branch_code' => 'HEADOFFICE',
+            'is_active' => true,
+        ])->assertRedirect(route('users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'branchuser@sterling-insurance.com.ph',
+            'branch_code' => 'HEADOFFICE',
+        ]);
+    }
+
     public function test_super_admin_can_view_user_edit_form(): void
     {
         $admin = $this->superAdmin();

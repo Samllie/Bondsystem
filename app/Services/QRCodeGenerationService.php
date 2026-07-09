@@ -78,7 +78,7 @@ class QRCodeGenerationService
     /**
      * @return array{path: string, width: int, height: int, ratio: bool}
      */
-    public function templateImageData(string $relativePath, int $size = 120): array
+    public function templateImageData(string $relativePath, int $size = 90): array
     {
         return [
             'path' => storage_path("app/{$relativePath}"),

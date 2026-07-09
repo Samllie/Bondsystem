@@ -181,7 +181,7 @@ class BondRequest extends Model
         }
 
         if (filled($this->bond_number) && str_contains((string) $this->bond_number, ' NO. ')) {
-            return (string) $this->bond_number;
+            return strtoupper((string) $this->bond_number);
         }
 
         $creator = $this->creator;
@@ -189,10 +189,10 @@ class BondRequest extends Model
             $creator->load('branch');
         }
 
-        return BondFormat::buildValue(
+        return strtoupper(BondFormat::buildValue(
             $this->bond_type_label,
             $creator ? BondNumberGenerator::branchCodeFor($creator) : null,
             $this->bondTypeMaster?->code ?? $this->bond_number,
-        );
+        ));
     }
 }

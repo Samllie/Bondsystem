@@ -129,12 +129,16 @@ class TemplateDataBuilder
                 'Page No.' => $this->resolveLabeledDocField($bondRequest, 'Page No.', $bondRequest->page_no),
                 'Book No.' => $this->resolveLabeledDocField($bondRequest, 'Book No.', $bondRequest->book_no),
                 'Endorsement No.' => $this->resolveEndorsementNumber($bondRequest),
-                'Date in words' => DateFormatter::inWords($bondRequest->request_date),
+                'Date in words' => $this->resolveDateInWords($bondRequest),
                 'Date issued in words' => $isCarEndorsementRequest ? '' : DateFormatter::inWords($bondRequest->date_issued),
                 'Extension start' => $this->resolveExtensionStart($bondRequest),
                 'Validity Ext' => (string) ($bondRequest->validity_extension ?? ''),
-                'Jurat bold' => $this->resolveJuratBoldTemplate($bondRequest),
-                'Jurat rest' => $this->resolveJuratRestTemplate($bondRequest),
+                'Jurat bold' => $this->resolveJuratTemplate($bondRequest, 'government_bold'),
+                'Jurat before date' => $this->resolveJuratTemplate($bondRequest, 'government_rest_before_date'),
+                'Jurat before city' => $this->resolveJuratTemplate($bondRequest, 'government_rest_before_city'),
+                'City of Makati' => $this->resolveConfirmationCity($bondRequest),
+                'Jurat before tin' => $this->resolveJuratTemplate($bondRequest, 'government_rest_before_tin'),
+                'Jurat after tin' => $this->resolveJuratTemplate($bondRequest, 'government_rest_after_tin'),
                 'Endorsement' => $this->resolveEndorsementTemplate($bondRequest),
             ],
             'images' => [],
@@ -162,12 +166,12 @@ class TemplateDataBuilder
             Log::warning("Bond request #{$bondRequest->id}: notary is missing. Notary will be blank.");
         }
 
-        $bondLabel = $bondRequest->bond_label ?? '';
+        $bondLabel = strtoupper($bondRequest->bond_label ?? '');
         $principalName = (string) ($principal?->company_name ?? $bondRequest->principal_name ?? '');
 
         $text = [
             'Bond' => $bondLabel,
-            'BOND' => strtoupper($bondLabel),
+            'BOND' => $bondLabel,
             'PRINCIPAL' => strtoupper($principalName),
             'Series year' => $this->resolveSeriesYearField($bondRequest, $bondRequest->series_year),
         ];
@@ -219,12 +223,16 @@ class TemplateDataBuilder
             Log::warning("Bond request #{$bondRequest->id}: notary is missing. Notary will be blank.");
         }
 
-        if ($this->isCarEndorsementRequest($bondRequest) && $bondRequest->include_signatory_signature) {
+        if ($bondRequest->include_signatory_signature) {
             $signatureImage = $this->resolveSignatureImage($bondRequest, $bondRequest->signatory);
 
             if ($signatureImage !== null) {
                 $images['Signature'] = $signatureImage;
+            } else {
+                $text['Signature'] = '';
             }
+        } else {
+            $text['Signature'] = '';
         }
 
         $notarySealImage = $bondRequest->require_notary
@@ -261,6 +269,15 @@ class TemplateDataBuilder
         }
 
         return (string) ($signatory?->tin ?? $bondRequest->tin ?? '');
+    }
+
+    private function resolveDateInWords(BondRequest $bondRequest): string
+    {
+        if (! $bondRequest->require_notary) {
+            return '';
+        }
+
+        return DateFormatter::inWords($bondRequest->request_date);
     }
 
     private function resolveAmountInWords(BondRequest $bondRequest): string
@@ -354,22 +371,22 @@ class TemplateDataBuilder
         return array_map(static fn (string $line): string => trim($line), $lines);
     }
 
-    private function resolveJuratBoldTemplate(BondRequest $bondRequest): string
+    private function resolveJuratTemplate(BondRequest $bondRequest, string $configKey): string
     {
         if (! $bondRequest->require_notary) {
             return '';
         }
 
-        return (string) config('certificates.jurat_templates.government_bold', '');
+        return (string) config("certificates.jurat_templates.{$configKey}", '');
     }
 
-    private function resolveJuratRestTemplate(BondRequest $bondRequest): string
+    private function resolveConfirmationCity(BondRequest $bondRequest): string
     {
         if (! $bondRequest->require_notary) {
             return '';
         }
 
-        return (string) config('certificates.jurat_templates.government_rest', '');
+        return (string) config('certificates.confirmation_city', 'City of Makati');
     }
 
     private function resolveLabeledDocField(BondRequest $bondRequest, string $label, mixed $value): string

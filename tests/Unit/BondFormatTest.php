@@ -15,7 +15,7 @@ class BondFormatTest extends TestCase
             'G(42)',
         );
 
-        $this->assertSame('Retention Money Bond NO. G(42)-MKT-', $value);
+        $this->assertSame('RETENTION MONEY BOND NO. G(42)-MKT-', $value);
     }
 
     public function test_build_car_value_uses_branch_code_and_serial_format(): void

@@ -13,7 +13,7 @@ use Inertia\Response;
 class CertificateController extends Controller
 {
     /**
-     * Branch-scoped certificate list for requesters and approvers.
+     * Certificate list for bond staff and attorneys.
      */
     public function index(Request $request): Response
     {
@@ -21,20 +21,24 @@ class CertificateController extends Controller
 
         // Notary accounts see all confirmations like super admin
         if ($user->hasRole(RoleSlug::Notary)) {
-            return $this->renderIndex($request, scoped: false, attorney: true);
+            return $this->renderIndex($request, branchScoped: false, attorney: true, context: 'attorney');
         }
 
         if ($user->hasPermission('certifications.view-assigned') && ! $user->hasPermission('bond-requests.view')) {
-            return $this->renderIndex($request, scoped: false, attorney: true);
+            return $this->renderIndex($request, branchScoped: false, attorney: true, context: 'attorney');
         }
 
         abort_unless($user->hasPermission('bond-requests.view'), 403);
 
-if ($user->hasRole(RoleSlug::Encoder)) {
-    return $this->renderIndex($request, scoped: false);
-}
+        $crossBranch = $user->hasRole(RoleSlug::Encoder)
+            || $user->hasRole(RoleSlug::Approver)
+            || $user->hasRole(RoleSlug::SuperAdmin);
 
-return $this->renderIndex($request, scoped: true);
+        return $this->renderIndex(
+            $request,
+            branchScoped: ! $crossBranch,
+            context: 'user',
+        );
     }
 
     /**
@@ -44,11 +48,15 @@ return $this->renderIndex($request, scoped: true);
     {
         abort_unless($request->user()->hasPermission('maintenance.view'), 403);
 
-        return $this->renderIndex($request, scoped: false);
+        return $this->renderIndex($request, branchScoped: false, context: 'maintenance');
     }
 
-    private function renderIndex(Request $request, bool $scoped, bool $attorney = false): Response
-    {
+    private function renderIndex(
+        Request $request,
+        bool $branchScoped,
+        bool $attorney = false,
+        string $context = 'user',
+    ): Response {
         $user = $request->user();
         $branchId = $request->integer('branch_id') ?: null;
 
@@ -62,7 +70,7 @@ return $this->renderIndex($request, scoped: true);
                 'currentCertificateVersion:id,bond_request_id,confirmation_number,version_number',
             ]);
 
-        if ($scoped) {
+        if ($branchScoped) {
             BranchScope::applyBondCreatorScope($query, $user, $branchId);
         } elseif ($branchId !== null) {
             $query->whereHas('creator', fn ($creatorQuery) => $creatorQuery->where('branch_id', $branchId));
@@ -103,38 +111,38 @@ return $this->renderIndex($request, scoped: true);
             })
         );
 
-        $canViewAllBranches = $attorney || ! $scoped
+        $canViewAllBranches = $attorney || ! $branchScoped
             ? true
             : ($user->hasRole(RoleSlug::SuperAdmin) || BranchScope::canFilterByBranch($user));
 
-        $showBranchFilter = $attorney || ! $scoped
+        $showBranchFilter = $attorney || ! $branchScoped
             ? true
             : BranchScope::showBranchFilter($user);
 
-        $context = $attorney ? 'attorney' : ($scoped ? 'user' : 'maintenance');
+        $listUrl = $context === 'maintenance'
+            ? route('maintenance.certifications.index')
+            : route('certifications.index');
+
+        $scopeMessage = $attorney || $context === 'maintenance' || ! $branchScoped
+            ? 'Showing all generated confirmations across every branch. Use the branch filter to narrow results.'
+            : ($canViewAllBranches
+                ? ($showBranchFilter
+                    ? 'Showing generated confirmations across all branches. Use the branch filter to narrow results.'
+                    : 'Showing generated confirmations across all branches.')
+                : 'Showing generated confirmations for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.');
 
         return Inertia::render('Certifications/Index', [
             'certificates' => $certificates,
             'filters' => $request->only('search', 'branch_id'),
             'canViewAllBranches' => $canViewAllBranches,
             'branchName' => $user->branch?->name,
-            'branchOptions' => $scoped && ! $attorney ? BranchScope::branchOptions($user) : Branch::activeOptions(),
+            'branchOptions' => $branchScoped && ! $attorney ? BranchScope::branchOptions($user) : Branch::activeOptions(),
             'showBranchFilter' => $showBranchFilter,
             'generatedAt' => now()->timezone(config('app.timezone'))->format('M d, Y g:i A'),
             'context' => $context,
-            'listUrl' => $attorney || $scoped
-                ? route('certifications.index')
-                : route('maintenance.certifications.index'),
+            'listUrl' => $listUrl,
             'pageTitle' => 'Confirmations',
-            'scopeMessage' => $attorney
-                ? 'Showing all generated confirmations across every branch. Use the branch filter to narrow results.'
-                : ($scoped
-                    ? ($canViewAllBranches
-                        ? ($showBranchFilter
-                            ? 'Showing generated confirmations across all branches. Use the branch filter to narrow results.'
-                            : 'Showing generated confirmations across all branches.')
-                        : 'Showing generated confirmations for your branch'.($user->branch?->name ? " ({$user->branch->name})" : '').'.')
-                    : 'Showing all generated confirmations across every branch. Use the branch filter to narrow results.'),
+            'scopeMessage' => $scopeMessage,
             'readOnly' => $attorney,
         ]);
     }

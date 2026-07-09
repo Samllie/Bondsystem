@@ -47,8 +47,13 @@ class PlaceholderRenderingTest extends TestCase
         $rendered = $this->renderer->render($raw);
 
         $this->assertSame('SUBSCRIBED AND SWORN', $rendered['Jurat bold']);
-        $this->assertStringContainsString('to before me this', $rendered['Jurat rest']);
-        $this->assertStringNotContainsString('[[', $rendered['Jurat rest']);
+        $this->assertSame('to before me this ', $rendered['Jurat before date']);
+        $this->assertSame(' at the ', $rendered['Jurat before city']);
+        $this->assertSame('City of Makati', $rendered['City of Makati']);
+        $this->assertStringStartsWith(', affiant exhibited', $rendered['Jurat before tin']);
+        $this->assertSame('.', $rendered['Jurat after tin']);
+        $this->assertSame('12th day of June, 2026', $rendered['Date in words']);
+        $this->assertSame('123-456-789-0000', $rendered['Tin']);
     }
 
     public function test_notary_not_required_builds_blank_jurat(): void
@@ -61,7 +66,13 @@ class PlaceholderRenderingTest extends TestCase
         $raw = $this->builder->build($bondRequest)['text'];
 
         $this->assertSame('', $raw['Jurat bold']);
-        $this->assertSame('', $raw['Jurat rest']);
+        $this->assertSame('', $raw['Jurat before date']);
+        $this->assertSame('', $raw['Jurat before city']);
+        $this->assertSame('', $raw['City of Makati']);
+        $this->assertSame('', $raw['Jurat before tin']);
+        $this->assertSame('', $raw['Jurat after tin']);
+        $this->assertSame('', $raw['Date in words']);
+        $this->assertSame('', $raw['Tin']);
     }
 
     public function test_include_endorsement_number_builds_nested_endorsement_template(): void
@@ -157,7 +168,7 @@ class PlaceholderRenderingTest extends TestCase
         $branch = Branch::query()->create([
             'name' => 'Main Branch',
             'branch_code' => 'MNL',
-            'branch_city' => 'Makati City',
+            'branch_city' => 'the City of Makati',
             'is_active' => true,
         ]);
 

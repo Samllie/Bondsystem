@@ -25,25 +25,17 @@ class PlaceholderRendererTest extends TestCase
         $this->assertSame('Juan Dela Cruz', $result['Principal']);
     }
 
-    public function test_nested_jurat_replacement(): void
+    public function test_jurat_before_city_and_tin_are_separate_placeholders(): void
     {
         $result = $this->renderer->render([
-            'Date in words' => 'Twelfth day of June 2026',
-            'Branch city' => 'Makati City',
-            'Tin' => '123-456-789',
-            'Jurat bold' => 'SUBSCRIBED AND SWORN',
-            'Jurat rest' => 'to before me this [[Date in words]] at [[Branch city]], affiant exhibited to me his/her Taxpayer’s Identification No. [[Tin]].',
+            'Jurat before city' => ' at the ',
+            'City of Makati' => 'City of Makati',
+            'Jurat before tin' => ', affiant exhibited to me his/her Taxpayer’s Identification No. ',
         ]);
 
-        $this->assertSame(
-            'SUBSCRIBED AND SWORN',
-            $result['Jurat bold'],
-        );
-
-        $this->assertSame(
-            'to before me this Twelfth day of June 2026 at Makati City, affiant exhibited to me his/her Taxpayer’s Identification No. 123-456-789.',
-            $result['Jurat rest'],
-        );
+        $this->assertSame(' at the ', $result['Jurat before city']);
+        $this->assertSame('City of Makati', $result['City of Makati']);
+        $this->assertStringStartsWith(', affiant exhibited', $result['Jurat before tin']);
     }
 
     public function test_nested_endorsement_replacement(): void

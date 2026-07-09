@@ -35,21 +35,11 @@ class AmountInWords
             return 'Negative '.self::format($unsigned);
         }
 
-        $words = self::convertNumber($pesos).' Peso';
+        $words = self::convertNumber($pesos);
 
-        if (bccomp($pesos, '1') !== 0) {
-            $words .= 's';
-        }
+        $centavosPart = str_pad((string) $centavos, 2, '0', STR_PAD_LEFT);
 
-        if ($centavos > 0) {
-            $words .= ' and '.self::convertNumber((string) $centavos).' Centavo';
-
-            if ($centavos !== 1) {
-                $words .= 's';
-            }
-        }
-
-        return strtoupper($words.' Only');
+        return strtoupper($words.' & '.$centavosPart.'/100 Only');
     }
 
     /**

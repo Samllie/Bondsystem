@@ -96,11 +96,8 @@ export function amountInWords(amount) {
 
     const { pesos, centavos } = parsed;
 
-    let words = `${convertNumberFromBigInt(pesos)} Peso${pesos === 1n ? '' : 's'}`;
+    const words = convertNumberFromBigInt(pesos);
+    const centavosPart = String(centavos).padStart(2, '0');
 
-    if (centavos > 0) {
-        words += ` and ${convertNumberFromBigInt(BigInt(centavos))} Centavo${centavos === 1 ? '' : 's'}`;
-    }
-
-    return `${words} Only`.toUpperCase();
+    return `${words} & ${centavosPart}/100 Only`.toUpperCase();
 }

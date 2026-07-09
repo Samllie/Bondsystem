@@ -452,7 +452,7 @@ export default function Form({
                                         required
                                     />
                                     <TextField
-                                        label="Extension Period Start"
+                                        label="Extension Period Start (For CAR Confirmations)"
                                         type="date"
                                         value={data.extension_period_start}
                                         onChange={(e) => setData('extension_period_start', e.target.value)}
@@ -460,7 +460,7 @@ export default function Form({
                                         required
                                     />
                                     <TextField
-                                        label="Validity Extension"
+                                        label="Validity Extension (For CAR Confirmations)"
                                         value={data.validity_extension}
                                         onChange={(e) => setData('validity_extension', e.target.value)}
                                         placeholder="e.g. No. 3"
@@ -614,7 +614,7 @@ export default function Form({
                                         label="Branch Code"
                                         value={data.branch_code}
                                         onChange={(e) => {
-                                            const nextBranchCode = e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+                                            const nextBranchCode = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
                                             setData((current) => ({
                                                 ...current,
                                                 branch_code: nextBranchCode,
@@ -640,10 +640,10 @@ export default function Form({
                                         <TextAreaField
                                             label="Bond"
                                             value={data.bond_number}
-                                            onChange={(e) => setData('bond_number', e.target.value)}
+                                            onChange={(e) => setData('bond_number', e.target.value.toUpperCase())}
                                             placeholder="[[Bond Type]] NO. [[Bond Number]]-[[Branch Code]]-"
                                             rows={3}
-                                            className="min-h-[96px] resize-y text-sm font-medium tracking-wide text-slate-700"
+                                            className="min-h-[96px] resize-y text-sm font-medium uppercase tracking-wide text-slate-700"
                                         />
                                     </div>
                                 </>
@@ -758,7 +758,7 @@ export default function Form({
                             />
                             <div className="sm:col-span-2">
                                 <TextAreaField
-                                    label="Expiry date or validity statement"
+                                    label="Validity (eg. June 30, 2026 - June 30, 2027 or Statement)"
                                     value={data.expiry_date}
                                     onChange={(e) => setData('expiry_date', e.target.value)}
                                     placeholder="e.g. June 14, 2026 or until fully recouped and liquidated is valid"

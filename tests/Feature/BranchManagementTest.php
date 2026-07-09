@@ -79,6 +79,29 @@ class BranchManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_create_branch_with_long_branch_code(): void
+    {
+        $admin = $this->adminUser();
+
+        $response = $this->actingAs($admin)->post(route('maintenance.branches.store'), [
+            'name' => 'Head Office Branch',
+            'branch_code' => 'HEADOFFICE',
+            'branch_city' => 'Makati',
+            'address' => '123 Test Street',
+            'contact' => '09171234567',
+            'notary_price' => 1500,
+            'minimum_balance' => 2500,
+            'is_active' => true,
+        ]);
+
+        $response->assertRedirect(route('maintenance.branches.index'));
+
+        $this->assertDatabaseHas('branches', [
+            'name' => 'Head Office Branch',
+            'branch_code' => 'HEADOFFICE',
+        ]);
+    }
+
     private function adminUser(): User
     {
         $role = Role::where('slug', RoleSlug::SuperAdmin->value)->firstOrFail();

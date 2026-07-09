@@ -16,6 +16,60 @@ import { formatBookNoDisplay, formatBookNoInput } from '@/lib/romanNumerals';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+function bondRequestHasCertificateDetails(request) {
+    return Boolean(
+        request.signatory_id ||
+            request.notary_id ||
+            request.doc_no ||
+            request.page_no ||
+            request.book_no ||
+            request.series_year,
+    );
+}
+
+function certificateDetailsFromBondRequest(request) {
+    return {
+        signatory_id: request.signatory_id ? String(request.signatory_id) : '',
+        include_signatory_signature: Boolean(request.include_signatory_signature),
+        notary_id: request.notary_id ? String(request.notary_id) : '',
+        doc_no: request.doc_no || '',
+        page_no: request.page_no || '',
+        book_no: request.book_no || '',
+        series_year: request.series_year ?? '',
+    };
+}
+
+function certificateDetailsFromFormData(formData) {
+    return {
+        signatory_id: formData.signatory_id ? String(formData.signatory_id) : '',
+        include_signatory_signature: Boolean(formData.include_signatory_signature),
+        notary_id: formData.notary_id ? String(formData.notary_id) : '',
+        doc_no: formData.doc_no || '',
+        page_no: formData.page_no || '',
+        book_no: formData.book_no || '',
+        series_year: formData.series_year ?? '',
+    };
+}
+
+function mergeCertificateDetailsFromForm(request, formData) {
+    const details = certificateDetailsFromFormData(formData);
+
+    return {
+        ...request,
+        signatory_id: details.signatory_id ? Number(details.signatory_id) : null,
+        include_signatory_signature: details.include_signatory_signature,
+        notary_id: details.notary_id ? Number(details.notary_id) : null,
+        doc_no: details.doc_no || null,
+        page_no: details.page_no || null,
+        book_no: details.book_no || null,
+        series_year: details.series_year || null,
+    };
+}
+
+function bondRequestHasCertificateDetailsFromForm(formData) {
+    return bondRequestHasCertificateDetails(mergeCertificateDetailsFromForm({}, formData));
+}
+
 function SeriesYearField({ value, onChange, error, id }) {
     return (
         <div>
@@ -89,47 +143,75 @@ export default function Show({
     });
 
 
-    // True when any certificate details were saved during approval.
-    const detailsAlreadySaved = Boolean(
-        bondRequest.signatory_id ||
-            bondRequest.notary_id ||
-            bondRequest.doc_no ||
-            bondRequest.page_no ||
-            bondRequest.book_no ||
-            bondRequest.series_year,
+    const hasAnyCertificateDetail = bondRequestHasCertificateDetails(bondRequest);
+
+    // Whether the user has completed the details step (approval, save, or prior generation).
+    const [certificateDetailsConfigured, setCertificateDetailsConfigured] = useState(
+        () => hasAnyCertificateDetail || hasCertificate,
     );
 
     // The approver opted to edit the saved details. Defaults to false so that an
     // approved request lands directly on the generate-ready (compact) view.
+    const [awaitingGenerateProps, setAwaitingGenerateProps] = useState(false);
     const [forceEditGenerateDetails, setForceEditGenerateDetails] = useState(false);
-    const showGenerateForm = !detailsAlreadySaved || forceEditGenerateDetails;
+    const showGenerateForm = forceEditGenerateDetails || !certificateDetailsConfigured;
 
-    const generateForm = useForm({
-        signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
-        include_signatory_signature: Boolean(bondRequest.include_signatory_signature),
-        notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
-        doc_no: bondRequest.doc_no || '',
-        page_no: bondRequest.page_no || '',
-        book_no: bondRequest.book_no || '',
-        series_year: bondRequest.series_year ?? '',
-    });
+    const generateForm = useForm(certificateDetailsFromBondRequest(bondRequest));
 
-    const syncGenerateFormFromBondRequest = () => {
-        generateForm.setData({
-            signatory_id: bondRequest.signatory_id ? String(bondRequest.signatory_id) : '',
-            include_signatory_signature: Boolean(bondRequest.include_signatory_signature),
-            notary_id: bondRequest.notary_id ? String(bondRequest.notary_id) : '',
-            doc_no: bondRequest.doc_no || '',
-            page_no: bondRequest.page_no || '',
-            book_no: bondRequest.book_no || '',
-            series_year: bondRequest.series_year ?? '',
-        });
-        setGenerateBookNoDraft(formatBookNoDisplay(bondRequest.book_no) || '');
+    const applyCertificateDetailsState = (request, configured = null) => {
+        generateForm.setData(certificateDetailsFromBondRequest(request));
+        setGenerateBookNoDraft(formatBookNoDisplay(request.book_no) || '');
+        setCertificateDetailsConfigured(
+            configured ?? (bondRequestHasCertificateDetails(request) || hasCertificate),
+        );
+        setForceEditGenerateDetails(false);
     };
 
+    const certificateDetailsSyncKey = [
+        bondRequest.id,
+        bondRequest.status?.value || bondRequest.status,
+        bondRequest.signatory_id,
+        bondRequest.notary_id,
+        bondRequest.doc_no,
+        bondRequest.page_no,
+        bondRequest.book_no,
+        bondRequest.series_year,
+        bondRequest.include_signatory_signature,
+        hasCertificate,
+    ].join('|');
+
+    const loadedBondRequestIdRef = useRef(null);
+
     useEffect(() => {
-        syncGenerateFormFromBondRequest();
+        if (loadedBondRequestIdRef.current === bondRequest.id) {
+            return;
+        }
+
+        loadedBondRequestIdRef.current = bondRequest.id;
+        applyCertificateDetailsState(bondRequest);
     }, [bondRequest.id]);
+
+    useEffect(() => {
+        if (!bondRequestHasCertificateDetails(bondRequest) && !hasCertificate) {
+            return;
+        }
+
+        applyCertificateDetailsState(bondRequest);
+    }, [certificateDetailsSyncKey]);
+
+    const reloadBondRequestProps = () => {
+        router.reload({
+            only: [
+                'bondRequest',
+                'canApprove',
+                'canGenerateCertificate',
+                'hasCertificate',
+                'signatoryOptions',
+                'notaryOptions',
+            ],
+            preserveScroll: true,
+        });
+    };
 
     const displayTin = bondRequest.signatory?.tin || bondRequest.tin || '—';
 
@@ -201,6 +283,13 @@ export default function Show({
     );
 
     const status = bondRequest.status?.value || bondRequest.status;
+    const showGenerateConfirmation = canGenerateCertificate || awaitingGenerateProps;
+
+    useEffect(() => {
+        if (canGenerateCertificate) {
+            setAwaitingGenerateProps(false);
+        }
+    }, [canGenerateCertificate]);
 
     // ── Approve handlers ──────────────────────────────────────────────────────
     const handleApproveBookNoChange = (event) => {
@@ -219,9 +308,28 @@ export default function Show({
         clearTimeout(bookNoRef.current);
         const formatted = formatBookNoInput(bookNoDraft);
         setBookNoDraft(formatted);
-        approveForm.transform((current) => ({ ...current, book_no: formatted }));
+
+        const approvalDetails = {
+            ...approveForm.data,
+            book_no: formatted,
+        };
+        const mergedFromApproval = mergeCertificateDetailsFromForm(bondRequest, approvalDetails);
+
+        if (bondRequestHasCertificateDetailsFromForm(approvalDetails)) {
+            applyCertificateDetailsState(mergedFromApproval, true);
+        }
+
+        approveForm.transform(() => approvalDetails);
         approveForm.post(route('bond-requests.approve', bondRequest.id), {
             preserveScroll: true,
+            onSuccess: () => {
+                setAwaitingGenerateProps(true);
+                applyCertificateDetailsState(
+                    mergedFromApproval,
+                    bondRequestHasCertificateDetails(mergedFromApproval),
+                );
+                reloadBondRequestProps();
+            },
         });
     };
 
@@ -251,7 +359,7 @@ export default function Show({
     const toggleGenerateDetailsEditor = () => {
         setForceEditGenerateDetails((currentlyEditing) => {
             if (!currentlyEditing) {
-                syncGenerateFormFromBondRequest();
+                applyCertificateDetailsState(bondRequest);
             }
 
             return !currentlyEditing;
@@ -269,7 +377,11 @@ export default function Show({
         generateForm.post(route('bond-requests.save-certificate-details', bondRequest.id), {
             preserveScroll: true,
             onSuccess: () => {
-                setForceEditGenerateDetails(false);
+                applyCertificateDetailsState(
+                    mergeCertificateDetailsFromForm(bondRequest, buildCertificateDetailsPayload(formatted)),
+                    true,
+                );
+                reloadBondRequestProps();
             },
             onError: (errors) => {
                 const firstError = Object.values(errors)[0];
@@ -426,11 +538,11 @@ export default function Show({
                         {isCarEndorsementRequest && (
                             <>
                                 <Detail
-                                    label="Extension Period Start"
+                                    label="Extension Period Start (For CAR Confirmations)"
                                     value={extensionPeriodStart || '—'}
                                 />
                                 <Detail
-                                    label="Validity Extension"
+                                    label="Validity Extension (For CAR Confirmations)"
                                     value={bondRequest.validity_extension || '—'}
                                     capitalize={false}
                                 />
@@ -448,7 +560,7 @@ export default function Show({
                         <Detail label="Attention" value={bondRequest.attention || '—'} capitalize={false} />
                         <Detail label="Confirmation type" value={bondRequest.certificate_type_label || '—'} />
                         <Detail
-                            label="Expiry date or validity statement"
+                            label="Validity (eg. June 30, 2026 - June 30, 2027 or Statement)"
                             value={bondRequest.expiry_date || '—'}
                             className="sm:col-span-2"
                             capitalize={false}
@@ -640,12 +752,12 @@ export default function Show({
                 </Card>
             )}
 
-            {canGenerateCertificate && (
+            {showGenerateConfirmation && (
                 <Card className="mt-6">
                     <CardHeader
                         title="Generate Confirmation"
                         action={
-                            detailsAlreadySaved && (
+                            certificateDetailsConfigured && (
                                 <button
                                     type="button"
                                     onClick={toggleGenerateDetailsEditor}
@@ -676,7 +788,7 @@ export default function Show({
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Include signature</dt>
                                         <dd className="mt-1 text-slate-900">
-                                            {bondRequest.include_signatory_signature ? 'Yes' : 'No'}
+                                            {(bondRequest.include_signatory_signature || generateForm.data.include_signatory_signature) ? 'Yes' : 'No'}
                                         </dd>
                                     </div>
                                     <div>
@@ -687,21 +799,21 @@ export default function Show({
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Doc No.</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.doc_no || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.doc_no || generateForm.data.doc_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Page No.</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.page_no || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.page_no || generateForm.data.page_no || '—'}</dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Book No.</dt>
                                         <dd className="mt-1 text-slate-900">
-                                            {formatBookNoDisplay(bondRequest.book_no) || '—'}
+                                            {formatBookNoDisplay(bondRequest.book_no || generateForm.data.book_no) || '—'}
                                         </dd>
                                     </div>
                                     <div>
                                         <dt className="text-xs font-medium uppercase text-slate-500">Series year</dt>
-                                        <dd className="mt-1 text-slate-900">{bondRequest.series_year || '—'}</dd>
+                                        <dd className="mt-1 text-slate-900">{bondRequest.series_year || generateForm.data.series_year || '—'}</dd>
                                     </div>
                                 </dl>
                                 {firstGenerateError && (

@@ -83,6 +83,7 @@ class BondRequestController extends Controller
         $bondRequests->getCollection()->transform(function (BondRequest $bondRequest) {
             $summary = $bondRequest->obligeeSummary();
             $bondRequest->setRelation('obligee', $summary ? new Fluent($summary) : null);
+            $bondRequest->setAttribute('has_docx', $bondRequest->docx_path !== null);
 
             return $bondRequest;
         });
@@ -340,8 +341,10 @@ class BondRequestController extends Controller
                 'tin' => $signatory?->tin,
             ]);
 
-            $bondRequest->loadMissing('creator');
+            $bondRequest->loadMissing(['creator', 'signatory', 'notary']);
         });
+
+        $bondRequest->refresh();
 
         ActivityLogger::log('approved', "Bond request {$bondRequest->bond_number} approved.", $bondRequest);
         AuditLogService::log(
@@ -355,7 +358,9 @@ class BondRequestController extends Controller
         );
         $this->notificationService->bondRequestApproved($bondRequest);
 
-        return back()->with('success', 'Bond request approved.');
+        return redirect()
+            ->route('bond-requests.show', $bondRequest)
+            ->with('success', 'Bond request approved.');
     }
 
     public function reject(Request $request, BondRequest $bondRequest): RedirectResponse
@@ -750,7 +755,7 @@ class BondRequestController extends Controller
             $branchCode = $request->user()->hasRole(RoleSlug::Requester)
                 ? ($userBranchCode ?? '')
                 : ($submittedBranchCode !== '' ? $submittedBranchCode : ($userBranchCode ?? ''));
-            $submittedBondNumber = $request->string('bond_number')->trim()->toString();
+            $submittedBondNumber = strtoupper($request->string('bond_number')->trim()->toString());
 
             $attributes['bond_type'] = $bondType->name;
             $attributes['bond_number'] = $submittedBondNumber !== ''

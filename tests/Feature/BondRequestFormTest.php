@@ -86,11 +86,11 @@ class BondRequestFormTest extends TestCase
         $this->assertTrue(Storage::disk('local')->exists($bondRequest->supporting_document_paths[0]));
         $bondRequest->load(['bondTypeMaster', 'creator.branch']);
         $this->assertSame('2026-05-01', $bondRequest->inception_date->toDateString());
-        $this->assertSame('Retention Money Bond NO. G(42)-MKT-', $bondRequest->bond_label);
+        $this->assertSame('RETENTION MONEY BOND NO. G(42)-MKT-', $bondRequest->bond_label);
         $this->assertNull($bondRequest->tin);
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
+            'bond_number' => 'RETENTION MONEY BOND NO. G(42)-MKT-',
             'bond_type_id' => $bondType->id,
             'bond_type' => 'Retention Money Bond',
             'principal_id' => $principal->id,
@@ -112,8 +112,8 @@ class BondRequestFormTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
-            'amount_in_words' => 'One Thousand Five Hundred Pesos and Seventy Five Centavos Only',
+            'bond_number' => 'RETENTION MONEY BOND NO. G(42)-MKT-',
+            'amount_in_words' => 'ONE THOUSAND FIVE HUNDRED & 75/100 ONLY',
         ]);
 
         $requester->refresh();
@@ -858,7 +858,7 @@ class BondRequestFormTest extends TestCase
         $response->assertRedirect();
 
         $this->assertDatabaseHas('bond_requests', [
-            'bond_number' => 'Retention Money Bond NO. G(42)-MKT-',
+            'bond_number' => 'RETENTION MONEY BOND NO. G(42)-MKT-',
             'principal_id' => null,
             'principal_name' => 'Custom Principal Corp',
             'obligee_id' => null,
@@ -981,6 +981,49 @@ class BondRequestFormTest extends TestCase
         $requester->refresh();
         $this->assertEquals(10000, (float) $requester->branch->fresh()->balance);
         $this->assertDatabaseCount('transactions', 0);
+    }
+
+    public function test_show_page_includes_certificate_details_after_approval(): void
+    {
+        $requester = $this->requesterUser('MKT', balance: 10000, notaryPrice: 500);
+        $approver = $this->approverUser();
+        $signatory = Signatory::factory()->create([
+            'name' => 'Jane Signer',
+            'position' => 'President',
+            'tin' => self::SIGNATORY_TIN,
+        ]);
+        $notary = Notary::factory()->create(['name' => 'Atty. Juan Notary']);
+        $bondRequest = BondRequest::factory()->pending()->create([
+            'certificate_type' => CertificateType::BondCertificate,
+            'inception_date' => '2026-05-01',
+            'created_by' => $requester->id,
+        ]);
+
+        $this->actingAs($approver)->post(route('bond-requests.approve', $bondRequest), [
+            'signatory_id' => $signatory->id,
+            'include_signatory_signature' => true,
+            'notary_id' => $notary->id,
+            'doc_no' => 'DOC-1',
+            'page_no' => '10',
+            'book_no' => 'V',
+            'series_year' => '2026',
+        ])->assertRedirect(route('bond-requests.show', $bondRequest));
+
+        $this->actingAs($approver)
+            ->get(route('bond-requests.show', $bondRequest))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('BondRequests/Show')
+                ->where('bondRequest.signatory_id', $signatory->id)
+                ->where('bondRequest.notary_id', $notary->id)
+                ->where('bondRequest.doc_no', 'DOC-1')
+                ->where('bondRequest.page_no', '10')
+                ->where('bondRequest.book_no', 'V')
+                ->where('bondRequest.series_year', '2026')
+                ->where('bondRequest.signatory.name', 'Jane Signer')
+                ->where('bondRequest.notary.name', 'Atty. Juan Notary')
+                ->where('canGenerateCertificate', true)
+            );
     }
 
     public function test_approver_can_approve_without_notary_and_no_fee_is_charged(): void
